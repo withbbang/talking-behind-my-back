@@ -1,0 +1,82 @@
+spring:
+  application:
+    name: chat-app-api
+  config:
+    # git 추적 제외 secret 파일(로컬 전용). 없어도 부팅 실패하지 않음. 운영은 compose .env → 환경변수.
+    import: optional:classpath:application-secret.yml
+  datasource:
+    # 기본값은 infra/docker-compose.dev.yml 의 MySQL. 운영은 compose 가 DB_* 를 주입한다.
+    # characterEncoding 은 Java charset 이름(UTF-8)이어야 한다 — "utf8mb4" 를 넣으면 Connector/J 가
+    # UnsupportedEncodingException 으로 죽는다. 서버측 utf8mb4 는 compose 의 --character-set-server 가 담당.
+    url: ${DB_URL:jdbc:mysql://localhost:3306/chat_app?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:chat_app}
+    password: ${DB_PASSWORD:dev}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}   # NAS 메모리 고려. SSE 중에는 커넥션을 잡지 않는다(CONVENTIONS.md#백엔드)
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+  servlet:
+    multipart:
+      # STT 오디오 업로드 상한(API.md#speech). nginx client_max_body_size 25m 와 정합.
+      max-file-size: 25MB
+      max-request-size: 26MB
+  # security.oauth2.client.registration.* 는 T-004 에서 추가 (google/naver/kakao)
+
+server:
+  servlet:
+    context-path: /api          # D-004. nginx 가 /api/ 를 rewrite 없이 전달
+  forward-headers-strategy: framework   # nginx X-Forwarded-Proto/Host 반영 → OAuth redirect URI 가 https 로 생성됨
+
+mybatis:
+  type-aliases-package: com.example.chat
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    default-fetch-size: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  pattern:
+    dateformat: "yyyy-MM-dd'T'HH:mm:ss.SSSXXX, Asia/Seoul"
+  level:
+    com.example.chat: INFO
+
+# ---- 앱 설정 (전부 환경변수 → infra/.env.example 과 1:1) ----
+app:
+  base-url: ${APP_BASE_URL:http://localhost:3000}   # OAuth 성공 후 redirect, 쿠키 Domain 기준
+  jwt:
+    # 로컬 기본값. 운영은 application-prod.yml 에서 기본값 없이 ${JWT_SECRET} 만 받아 미설정 시 기동 실패.
+    secret: ${JWT_SECRET:local-dev-only-secret-change-me-32bytes-min!!}
+    access-ttl: ${JWT_ACCESS_TTL:15m}
+    refresh-ttl: ${JWT_REFRESH_TTL:30d}
+  cookie:
+    secure: false           # 로컬(http). 운영은 prod 에서 true
+    same-site: Lax
+  llm:
+    base-url: ${OMNIROUTE_BASE_URL:http://localhost:20128/v1}
+    api-key: ${OMNIROUTE_API_KEY:}          # 로컬 OmniRoute 는 REQUIRE_API_KEY=false 라 비어도 됨
+    model: ${LLM_MODEL:chat-default}
+    context-max-messages: ${LLM_CONTEXT_MAX_MESSAGES:30}
+    timeout-seconds: ${LLM_TIMEOUT_SECONDS:120}
+  speech:
+    stt-provider: ${STT_PROVIDER:openai}    # openai | clova
+    tts-provider: ${TTS_PROVIDER:openai}
+    tmp-dir: ${SPEECH_TMP_DIR:/tmp/audio}   # compose 에서 tmpfs
+    max-audio-seconds: 60
+    max-tts-chars: 1000
+    openai-api-key: ${OPENAI_API_KEY:}
+    clova-speech-invoke-url: ${CLOVA_SPEECH_INVOKE_URL:}
+    clova-speech-secret: ${CLOVA_SPEECH_SECRET:}
+    clova-voice-client-id: ${CLOVA_VOICE_CLIENT_ID:}
+    clova-voice-client-secret: ${CLOVA_VOICE_CLIENT_SECRET:}
+    tts-voice: ${TTS_VOICE:alloy}

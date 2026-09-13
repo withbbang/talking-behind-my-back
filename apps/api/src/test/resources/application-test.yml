@@ -1,0 +1,29 @@
+# 테스트 프로파일 (build.gradle 이 항상 주입).
+# DB: 로컬은 docker-compose.dev.yml 의 chat_app, CI 는 ci.yml 의 MySQL 서비스(chat_app_test) — DB_URL 로 덮어씀.
+# @MybatisTest 는 트랜잭션 롤백이라 로컬 dev DB 를 그대로 써도 데이터가 남지 않는다.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/chat_app?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:chat_app}
+    password: ${DB_PASSWORD:dev}
+  flyway:
+    enabled: true
+
+app:
+  base-url: http://localhost:3000
+  jwt:
+    secret: test-only-secret-key-that-is-at-least-32-bytes-long!!
+    access-ttl: 15m
+    refresh-ttl: 30d
+  cookie:
+    secure: false
+  llm:
+    base-url: http://localhost:1   # 테스트에서 실제 OmniRoute 를 부르면 안 된다 — MockWebServer 로 덮어씀
+    api-key: ""
+    model: test-model
+  speech:
+    openai-api-key: ""
+
+logging:
+  level:
+    com.example.chat: DEBUG

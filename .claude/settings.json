@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);const p=j.prompt||'';if(/새로운 태스크|태스크 생성|new task|작업 추가/i.test(p)){process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:'UserPromptSubmit',additionalContext:'[TASK RULE] 신규 태스크는 먼저 .agent/TASKS.md에 T-번호로 등록(acceptance 포함) 후 진행. 결정이 필요하면 inbox/to-ceo.md → DECISIONS.md. 파생 작업은 별도 T-번호 + 원 작업에 참조. 구현 전 .agent/API.md, SCHEMA.md 계약 확인.'}}))}}catch(e){}})\"",
+            "statusMessage": "태스크 규칙 리마인더 확인"
+          }
+        ]
+      }
+    ]
+  }
+}

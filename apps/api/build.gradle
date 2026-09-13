@@ -1,0 +1,69 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		// Homepage/Admin 과 동일(17). Dockerfile/ci.yml 도 17 로 맞춘다.
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// 데이터 접근은 MyBatis (CONTEXT.md). Boot 4.x 호환은 mybatis-spring-boot 4.x — BOM 미관리라 버전 명시.
+	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:4.0.1'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// 인증: 소셜 로그인만(D-003). registration 프로퍼티는 T-004 에서 추가 — 없으면 OAuth2 자동구성이 조용히 꺼진다.
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	// OmniRoute SSE 소비용 reactive WebClient (D-006, D-008). 전체 webflux 가 아니라 client 스타터만.
+	implementation 'org.springframework.boot:spring-boot-starter-webclient'
+	// 스키마는 Flyway 가 소유(D-009). MySQL 8 방언 모듈 필요.
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	runtimeOnly 'org.flywaydb:flyway-mysql'
+	// /actuator/health — compose healthcheck 및 배포 확인용. 그 외 엔드포인트는 노출하지 않는다.
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	// JWT(HS256). Boot BOM 미관리 → 버전 명시.
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+
+	// MyBatis 매퍼 슬라이스 테스트(@MybatisTest)
+	testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:4.0.1'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	// T-007 OmniRoute SSE 클라이언트 테스트용 fake 서버. Boot 4 BOM 은 OkHttp 를 관리하지 않으므로 버전 명시.
+	testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+	// 모든 테스트는 test 프로파일. DB 는 로컬 compose(docker-compose.dev.yml) 또는 CI 의 MySQL 서비스.
+	systemProperty 'spring.profiles.active', 'test'
+	maxHeapSize = '512m'
+	maxParallelForks = 1
+	jvmArgs '-XX:+UseSerialGC'
+	// 시각 테스트가 실행 머신 존에 좌우되지 않게 고정 (Homepage F23)
+	jvmArgs '-Duser.timezone=Asia/Seoul'
+	testLogging {
+		events "passed", "skipped", "failed"
+	}
+}

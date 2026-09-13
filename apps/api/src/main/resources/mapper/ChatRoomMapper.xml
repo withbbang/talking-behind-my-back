@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.chat.chatroom.ChatRoomMapper">
+
+  <resultMap id="roomMap" type="com.example.chat.chatroom.ChatRoom">
+    <id     property="id"            column="id"/>
+    <result property="userId"        column="user_id"/>
+    <result property="title"         column="title"/>
+    <result property="messageCount"  column="message_count"/>
+    <result property="lastMessageAt" column="last_message_at"/>
+    <result property="createdAt"     column="created_at"/>
+    <result property="updatedAt"     column="updated_at"/>
+    <result property="deletedAt"     column="deleted_at"/>
+  </resultMap>
+
+  <sql id="columns">
+    id, user_id, title, message_count, last_message_at, created_at, updated_at, deleted_at
+  </sql>
+
+  <insert id="insert" parameterType="com.example.chat.chatroom.ChatRoom" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO chat_rooms (user_id, title)
+    VALUES (#{userId}, #{title})
+  </insert>
+
+  <select id="findByIdAndUserId" resultMap="roomMap">
+    SELECT <include refid="columns"/>
+    FROM chat_rooms
+    WHERE id = #{id} AND user_id = #{userId} AND deleted_at IS NULL
+  </select>
+
+  <select id="findByUserId" resultMap="roomMap">
+    SELECT <include refid="columns"/>
+    FROM chat_rooms
+    <where>
+      user_id = #{userId} AND deleted_at IS NULL
+      <if test="cursorId != null">AND id &lt; #{cursorId}</if>
+    </where>
+    ORDER BY last_message_at DESC, id DESC
+    LIMIT #{size}
+  </select>
+
+  <update id="updateTitle">
+    UPDATE chat_rooms SET title = #{title}
+    WHERE id = #{id} AND user_id = #{userId} AND deleted_at IS NULL
+  </update>
+
+  <update id="touchOnNewMessage">
+    UPDATE chat_rooms
+    SET message_count = message_count + 1,
+        last_message_at = CURRENT_TIMESTAMP(3)
+    WHERE id = #{id} AND deleted_at IS NULL
+  </update>
+
+  <update id="softDelete">
+    UPDATE chat_rooms SET deleted_at = CURRENT_TIMESTAMP(3)
+    WHERE id = #{id} AND user_id = #{userId} AND deleted_at IS NULL
+  </update>
+
+</mapper>

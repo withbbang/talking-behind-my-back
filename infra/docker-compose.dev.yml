@@ -1,0 +1,58 @@
+# 로컬 개발용: nginx(:3000) + MySQL + OmniRoute 만 컨테이너로. web/api 는 로컬에서 직접 실행.
+#   cd infra && docker compose -f docker-compose.dev.yml up -d
+#   cd apps/api && ./gradlew bootRun        # :8080/api  (기본 DB_URL = 아래 mysql)
+#   cd apps/web && npm run dev              # :3001      (브라우저는 http://localhost:3000 으로 접속)
+#
+# 왜 로컬에도 nginx 인가: Next rewrite 로 /api 를 프록시하면 SSE 가 0바이트로 도착한다(Homepage X21).
+# 운영과 같은 경로(브라우저 → nginx → api)로 맞춰 쿠키/SSE 동작을 로컬에서 그대로 검증한다.
+
+name: chat-app-dev
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx/dev.conf:/etc/nginx/conf.d/default.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux 호스트 대비. Mac/Windows Docker Desktop 은 무해
+
+  mysql:
+    image: mysql:8.4
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: dev
+      MYSQL_DATABASE: chat_app
+      MYSQL_USER: chat_app
+      MYSQL_PASSWORD: dev
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-dev:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pdev"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  omniroute:
+    image: diegosouzapw/omniroute:latest
+    stop_grace_period: 40s
+    ports:
+      - "20128:20128"
+    environment:
+      PORT: 20128
+      HOSTNAME: 0.0.0.0
+      REQUIRE_API_KEY: "false"     # 로컬은 키 없이 호출
+      AUTH_COOKIE_SECURE: "false"
+    volumes:
+      - omniroute-dev:/app/data
+
+volumes:
+  mysql-dev:
+  omniroute-dev:

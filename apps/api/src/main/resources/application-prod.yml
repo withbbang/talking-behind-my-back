@@ -1,0 +1,27 @@
+# 운영(NAS compose). 비밀값은 기본값 없이 환경변수만 — 빠지면 기동 실패로 드러나게 한다.
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+app:
+  base-url: ${APP_BASE_URL}
+  jwt:
+    secret: ${JWT_SECRET}
+  cookie:
+    secure: true
+  llm:
+    api-key: ${OMNIROUTE_API_KEY}
+    model: ${LLM_MODEL}
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.example.chat: INFO
+    org.springframework.security: WARN

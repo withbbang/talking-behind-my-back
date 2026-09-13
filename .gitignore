@@ -1,0 +1,27 @@
+# infra (NAS에만 존재하는 실제 값)
+infra/.env
+infra/.env.omniroute
+infra/data/
+
+# web
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/.env*
+!apps/web/.env.example
+apps/web/public/sw.js
+apps/web/public/sw.js.map
+
+# api
+apps/api/build/
+apps/api/.gradle/
+apps/api/.env*
+apps/api/src/main/resources/application-secret*.yml
+
+# tooling
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.DS_Store
+.idea/
+.vscode/
+*.log
