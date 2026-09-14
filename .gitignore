@@ -25,3 +25,6 @@ apps/api/src/main/resources/application-secret*.yml
 .idea/
 .vscode/
 *.log
+
+# Playwright MCP 산출물(스크린샷·스냅샷·콘솔 로그) — 세션용, 저장소에 안 남김
+.playwright-mcp/
