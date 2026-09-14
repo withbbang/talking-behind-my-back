@@ -88,7 +88,7 @@
   `social_accounts`/`refresh_tokens` 도메인+매퍼는 T-004 에서(테이블은 V1 에 있음).
 
 ## T-004 소셜 로그인 3사 + JWT 쿠키 + refresh 회전 (api)
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M1
 - spec: PLAN.md#M1, API.md#auth, SCHEMA.md#2 #3, D-003
@@ -106,12 +106,14 @@
 - test: 68 케이스 — `auth/AuthMapperTest` 7, `JwtProviderTest` 6, `AuthCookiesTest` 5, `JwtAuthFilterTest` 8, `RefreshTokenServiceTest` 7,
   `AuthServiceTest` 5, `oauth2/OAuth2UserInfoTest` 7, `CookieOAuth2AuthorizationRequestRepositoryTest` 5, `OAuth2HandlersTest` 4,
   `AuthFlowIntegrationTest`(MockMvc + 실제 SecurityConfig) 14. 전체 88 통과(2026-09-14 로컬).
+- qa: PASS (QA_REPORT.md 2026-09-14) — 네이버·구글 실왕복 PASS, 카카오는 콘솔 설정 후 authorize 302 확인(로그인 왕복은 T-013).
 - note: 개발자 콘솔 redirect URI 는 운영 `https://도메인/api/login/oauth2/code/{provider}` 와 로컬
   `http://localhost:3000/api/login/oauth2/code/{provider}` 둘 다 등록. 로컬은 nginx-dev(:3000) 경유.
   구현 결정(2026-09-14): refresh 쿠키 Path `/api/auth`(logout 이 family revoke 가능) → **API 변경, API.md 갱신**.
   authorization request 는 JWT 서명 쿠키(`oauth2_auth_request`, 10분, audience 분리). 정지/권한은 매 요청 `users` 1회 조회(즉시 반영).
   구글은 `openid` 없이 profile/email 만 요청해 3사 모두 `DefaultOAuth2UserService` 한 경로. 같은 이메일 다른 공급자 = 별도 계정.
-  `/auth/me` 에 `status` 추가(정지 안내용). 실기기 소셜 왕복은 키 등록 후 T-013 에서.
+  `/auth/me` 에 `status` 추가(정지 안내용). 실기기 소셜 왕복은 T-013 에서.
+  카카오 scope 는 `profile_nickname, account_email` — 프로필 사진 동의항목 "사용 안함"(2026-09-14, 비즈 앱 전환 후 이메일만 켬). authorization request 쿠키 TTL 10분.
 
 ## T-005 로그인 페이지 + 세션 유지 + 라우트 가드 (web)
 - status: TODO
@@ -233,7 +235,7 @@
   - `public/icons/*` 추가(DESIGN.md 아이콘 확정 후). Lighthouse PWA 체크 통과.
 
 ## T-015 nginx location 헤더 상속 버그 — /api 경유 시 400 (T-004 리뷰 중 발견)
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M1
 - spec: 루트 README.md#요청-흐름, D-004
@@ -242,6 +244,7 @@
   - 로컬: `curl http://localhost:3000/api/actuator/health` 200, `/api/oauth2/authorization/kakao` 302 의 `redirect_uri=http://localhost:3000/api/login/oauth2/code/kakao`.
   - 운영: `X-Forwarded-Proto https` 가 실제로 전달되는지 T-012 배포 리허설에서 확인.
 - test: 인프라 설정이라 자동 테스트 없음. 로컬 curl 로 확인(2026-09-14). QA 체크리스트로.
+- qa: PASS (QA_REPORT.md 2026-09-14). 운영 `X-Forwarded-Proto` 는 T-012 에서.
 - note: nginx 규칙 — location 에 `proxy_set_header` 가 하나라도 있으면 server 레벨 `proxy_set_header` 를 전부 버린다.
   T-000 부터 있던 버그. dev 는 `$http_host`(포트 포함) 사용, prod 는 `$host`(443 이라 포트 불필요).
 

@@ -86,3 +86,34 @@
   - (블록 아님, T-006) `ChatRoomMapper.findByUserId` 커서가 id 기준이라 `last_message_at` 정렬과 엄밀히 맞지 않음 — 테스트에 명시.
   - (블록 아님, 후속) `MapperTest` 는 전체 컨텍스트라 느림 — 백로그(`@MybatisTest` 전환).
 - date: 2026-09-13
+
+### T-004 소셜 로그인 3사 + JWT 쿠키 + refresh 회전 (api)
+- verdict: PASS
+- tests: 68케이스 신규(단위 51 + MockMvc 통합 14 + 매퍼 7 등), 전체 88 통과. 출처: 에이전트 로컬 `./gradlew test`(2026-09-14, compose MySQL).
+- checked:
+  - acceptance 전항목 테스트로 덮음: registration 3사·provider URI, `OAuth2UserInfo` 3사 파싱(이메일/프로필 null 케이스), `SocialAccount`/`RefreshToken` 매퍼,
+    cookie 기반 `AuthorizationRequestRepository`(서명·state 불일치·변조), 성공/실패 핸들러, refresh 회전·재사용·만료, logout, `/auth/me` 401 JSON, 정지 회원 분기, `JwtAuthFilter`.
+  - 계약: API.md#auth 갱신본과 응답 일치(`/auth/me` 필드, 쿠키 Path/HttpOnly/SameSite, 에러 코드).
+  - 실왕복(nginx-dev :3000 경유, Playwright + curl, 사용자 로그인): **네이버 PASS**(로그인→쿠키 2개→me 200→refresh 204 회전→구 토큰 401 `TOKEN_REUSED`→logout 204→me 401),
+    **구글 PASS**(로그인→me 200, 프로필·이메일 수신, 네이버와 별도 계정=D-015). JSESSIONID 미생성. 콜백 redirect_uri 가 콘솔 등록값과 일치. PKCE 자동 부여 3사 모두 수용.
+  - 카카오: 콘솔 동의항목 미설정으로 KOE205 → 비즈 앱 전환·이메일 켬·프로필 사진 "사용 안함" 결정 → scope 조정 후 authorize 302 확인. 로그인 왕복 자체는 미실행.
+  - 체크리스트 세션: refresh 회전·재사용 감지·로그아웃 후 401 — 통과. 권한: 비관리자 `/admin` 403 — 통합 테스트.
+  - 보안: 로그에 토큰 없음(실패 로그는 error code 만). 시크릿은 `application-secret.yml`(gitignore) — `git check-ignore` 확인.
+- issues:
+  - (수정됨, 리뷰 중) authorization request 쿠키 TTL 5분 → 구글 로그인 15분 소요로 `authorization_request_not_found` → 10분으로 상향(`c161666`).
+  - (수정됨, 파생 T-015) nginx location 헤더 상속으로 /api 경유 전부 400.
+  - (블록 아님, 후속 T-013) 카카오 실제 로그인 왕복, iOS 홈화면 PWA 왕복.
+  - (블록 아님, 후속 T-005) `/auth/me` `status` 추가·`provider` 대문자 — 기획자 acceptance 갱신 필요.
+- date: 2026-09-14
+
+### T-015 nginx location 헤더 상속 버그
+- verdict: PASS
+- tests: 없음(인프라 설정, 정당). `nginx -t` 통과 + curl 로 확인(에이전트 실행, 2026-09-14).
+- checked:
+  - 수정 전: `/api/actuator/health` 400 `The character [_] is never valid in a domain name`(Host=api_dev). 수정 후 200.
+  - `/api/oauth2/authorization/kakao` 302 의 `redirect_uri=http://localhost:3000/api/login/oauth2/code/kakao`(포트 포함) — `$http_host` 반영 확인.
+  - `default.conf` 도 같은 구조로 수정(X-Forwarded-Proto https 가 location 안에 있음).
+- issues:
+  - (블록 아님, 후속 T-012) 운영 DSM 뒤에서 `X-Forwarded-Proto/Host` 실제 전달 확인.
+- date: 2026-09-14
+
