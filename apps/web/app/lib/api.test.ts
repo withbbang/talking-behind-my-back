@@ -94,7 +94,7 @@ describe('apiFetch', () => {
       jsonResponse(409, { code: 'ROOM_BUSY', message: '답변이 끝난 뒤 보내주세요', details: null }),
     );
 
-    const err = await apiFetch('/rooms/1/messages', { method: 'POST', body: {} }).catch((e) => e);
+    const err = (await apiFetch('/rooms/1/messages', { method: 'POST', body: {} }).catch((e: unknown) => e)) as ApiError;
 
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(409);
@@ -105,7 +105,7 @@ describe('apiFetch', () => {
   it('에러 본문이 JSON 이 아니어도 status 기반 ApiError 를 만든다', async () => {
     fetchMock.mockResolvedValueOnce(new Response('<html>502</html>', { status: 502 }));
 
-    const err = await apiFetch('/rooms').catch((e) => e);
+    const err = (await apiFetch('/rooms').catch((e: unknown) => e)) as ApiError;
 
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(502);

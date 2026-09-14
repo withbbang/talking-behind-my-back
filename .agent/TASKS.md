@@ -116,7 +116,7 @@
   카카오 scope 는 `profile_nickname, account_email` — 프로필 사진 동의항목 "사용 안함"(2026-09-14, 비즈 앱 전환 후 이메일만 켬). authorization request 쿠키 TTL 10분.
 
 ## T-005 로그인 페이지 + 세션 유지 + 라우트 가드 (web)
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M1
 - spec: DESIGN.md#로그인, API.md#auth
@@ -126,6 +126,17 @@
   - `middleware.ts`: access 쿠키 없으면 `/login`, 있으면 `/login` → `/`. (쿠키 존재만 검사, 검증은 API)
   - `app/features/auth/useMe.ts` React Query + `QueryClientProvider`(요청별 새 인스턴스, Homepage B-6b), 로그아웃 버튼.
   - 컴포넌트 테스트: 버튼 렌더/링크, 로그아웃 호출, `?error=` 알림.
+- note: 착수 2026-09-14. 확정 사항 —
+  (1) `middleware.ts` 대신 **`proxy.ts`**(Next 16 규약, Homepage 와 동일). 로직은 acceptance 그대로(쿠키 존재만 검사).
+  (2) access 쿠키 Max-Age 15m 이라 15분 뒤 콜드 오픈은 proxy 가 `/login` 으로 보낸다. refresh 쿠키는 Path `/api/auth` 라 proxy 가
+      서버 재발급 불가 → **`/login` 페이지가 마운트 시 `POST /auth/refresh` 1회 시도(silent refresh)**, 성공 시 `/` 이동, 실패 시 버튼 표시. api 변경 없음.
+  (3) 약관/개인정보 링크 없음(v1). 소셜 아이콘은 인라인 SVG 근사치(디자이너 확정 후 교체 가능).
+  (4) `app/page.tsx` 는 임시로 `useMe` 닉네임 + 로그아웃 표시(세션 유지 검증용, T-008 에서 교체).
+  (5) 로그인/로그아웃 전환은 `lib/navigation.hardNavigate`(전체 이동) — proxy 가 쿠키를 다시 보고 React Query 캐시도 폐기.
+  (6) 로그인 화면 스타일은 DESIGN.md 골격만(컬러 토큰 미결) — 브랜드색은 버튼 3개에만, 제목 좌측 정렬·버튼 하단 엄지 영역.
+- test: 30 케이스 신규 — `proxy.test.ts` 6, `features/auth/{loginErrorMessage 5, session 3, useMe 3, useLogout 2}`,
+  `components/ui/SocialLoginButton.test.tsx` 4, `(auth)/login/LoginClient.test.tsx` 4, `HomeClient.test.tsx` 3. 전체 38 통과 + lint 0 errors + typecheck + build(2026-09-14 로컬).
+  `api.test.ts` 의 기존 typecheck 오류(TS18046, T-001) 3줄 수정. 390×844 스크린샷으로 `/login?error=access_denied` 육안 확인.
 
 ## M2 텍스트 채팅 · SSE
 

@@ -17,3 +17,18 @@
   (4) `/auth/refresh` 실패 시 쿠키 2개 삭제 (5) `?error=` 코드가 `[a-z0-9_]` 외 값으로 안 나감.
 - API 변경: refresh 쿠키 Path, `/auth/me` `status`·`provider` 대문자 → 기획자가 T-005 acceptance 갱신 필요.
 - date: 2026-09-14
+
+### [개발자 → QA] T-005 로그인 페이지 + 세션 유지 + 라우트 가드 검증 요청
+- 요청/이슈: `cd apps/web && npm test && npm run lint && npm run typecheck && npm run build` 통과 확인(38 케이스).
+  수동: compose dev + api + `npm run dev` 띄우고 `http://localhost:3000` 접속.
+- 근거 파일: TASKS.md#T-005 note, `apps/web/proxy.ts`, `apps/web/app/(auth)/login/*`, `apps/web/app/features/auth/*`
+- 확인 포인트:
+  (1) 쿠키 없이 `/` → `/login` 302. `/login` 에서 버튼 3개 → 각 `/api/oauth2/authorization/{provider}` 로 **전체 페이지 이동**(a 태그).
+  (2) 로그인 왕복 후 `/` 에 닉네임·공급자 표시. 로그인 상태에서 `/login` 직접 접근 → `/` 302.
+  (3) **세션 유지**: 로그인 후 15분 이상 지나 새 탭에서 `/` 열기 → `/login` 스켈레톤 잠깐 → 자동으로 `/` 복귀(silent refresh). DevTools 에서 `access_token` 쿠키만 지우고 새로고침해도 같은 동작.
+  (4) 로그아웃 버튼 → `/login`, 이후 `/` 접근 시 다시 `/login`. refresh 쿠키도 사라졌는지.
+  (5) 공급자 동의 화면에서 취소 → `/login?error=access_denied` 인라인 알림(빨간 박스) + 버튼 노출, silent refresh 없음(네트워크 탭에 `/auth/refresh` 안 나감).
+  (6) 390×844 뷰포트: 제목 2줄·소개문 단어 단위 줄바꿈, 버튼 하단 고정, 다크 모드 대비(시스템 설정 전환).
+  (7) 키보드 Tab 으로 버튼 3개 포커스 링 보임. 알림 `role="alert"`, 확인 중 `role="status"`.
+- 범위 외(기존 미결): favicon/`icons/*.png` 404 (T-001 note, DESIGN.md 아이콘 미결), 약관/개인정보 링크 없음(v1 결정).
+- date: 2026-09-14

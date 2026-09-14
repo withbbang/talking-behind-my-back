@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: '김영선 욕하는 앱',
@@ -21,7 +22,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

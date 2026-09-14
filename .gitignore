@@ -11,6 +11,8 @@ apps/web/.env*
 !apps/web/.env.example
 apps/web/public/sw.js
 apps/web/public/sw.js.map
+apps/web/next-env.d.ts
+apps/web/tsconfig.tsbuildinfo
 
 # api
 apps/api/build/
