@@ -22,11 +22,12 @@ TASKS.md 상단 "진행 중 얻은 교훈"은 착수마다 다시 본다.
 4. **파생 작업** → 별도 T-번호로 등록하고 원 작업에 `→ T-xxx 참조`.
 5. **결정이 필요한 것** → `inbox/to-ceo.md`에 남기고 `DECISIONS.md` 기록을 기다린다. 임의 결정 금지.
 6. **교훈** → 같은 데서 두 번 넘어질 만한 것은 `TASKS.md` 상단에 한 줄.
+7. **역할 대행.** 사용자가 CEO/QA 파일(`DECISIONS.md`, `QA_REPORT.md`)을 "네가 적어라" 하면 그 지시 범위 안에서만 대신 쓴다. "태스크 종료" = QA_REPORT 기록 + TASKS `DONE` + to-qa 처리됨 + 커밋.
 
 ## 브랜치·커밋
 
 - `feature_YYYYMMDD` → `dev` → `master`, 각각 `--no-ff` 머지. `master` push가 NAS 배포를 트리거한다(`.github/workflows/deploy.yml`).
-- 커밋 메시지는 `.gitmessage.txt` 템플릿 (`git config --local commit.template .gitmessage.txt`).
+- 커밋 메시지는 `.gitmessage.txt` 템플릿: `Type(scope) : 제목` / 본문 `- ` 불릿 / 꼬릿말 `Task: T-xxx`. type = Feat|Fix|Refactor|Style|Docs|Test|Chore, scope = web|api|infra|agent.
 
 ## 자주 쓰는 명령
 
