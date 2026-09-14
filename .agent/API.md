@@ -7,7 +7,9 @@
 ## 공통
 
 - Base: `/api` (Spring context-path). 프론트는 상대 경로 `/api/...`만 사용.
-- 인증: `access_token`(15m), `refresh_token`(30d) — HttpOnly, Secure, SameSite=Lax. `refresh_token` 쿠키 Path는 `/api/auth/refresh`.
+- 인증: `access_token`(15m, Path `/`), `refresh_token`(30d, Path `/api/auth`) — HttpOnly, Secure, SameSite=Lax.
+  refresh 쿠키 Path를 `/api/auth`로 둔 이유: `/auth/logout`도 refresh 쿠키를 받아 해당 family만 revoke하기 위해 (T-004).
+  access 만료 시 401 `TOKEN_EXPIRED`, 쿠키 없음/변조 시 401 `UNAUTHENTICATED` — 프론트는 둘 다 refresh 시도.
 - 시간: ISO-8601 UTC 문자열 (`2026-09-13T12:34:56Z`).
 - ID: 숫자(BIGINT) → JSON number. 노출용 외부 ID가 필요하면 별도 결정.
 - 페이징: 커서 기반 `?cursor=<id>&size=<n>` (기본 30, 최대 100). 응답 `{ items, nextCursor }`, 마지막이면 `nextCursor: null`.
@@ -32,15 +34,19 @@
 | Method | Path | 설명 |
 |---|---|---|
 | GET | `/oauth2/authorization/{provider}` | 로그인 시작. `provider` = `google` \| `naver` \| `kakao`. 브라우저 redirect. |
-| GET | `/login/oauth2/code/{provider}` | 콜백(Spring 기본). 성공 시 쿠키 세팅 후 `APP_BASE_URL/`로 302. 실패 시 `/login?error=<code>`. |
-| GET | `/auth/me` | 현재 사용자. 401이면 프론트는 refresh 시도. |
-| POST | `/auth/refresh` | refresh 쿠키로 access/refresh 재발급(회전). 실패 401. |
-| POST | `/auth/logout` | 쿠키 삭제 + refresh revoke. 204. |
+| GET | `/login/oauth2/code/{provider}` | 콜백(Spring 기본). 성공 시 쿠키 세팅 후 `APP_BASE_URL/`로 302. 실패 시 `APP_BASE_URL/login?error=<code>`. |
+| GET | `/auth/me` | 현재 사용자. 401이면 프론트는 refresh 시도. 정지 회원도 200(`status: SUSPENDED`) — 그 외 모든 API는 403 `USER_SUSPENDED`. |
+| POST | `/auth/refresh` | refresh 쿠키로 access/refresh 재발급(회전). 204 + 새 쿠키 2개. 실패 401(`UNAUTHENTICATED`/`TOKEN_EXPIRED`/`TOKEN_REUSED`) + 쿠키 2개 삭제. |
+| POST | `/auth/logout` | 쿠키 삭제 + refresh family revoke. 204. 인증 불필요(access 만료 후에도 호출 가능). |
 
 `GET /auth/me` 200:
 ```json
-{ "id": 1, "nickname": "영선", "profileImageUrl": "https://...", "role": "USER", "provider": "kakao" }
+{ "id": 1, "nickname": "영선", "profileImageUrl": "https://...", "role": "USER", "status": "ACTIVE", "provider": "KAKAO" }
 ```
+- `provider` = `GOOGLE` \| `NAVER` \| `KAKAO` (대문자, `social_accounts.provider` 그대로). `status` = `ACTIVE` \| `SUSPENDED`.
+- `/login?error=<code>`: 공급자 OAuth2 에러 코드(`access_denied` 등, `[a-z0-9_]`만) 또는 `oauth_failed`(그 외 모든 실패), `authorization_request_not_found`(시작 없이 콜백 / 5분 초과).
+- refresh 회전: 구 refresh 재사용 감지 시 같은 family 전체 revoke → 최신 토큰도 무효, 재로그인 필요.
+- 같은 이메일로 다른 공급자 로그인 → **별도 계정**(inbox/to-ceo.md 결정 전 정책 (b)).
 
 ## rooms
 
@@ -131,3 +137,4 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 
 ## 변경 이력
 - 2026-09-13 초안 (T-000)
+- 2026-09-14 T-004: refresh 쿠키 Path `/api/auth`, `/auth/me`에 `status` 추가·`provider` 대문자, refresh 실패 시 쿠키 삭제, logout 인증 불필요, `?error=` 코드 명시. **API 변경 — T-005 acceptance 확인 필요.**

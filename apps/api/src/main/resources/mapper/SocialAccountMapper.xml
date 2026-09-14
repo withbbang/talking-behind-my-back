@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.chat.auth.SocialAccountMapper">
+
+  <resultMap id="socialAccountMap" type="com.example.chat.auth.SocialAccount">
+    <id     property="id"             column="id"/>
+    <result property="userId"         column="user_id"/>
+    <result property="provider"       column="provider"/>
+    <result property="providerUserId" column="provider_user_id"/>
+    <result property="email"          column="email"/>
+    <result property="createdAt"      column="created_at"/>
+  </resultMap>
+
+  <sql id="columns">
+    id, user_id, provider, provider_user_id, email, created_at
+  </sql>
+
+  <insert id="insert" parameterType="com.example.chat.auth.SocialAccount" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO social_accounts (user_id, provider, provider_user_id, email)
+    VALUES (#{userId}, #{provider}, #{providerUserId}, #{email})
+  </insert>
+
+  <select id="findByProviderAndProviderUserId" resultMap="socialAccountMap">
+    SELECT <include refid="columns"/>
+    FROM social_accounts
+    WHERE provider = #{provider} AND provider_user_id = #{providerUserId}
+  </select>
+
+  <select id="findByUserId" resultMap="socialAccountMap">
+    SELECT <include refid="columns"/>
+    FROM social_accounts
+    WHERE user_id = #{userId}
+    ORDER BY id
+    LIMIT 1
+  </select>
+
+</mapper>

@@ -4,6 +4,20 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${OAUTH_GOOGLE_CLIENT_ID}
+            client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET}
+          naver:
+            client-id: ${OAUTH_NAVER_CLIENT_ID}
+            client-secret: ${OAUTH_NAVER_CLIENT_SECRET}
+          kakao:
+            client-id: ${OAUTH_KAKAO_CLIENT_ID}
+            # 카카오 콘솔에서 client secret 을 안 켰으면 빈 값 허용 — client_secret_post 로 빈 문자열이 가고 카카오는 무시한다
+            client-secret: ${OAUTH_KAKAO_CLIENT_SECRET:}
 
 app:
   base-url: ${APP_BASE_URL}

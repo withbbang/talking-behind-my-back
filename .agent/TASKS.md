@@ -32,6 +32,11 @@
   Homepage 처럼 직접 호출하는 단위 테스트로. HTTP 레벨은 실제 컨트롤러 테스트에서.
 - **Next `/api` rewrite 금지** — SSE 0바이트(Homepage X21). 로컬도 nginx-dev(:3000) 경유.
 - **`filesystem:edit_file` 의 oldText 에 한글이 있으면 실패할 수 있다.** 영문 앵커로 잡거나 파일 전체 write.
+- **OAuth2 커스텀 provider(naver/kakao) 는 `redirect-uri` 를 명시해야 한다.** Boot 는 CommonOAuth2Provider(google 등)에만
+  기본값을 채운다. 빠지면 기동 시 `redirectUri cannot be empty`. registration `client-id` 가 빈 문자열이어도 죽는다 → 로컬 기본값은 placeholder.
+- **`Filter` 타입 @Bean 은 Boot 가 서블릿 필터로도 자동 등록한다.** 시큐리티 체인 전용 필터는 `FilterRegistrationBean.setEnabled(false)` 로 막을 것(T-004 `JwtAuthFilter`).
+- **Spring Security 7 OAuth2 클래스는 Homepage/Admin 에 참고코드가 없다.** `javap -cp <jar>` 로 시그니처 확인 후 사용.
+  `InvalidClientRegistrationIdException` 은 package-private(IllegalArgumentException 하위).
 
 ---
 
@@ -82,7 +87,7 @@
   `social_accounts`/`refresh_tokens` 도메인+매퍼는 T-004 에서(테이블은 V1 에 있음).
 
 ## T-004 소셜 로그인 3사 + JWT 쿠키 + refresh 회전 (api)
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M1
 - spec: PLAN.md#M1, API.md#auth, SCHEMA.md#2 #3, D-003
@@ -97,8 +102,15 @@
   - `JwtAuthFilter` 가 access 쿠키를 읽어 SecurityContext 세팅. 정지 회원은 `/auth/me` 는 되고 그 외 403 `USER_SUSPENDED`(T-011 과 합의).
   - MockMvc 통합 테스트(실제 SecurityConfig 적용)로 refresh 회전·재사용·로그아웃 흐름 커버.
   - 같은 이메일 다른 공급자 정책: inbox/to-ceo.md 결정 대기 — 결정 전엔 (b) 별도 계정으로 구현.
+- test: 68 케이스 — `auth/AuthMapperTest` 7, `JwtProviderTest` 6, `AuthCookiesTest` 5, `JwtAuthFilterTest` 8, `RefreshTokenServiceTest` 7,
+  `AuthServiceTest` 5, `oauth2/OAuth2UserInfoTest` 7, `CookieOAuth2AuthorizationRequestRepositoryTest` 5, `OAuth2HandlersTest` 4,
+  `AuthFlowIntegrationTest`(MockMvc + 실제 SecurityConfig) 14. 전체 88 통과(2026-09-14 로컬).
 - note: 개발자 콘솔 redirect URI 는 운영 `https://도메인/api/login/oauth2/code/{provider}` 와 로컬
   `http://localhost:3000/api/login/oauth2/code/{provider}` 둘 다 등록. 로컬은 nginx-dev(:3000) 경유.
+  구현 결정(2026-09-14): refresh 쿠키 Path `/api/auth`(logout 이 family revoke 가능) → **API 변경, API.md 갱신**.
+  authorization request 는 JWT 서명 쿠키(`oauth2_auth_request`, 5분, audience 분리). 정지/권한은 매 요청 `users` 1회 조회(즉시 반영).
+  구글은 `openid` 없이 profile/email 만 요청해 3사 모두 `DefaultOAuth2UserService` 한 경로. 같은 이메일 다른 공급자 = 별도 계정.
+  `/auth/me` 에 `status` 추가(정지 안내용). 실기기 소셜 왕복은 키 등록 후 T-013 에서.
 
 ## T-005 로그인 페이지 + 세션 유지 + 라우트 가드 (web)
 - status: TODO

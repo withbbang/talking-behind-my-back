@@ -8,6 +8,14 @@ spring:
     password: ${DB_PASSWORD:dev}
   flyway:
     enabled: true
+  security:
+    oauth2:
+      client:
+        # 테스트는 공급자를 부르지 않는다. registration 이 있어야 oauth2Login 자동구성이 켜져 실제 SecurityConfig 로 MockMvc 가 돈다.
+        registration:
+          google: { client-id: test-google, client-secret: test-secret }
+          naver:  { client-id: test-naver,  client-secret: test-secret }
+          kakao:  { client-id: test-kakao,  client-secret: test-secret }
 
 app:
   base-url: http://localhost:3000
