@@ -98,7 +98,7 @@
 - date: 2026-09-14
 
 ### D-013 OAuth2 authorization request는 서명 쿠키에 보관 (D-003 보완)
-- decision: Spring 기본 `HttpSessionOAuth2AuthorizationRequestRepository` 대신 필요한 필드(state, registrationId, redirectUri, scopes, attributes, additionalParameters)만 JWT(HS256, audience=`oauth2-request`, 5분)로 서명해 쿠키 `oauth2_auth_request`(HttpOnly, SameSite=Lax, Path `/api`)에 담는다.
+- decision: Spring 기본 `HttpSessionOAuth2AuthorizationRequestRepository` 대신 필요한 필드(state, registrationId, redirectUri, scopes, attributes, additionalParameters)만 JWT(HS256, audience=`oauth2-request`, 10분)로 서명해 쿠키 `oauth2_auth_request`(HttpOnly, SameSite=Lax, Path `/api`)에 담는다.
 - rationale: STATELESS 정책과 세션 저장소가 충돌한다. 서명 토큰이라 변조는 검증에서 걸리고, audience 분리로 access 토큰과 상호 대체가 안 된다.
 - alternatives: Java 직렬화 + Base64 쿠키 — 쿠키는 신뢰 못 할 입력이라 역직렬화 취약점. 기각.
 - impact: `auth/oauth2/CookieOAuth2AuthorizationRequestRepository`, `SecurityConfig`

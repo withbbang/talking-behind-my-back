@@ -109,7 +109,7 @@
 - note: 개발자 콘솔 redirect URI 는 운영 `https://도메인/api/login/oauth2/code/{provider}` 와 로컬
   `http://localhost:3000/api/login/oauth2/code/{provider}` 둘 다 등록. 로컬은 nginx-dev(:3000) 경유.
   구현 결정(2026-09-14): refresh 쿠키 Path `/api/auth`(logout 이 family revoke 가능) → **API 변경, API.md 갱신**.
-  authorization request 는 JWT 서명 쿠키(`oauth2_auth_request`, 5분, audience 분리). 정지/권한은 매 요청 `users` 1회 조회(즉시 반영).
+  authorization request 는 JWT 서명 쿠키(`oauth2_auth_request`, 10분, audience 분리). 정지/권한은 매 요청 `users` 1회 조회(즉시 반영).
   구글은 `openid` 없이 profile/email 만 요청해 3사 모두 `DefaultOAuth2UserService` 한 경로. 같은 이메일 다른 공급자 = 별도 계정.
   `/auth/me` 에 `status` 추가(정지 안내용). 실기기 소셜 왕복은 키 등록 후 T-013 에서.
 

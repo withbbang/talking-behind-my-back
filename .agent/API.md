@@ -44,7 +44,7 @@
 { "id": 1, "nickname": "영선", "profileImageUrl": "https://...", "role": "USER", "status": "ACTIVE", "provider": "KAKAO" }
 ```
 - `provider` = `GOOGLE` \| `NAVER` \| `KAKAO` (대문자, `social_accounts.provider` 그대로). `status` = `ACTIVE` \| `SUSPENDED`.
-- `/login?error=<code>`: 공급자 OAuth2 에러 코드(`access_denied` 등, `[a-z0-9_]`만) 또는 `oauth_failed`(그 외 모든 실패), `authorization_request_not_found`(시작 없이 콜백 / 5분 초과).
+- `/login?error=<code>`: 공급자 OAuth2 에러 코드(`access_denied` 등, `[a-z0-9_]`만) 또는 `oauth_failed`(그 외 모든 실패), `authorization_request_not_found`(시작 없이 콜백 / 10분 초과).
 - refresh 회전: 구 refresh 재사용 감지 시 같은 family 전체 revoke → 최신 토큰도 무효, 재로그인 필요.
 - 같은 이메일로 다른 공급자 로그인 → **별도 계정**(inbox/to-ceo.md 결정 전 정책 (b)).
 

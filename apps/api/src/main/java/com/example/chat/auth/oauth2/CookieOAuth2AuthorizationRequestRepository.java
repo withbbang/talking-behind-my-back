@@ -24,7 +24,7 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
  * OAuth2 authorization request 를 HttpSession 대신 서명된 쿠키에 보관 (SecurityConfig stateless 와 정합).
  *
  * - 기본 HttpSessionOAuth2AuthorizationRequestRepository 는 세션을 만들어 STATELESS 정책과 충돌한다.
- * - Java 직렬화 대신 필요한 필드만 JWT(HS256, audience=oauth2-request, 5분) 로 담는다 — 쿠키는 신뢰 못 할 입력이라
+ * - Java 직렬화 대신 필요한 필드만 JWT(HS256, audience=oauth2-request, 10분) 로 담는다 — 쿠키는 신뢰 못 할 입력이라
  *   역직렬화 취약점을 피하고, 변조 시 서명 검증에서 걸린다.
  * - Path=/api: 시작(/api/oauth2/authorization/*)과 콜백(/api/login/oauth2/code/*) 둘 다 포함. SameSite=Lax 라
  *   공급자에서 돌아오는 최상위 GET 내비게이션에도 쿠키가 실린다.
@@ -36,7 +36,7 @@ public class CookieOAuth2AuthorizationRequestRepository
 	public static final String COOKIE_NAME = "oauth2_auth_request";
 	static final String AUDIENCE = "oauth2-request";
 	static final String COOKIE_PATH = "/api";
-	static final Duration TTL = Duration.ofMinutes(5);
+	static final Duration TTL = Duration.ofMinutes(10);   // 2단계 인증·계정 선택 감안. 5분은 실왕복에서 초과 사례 있음(2026-09-14)
 
 	private static final String C_STATE = "state";
 	private static final String C_AUTH_URI = "authorizationUri";
