@@ -90,9 +90,45 @@
 - impact: `infra/.env.example`, `docker-compose.yml`, `apps/web/package.json`, `apps/web/app/{manifest.ts,layout.tsx}`, `apps/api/settings.gradle`. GitHub Variables `APP_NAME=talking-behind-my-back`.
 - date: 2026-09-13
 
+### D-012 refresh 쿠키 Path는 `/api/auth` (D-003 보완)
+- decision: `refresh_token` 쿠키 Path를 `/api/auth`로 둔다(API.md 초안 `/api/auth/refresh`에서 변경). `POST /auth/logout`이 refresh 쿠키를 받아 **해당 family만** revoke한다.
+- rationale: Path가 `/api/auth/refresh`면 logout에 refresh 쿠키가 안 실려 "refresh revoke"가 불가능하다. `/api/auth` 아래는 `me/refresh/logout` 뿐이라 노출 범위 증가는 무시할 수준.
+- alternatives: Path 유지 + logout은 `user_id` 기준 전체 revoke — 모든 기기가 같이 로그아웃되어 기각.
+- impact: `auth/AuthCookies`, API.md#공통, T-005 프론트 로그아웃 호출
+- date: 2026-09-14
+
+### D-013 OAuth2 authorization request는 서명 쿠키에 보관 (D-003 보완)
+- decision: Spring 기본 `HttpSessionOAuth2AuthorizationRequestRepository` 대신 필요한 필드(state, registrationId, redirectUri, scopes, attributes, additionalParameters)만 JWT(HS256, audience=`oauth2-request`, 5분)로 서명해 쿠키 `oauth2_auth_request`(HttpOnly, SameSite=Lax, Path `/api`)에 담는다.
+- rationale: STATELESS 정책과 세션 저장소가 충돌한다. 서명 토큰이라 변조는 검증에서 걸리고, audience 분리로 access 토큰과 상호 대체가 안 된다.
+- alternatives: Java 직렬화 + Base64 쿠키 — 쿠키는 신뢰 못 할 입력이라 역직렬화 취약점. 기각.
+- impact: `auth/oauth2/CookieOAuth2AuthorizationRequestRepository`, `SecurityConfig`
+- date: 2026-09-14
+
+### D-014 정지·권한 판정은 매 요청 DB 조회
+- decision: `JwtAuthFilter`가 access 토큰의 userId로 `users`를 매 요청 1회 조회해 role/status를 DB 값으로 세운다. 정지 회원은 `/auth/me`만 200, 그 외 403 `USER_SUSPENDED`.
+- rationale: 어드민 정지가 즉시 반영돼야 한다. 탈퇴(soft delete) 사용자도 같은 조회로 걸러진다. 1인 NAS 규모에서 PK 조회 1회는 비용 아님.
+- alternatives: JWT claim(role/status) — DB 무접촉이지만 최대 15분(access ttl) 지연. 기각.
+- impact: `auth/JwtAuthFilter`, `auth/AuthPrincipal`, T-011 어드민 정지 기능
+- date: 2026-09-14
+
+### D-015 같은 이메일 다른 공급자 = 별도 계정 (D-003 보완)
+- decision: 카카오로 가입한 사용자가 같은 이메일로 구글 로그인하면 **별도 계정**을 만든다. 계정 식별은 `(provider, provider_user_id)`만. 이메일은 `social_accounts.email`에 참고용으로만 저장.
+- rationale: v1 단순화. 공급자마다 이메일 제공·검증 여부가 달라 이메일 기반 자동 연결은 계정 탈취 표면이 된다.
+- alternatives: (a) 기존 계정 연결 — 검증된 이메일만 허용하는 추가 정책 필요, v2 후보. (c) 거부 — UX 손해. 둘 다 기각.
+- impact: `auth/AuthService.loginBySocial`, SCHEMA.md#2 미결 해소
+- date: 2026-09-14
+
+### D-016 401 코드 구분 — 만료는 `TOKEN_EXPIRED`, 그 외는 `UNAUTHENTICATED`
+- decision: access 쿠키가 있고 서명은 유효하나 만료면 401 `TOKEN_EXPIRED`, 쿠키 없음/변조/모르는 사용자는 401 `UNAUTHENTICATED`. refresh 실패도 같은 코드 체계(+재사용 `TOKEN_REUSED`)이며 실패 시 서버가 쿠키 2개를 삭제한다.
+- rationale: 프론트 `api.ts`는 401이면 무조건 refresh를 시도하므로 동작은 같다. 코드를 나누는 건 로그·디버깅용이며 API.md 에러 표와 1:1.
+- alternatives: 401 단일 코드 — 만료와 위조를 로그에서 구분 못 함. 기각.
+- impact: `SecurityConfig` entrypoint, `auth/AuthController.refresh`, API.md#공통
+- date: 2026-09-14
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)
 - ~~프로젝트/서비스 이름~~ → D-011 확정
+- ~~같은 이메일 다른 공급자 정책~~ → D-015 확정
 - STT 녹음 길이·일일 호출 상한 (D-007 open)
 - 스트림 중단 시 부분 응답 처리 (D-008 open)
