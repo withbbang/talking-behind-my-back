@@ -12,6 +12,7 @@ TASKS.md 상단 "진행 중 얻은 교훈"은 착수마다 다시 본다.
 4. **TDD.** 로직 변경은 실패 테스트(RED) → 최소 구현(GREEN) → 리팩터. 테스트 없는 구현은 완료가 아니다.
 5. **시크릿 금지.** 키/비밀번호/토큰은 코드·문서에 쓰지 않는다. `infra/.env`(gitignore)와 환경변수만 사용.
 6. **Boot 4 import 는 `../Homepage`/`../Admin` 기존 코드에서 확인 후 사용.** 기억으로 쓰면 컴파일이 깨진다(CONVENTIONS.md#백엔드).
+7. **api 구조.** 도메인별 패키지 `com.example.chat.{user,chatroom,message,persona}` + `global/{config,error}`. 스키마는 Flyway(`src/main/resources/db/migration/V*__*.sql`)만, 쿼리는 MyBatis XML(`resources/mapper/*.xml`). Java 17 / Boot 4.1.
 
 ## 태스크 생명주기
 
@@ -30,12 +31,15 @@ TASKS.md 상단 "진행 중 얻은 교훈"은 착수마다 다시 본다.
 ## 자주 쓰는 명령
 
 ```
+cp infra/.env.example infra/.env && cp infra/.env.omniroute.example infra/.env.omniroute   # 최초 1회, 값 채우기
 cd infra && docker compose -f docker-compose.dev.yml up -d   # nginx :3000 + MySQL + OmniRoute
 cd apps/api && ./gradlew bootRun                              # :8080/api
 cd apps/web && npm run dev                                    # :3001 — 브라우저는 http://localhost:3000 (nginx 경유)
 cd apps/web && npm test && npm run lint && npm run typecheck
 cd apps/api && ./gradlew test                                 # compose MySQL 필요
 ```
+
+CI(`.github/workflows/ci.yml`, `dev`/`master` push): web lint+typecheck+test+build (Node 22), api `gradlew test` (Java 17). 로컬에서 같은 명령 통과 후 push.
 
 ## 문서 위치
 
@@ -44,6 +48,8 @@ cd apps/api && ./gradlew test                                 # compose MySQL �
 | 뭘 만드는지, 요건 원문 | `.agent/CONTEXT.md` |
 | 지금 뭘 해야 하는지, 교훈 | `.agent/TASKS.md` |
 | 왜 이렇게 결정했는지 | `.agent/DECISIONS.md` |
+| 유저 스토리·마일스톤·acceptance | `.agent/PLAN.md` |
+| 화면 설계·인터랙션 | `.agent/DESIGN.md` |
 | API 계약 | `.agent/API.md` |
 | DB 스키마 | `.agent/SCHEMA.md` |
 | 코딩/커밋/테스트/툴 규칙 | `.agent/CONVENTIONS.md` |
