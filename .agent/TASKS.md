@@ -35,6 +35,7 @@
 - **OAuth2 커스텀 provider(naver/kakao) 는 `redirect-uri` 를 명시해야 한다.** Boot 는 CommonOAuth2Provider(google 등)에만
   기본값을 채운다. 빠지면 기동 시 `redirectUri cannot be empty`. registration `client-id` 가 빈 문자열이어도 죽는다 → 로컬 기본값은 placeholder.
 - **`Filter` 타입 @Bean 은 Boot 가 서블릿 필터로도 자동 등록한다.** 시큐리티 체인 전용 필터는 `FilterRegistrationBean.setEnabled(false)` 로 막을 것(T-004 `JwtAuthFilter`).
+- **nginx `proxy_set_header` 는 location 에 하나라도 있으면 server 레벨을 전부 무시한다.** 공통 헤더는 location 마다 반복(T-015).
 - **Spring Security 7 OAuth2 클래스는 Homepage/Admin 에 참고코드가 없다.** `javap -cp <jar>` 로 시그니처 확인 후 사용.
   `InvalidClientRegistrationIdException` 은 package-private(IllegalArgumentException 하위).
 
@@ -230,6 +231,19 @@
   - `@serwist/next` 의 Next 16 호환 확인(안 되면 대안 결정 → DECISIONS.md). `app/sw.ts`, `next.config.ts` 래핑.
   - `/api/*`, `/admin/*` NetworkOnly. 앱 셸·정적 자원만 precache. 오프라인 시 "연결 없음" 안내.
   - `public/icons/*` 추가(DESIGN.md 아이콘 확정 후). Lighthouse PWA 체크 통과.
+
+## T-015 nginx location 헤더 상속 버그 — /api 경유 시 400 (T-004 리뷰 중 발견)
+- status: REVIEW
+- owner: 개발자
+- milestone: M1
+- spec: 루트 README.md#요청-흐름, D-004
+- acceptance:
+  - `dev.conf`/`default.conf` 의 `location /api/`, `location /` 안에 Host·X-Real-IP·X-Forwarded-* 를 명시(server 레벨 상속 안 됨).
+  - 로컬: `curl http://localhost:3000/api/actuator/health` 200, `/api/oauth2/authorization/kakao` 302 의 `redirect_uri=http://localhost:3000/api/login/oauth2/code/kakao`.
+  - 운영: `X-Forwarded-Proto https` 가 실제로 전달되는지 T-012 배포 리허설에서 확인.
+- test: 인프라 설정이라 자동 테스트 없음. 로컬 curl 로 확인(2026-09-14). QA 체크리스트로.
+- note: nginx 규칙 — location 에 `proxy_set_header` 가 하나라도 있으면 server 레벨 `proxy_set_header` 를 전부 버린다.
+  T-000 부터 있던 버그. dev 는 `$http_host`(포트 포함) 사용, prod 는 `$host`(443 이라 포트 불필요).
 
 ---
 
