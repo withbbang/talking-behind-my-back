@@ -18,6 +18,9 @@ public interface ChatRoomMapper {
 
 	Optional<ChatRoom> findById(@Param("id") Long id);
 
+	/** PATCH mode·나가기 트랜잭션용 — 행 잠금(FOR UPDATE)으로 활성 멤버 수 판정을 직렬화한다(T-017). */
+	Optional<ChatRoom> findByIdForUpdate(@Param("id") Long id);
+
 	/** 초대 코드로 조회(미리보기). 잠금 없음. */
 	Optional<ChatRoom> findByInviteCode(@Param("code") String code);
 
@@ -37,6 +40,10 @@ public interface ChatRoomMapper {
 	int updateTitle(@Param("id") Long id, @Param("title") String title);
 
 	int updateStatus(@Param("id") Long id, @Param("status") RoomStatus status);
+
+	int updateMode(@Param("id") Long id, @Param("mode") RoomMode mode);
+
+	int updateAiPersonality(@Param("id") Long id, @Param("aiPersonality") AiPersonality aiPersonality);
 
 	/** 초대 코드 재발급. UNIQUE 충돌은 DuplicateKeyException. */
 	int updateInviteCode(@Param("id") Long id, @Param("code") String code);

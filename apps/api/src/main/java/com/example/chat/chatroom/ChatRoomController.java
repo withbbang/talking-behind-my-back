@@ -3,7 +3,6 @@ package com.example.chat.chatroom;
 import com.example.chat.auth.AuthPrincipal;
 import com.example.chat.global.CursorPage;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,8 +18,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * /rooms (API.md#rooms, T-006) + 초대 입장·재발급(T-016). mode/aiPersonality PATCH 는 T-017.
- * PATCH 는 title 만 받는다 — 다른 필드는 Jackson 이 무시(T-017 에서 추가).
+ * /rooms (API.md#rooms, T-006) + 초대 입장·재발급(T-016) + PATCH mode/aiPersonality(T-017).
+ * PATCH body 는 RoomUpdate — 잘못된 enum 값은 GlobalExceptionHandler 가 400 VALIDATION_FAILED.
  * `/rooms/join/{code}` 는 `/rooms/{id}` 보다 리터럴 세그먼트가 우선 매칭된다.
  */
 @RestController
@@ -34,9 +33,6 @@ public class ChatRoomController {
 	}
 
 	public record CreateRequest(@Size(max = 100) String title) {
-	}
-
-	public record UpdateRequest(@NotBlank @Size(max = 100) String title) {
 	}
 
 	@GetMapping
@@ -59,8 +55,8 @@ public class ChatRoomController {
 
 	@PatchMapping("/{id}")
 	public RoomResponse update(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable Long id,
-		@RequestBody @Valid UpdateRequest body) {
-		return service.updateTitle(principal.userId(), id, body.title());
+		@RequestBody @Valid RoomUpdate body) {
+		return service.update(principal.userId(), id, body);
 	}
 
 	@DeleteMapping("/{id}")

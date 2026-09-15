@@ -201,7 +201,7 @@
 - qa: PASS (QA_REPORT.md 2026-09-15, 개발자 대행) — 실서버 curl 22 스텝 수동 검증 포함.
 
 ## T-017 나가기 분기 + 모드 토글 + AI 성격 (api)
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
 - spec: API.md#rooms
@@ -211,6 +211,14 @@
   - `PATCH mode`: 멤버 누구나. 활성 멤버 1명인데 `HUMAN` → 400 `MODE_NOT_ALLOWED`.
   - `PATCH aiPersonality`: 개설자만(참여자 403 `FORBIDDEN`), 기본 `RATIONAL`, 언제든 변경. `AiPersonality` enum 에 시스템 프롬프트 문구 보유(어드민 편집 없음).
   - 테스트: 단위 + 통합(권한/상태 전이 표).
+- note: 착수 2026-09-15. 확정 — (1) 빈 PATCH body `{}` 400 `VALIDATION_FAILED`, 잘못된 enum 값도 400(`HttpMessageNotReadableException` 핸들러 추가).
+  (2) **ORPHANED 방은 어떤 PATCH 도 410 `ROOM_ORPHANED`**. (3) 판정 순서 404 → 400 검증 → 410 → 403 → 400 MODE, 한 요청은 전부-아니면-전무.
+  (4) `mode` PATCH 와 참여자 leave 는 방 행 `FOR UPDATE` 로 직렬화(T-016 패턴). (5) 페르소나 문구는 enum 상수 초안 — 코드 수정으로 변경. → API.md#rooms 갱신.
+  구현 메모: PATCH body 는 `chatroom/RoomUpdate` record(세 필드 optional, `@Size` 만) — 빈 body·공백 title 은 서비스 `validate` 가 BusinessException 으로.
+  `updateTitle` → `update(userId, roomId, RoomUpdate)` 로 교체. `ChatRoomMapper.findByIdForUpdate/updateMode/updateAiPersonality` 추가.
+  `GlobalExceptionHandler.handleUnreadable` — 메시지에 본문 값(예: `FOO`) 을 넣지 않는다. 잠금 경합 자체는 별도 동시성 테스트 없음(T-016 과 같은 행 잠금, 판정 경로는 단위 테스트가 덮음).
+- test: 16 케이스 신규 — `AiPersonalityTest` 2, `ChatRoomServiceTest` Update 7(UpdateTitle 1 대체)·Leave 2, `ChatRoomControllerIntegrationTest` PATCH 4·DELETE 1,
+  `GlobalExceptionHandlerTest` 1. 전체 161 통과(2026-09-15 로컬).
 
 ## T-007 방 이벤트 SSE + 직렬 큐 + 4:1 컨텍스트 + OmniRoute 클라이언트 (api)
 - status: TODO

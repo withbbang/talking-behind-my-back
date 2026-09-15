@@ -7,13 +7,14 @@ import com.example.chat.global.error.BusinessException;
 import com.example.chat.global.error.ErrorCode;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 방 CRUD + 멤버십 (API.md#rooms, T-006) + 초대 입장/재발급 (T-016). 나가기 분기·mode·aiPersonality 는 T-017.
+ * 방 CRUD + 멤버십 (API.md#rooms, T-006) + 초대 입장/재발급 (T-016) + 나가기 분기·mode·aiPersonality (T-017).
  * 멤버 검증은 항상 활성 멤버십(left_at IS NULL) 기준 — 비멤버·나간 멤버는 404 ROOM_NOT_FOUND 로 통일.
  */
 @Service
@@ -87,24 +88,52 @@ public class ChatRoomService {
 		return detail(rooms.findById(roomId).orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND)), me.getRole());
 	}
 
-	/** title 은 OWNER 만 (2026-09-15 결정, API.md#rooms). 참여자 403, 비멤버 404. */
+	/**
+	 * PATCH 부분 갱신 (T-017). 판정 순서 404 멤버 → 400 검증 → 410 ORPHANED → 403 권한(title/aiPersonality 는 OWNER 만)
+	 * → 400 MODE_NOT_ALLOWED(혼자인데 HUMAN). 한 요청은 전부-아니면-전무. 방 행을 FOR UPDATE 로 잠근 뒤 멤버 수를 세므로
+	 * 참여자 leave 와 동시에 와도 혼자인 방이 HUMAN 으로 남지 않는다.
+	 */
 	@Transactional
-	public RoomResponse updateTitle(Long userId, Long roomId, String title) {
+	public RoomResponse update(Long userId, Long roomId, RoomUpdate update) {
 		RoomMember me = activeMember(roomId, userId);
-		if (!me.isOwner()) throw new BusinessException(ErrorCode.FORBIDDEN);
-		rooms.updateTitle(roomId, title.trim());
+		validate(update);
+		ChatRoom room = rooms.findByIdForUpdate(roomId).orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+		if (room.isOrphaned()) throw new BusinessException(ErrorCode.ROOM_ORPHANED);
+		if (update.needsOwner() && !me.isOwner()) throw new BusinessException(ErrorCode.FORBIDDEN);
+		if (update.mode() == RoomMode.HUMAN && members.countActiveByRoomId(roomId) < MAX_MEMBERS) {
+			throw new BusinessException(ErrorCode.MODE_NOT_ALLOWED);
+		}
+		if (update.title() != null) rooms.updateTitle(roomId, update.title().trim());
+		if (update.mode() != null) rooms.updateMode(roomId, update.mode());
+		if (update.aiPersonality() != null) rooms.updateAiPersonality(roomId, update.aiPersonality());
 		return detail(rooms.findById(roomId).orElseThrow(), me.getRole());
 	}
 
+	/** 빈 body 400. title 은 있으면 공백 불가(길이 상한은 컨트롤러 @Size). */
+	private static void validate(RoomUpdate update) {
+		if (update.isEmpty()) {
+			throw new BusinessException(ErrorCode.VALIDATION_FAILED, "변경할 필드가 없습니다.");
+		}
+		if (update.title() != null && update.title().isBlank()) {
+			throw new BusinessException(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.getDefaultMessage(),
+				Map.of("title", "must not be blank"));
+		}
+	}
+
 	/**
-	 * 나가기. OWNER → 방 ORPHANED + left_at(참여자 멤버십은 남긴다). PARTICIPANT → left_at 만.
-	 * 참여자 이탈 시 mode=AI 복귀, ORPHANED 방 확인 처리 분기는 T-017.
+	 * 나가기. OWNER → 방 ORPHANED + left_at(참여자 멤버십은 남긴다). PARTICIPANT → left_at + 방이 ACTIVE 면 mode=AI 복귀(개설자 혼자).
+	 * ORPHANED 방에서 참여자 나가기 = 확인 처리(멤버십만 종료, 방 행·mode 그대로). 방 행 잠금은 update 와 같은 이유(T-017).
 	 */
 	@Transactional
 	public void leave(Long userId, Long roomId) {
 		RoomMember me = activeMember(roomId, userId);
+		ChatRoom room = rooms.findByIdForUpdate(roomId).orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
 		members.leave(roomId, userId);
-		if (me.isOwner()) rooms.updateStatus(roomId, RoomStatus.ORPHANED);
+		if (me.isOwner()) {
+			rooms.updateStatus(roomId, RoomStatus.ORPHANED);
+		} else if (!room.isOrphaned() && room.getMode() != RoomMode.AI) {
+			rooms.updateMode(roomId, RoomMode.AI);
+		}
 	}
 
 	/** 개설자만. 참여자 403, 비멤버 404. 구 코드는 즉시 무효(UNIQUE 컬럼 교체). */

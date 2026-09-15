@@ -22,7 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
-/** T-006 방 CRUD + 멤버십 규칙. AuthServiceTest 와 같이 실제 매퍼 위에서 @Transactional 롤백. */
+/** T-006 방 CRUD + 멤버십 규칙 + T-017 나가기 분기·mode·aiPersonality. AuthServiceTest 와 같이 실제 매퍼 위에서 @Transactional 롤백. */
 @SpringBootTest
 @Transactional
 class ChatRoomServiceTest {
@@ -209,19 +209,90 @@ class ChatRoomServiceTest {
 	}
 
 	@Nested
-	@DisplayName("updateTitle")
-	class UpdateTitle {
+	@DisplayName("update (PATCH /rooms/{id})")
+	class Update {
+
+		private static RoomUpdate title(String t) { return new RoomUpdate(t, null, null); }
+		private static RoomUpdate mode(RoomMode m) { return new RoomUpdate(null, m, null); }
+		private static RoomUpdate personality(AiPersonality p) { return new RoomUpdate(null, null, p); }
 
 		@Test
-		void 개설자는_수정_참여자는_FORBIDDEN_비멤버는_NOT_FOUND() {
+		void title_은_개설자만_참여자는_FORBIDDEN_비멤버는_NOT_FOUND() {
 			RoomResponse r = service.create(owner.getId(), null);
 			join(r.id(), guest.getId());
 
-			assertThat(service.updateTitle(owner.getId(), r.id(), "바꿈").title()).isEqualTo("바꿈");
+			assertThat(service.update(owner.getId(), r.id(), title(" 바꿈 ")).title()).isEqualTo("바꿈");
+			assertError(() -> service.update(guest.getId(), r.id(), title("x")), ErrorCode.FORBIDDEN);
+			assertError(() -> service.update(other.getId(), r.id(), title("x")), ErrorCode.ROOM_NOT_FOUND);
+		}
+
+		@Test
+		void 빈_갱신과_공백_title_은_VALIDATION_FAILED() {
+			RoomResponse r = service.create(owner.getId(), null);
+
+			assertError(() -> service.update(owner.getId(), r.id(), new RoomUpdate(null, null, null)), ErrorCode.VALIDATION_FAILED);
+			assertThatThrownBy(() -> service.update(owner.getId(), r.id(), title("   ")))
+				.isInstanceOf(BusinessException.class)
+				.extracting("details").asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP).containsKey("title");
+		}
+
+		@Test
+		void mode_는_참여자도_변경_2명이면_HUMAN_가능() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+
+			assertThat(service.update(guest.getId(), r.id(), mode(RoomMode.HUMAN)).mode()).isEqualTo(RoomMode.HUMAN);
+			assertThat(service.update(owner.getId(), r.id(), mode(RoomMode.AI)).mode()).isEqualTo(RoomMode.AI);
+		}
+
+		@Test
+		void 혼자인_방에서_HUMAN_은_MODE_NOT_ALLOWED_AI_는_항상_가능() {
+			RoomResponse r = service.create(owner.getId(), null);
+
+			assertError(() -> service.update(owner.getId(), r.id(), mode(RoomMode.HUMAN)), ErrorCode.MODE_NOT_ALLOWED);
+			assertThat(service.update(owner.getId(), r.id(), mode(RoomMode.AI)).mode()).isEqualTo(RoomMode.AI);
+			assertThat(roomMapper.findById(r.id()).orElseThrow().getMode()).isEqualTo(RoomMode.AI);
+		}
+
+		@Test
+		void aiPersonality_는_개설자만_참여자는_FORBIDDEN() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+
+			assertThat(service.update(owner.getId(), r.id(), personality(AiPersonality.EMOTIONAL)).aiPersonality())
+				.isEqualTo(AiPersonality.EMOTIONAL);
 			assertError(
-				() -> service.updateTitle(guest.getId(), r.id(), "x"), ErrorCode.FORBIDDEN);
+				() -> service.update(guest.getId(), r.id(), personality(AiPersonality.RATIONAL)), ErrorCode.FORBIDDEN);
+			assertThat(roomMapper.findById(r.id()).orElseThrow().getAiPersonality()).isEqualTo(AiPersonality.EMOTIONAL);
+		}
+
+		@Test
+		void ORPHANED_방은_어떤_PATCH_도_ROOM_ORPHANED() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+			service.leave(owner.getId(), r.id());
+
+			assertError(() -> service.update(guest.getId(), r.id(), mode(RoomMode.AI)), ErrorCode.ROOM_ORPHANED);
+			assertError(() -> service.update(guest.getId(), r.id(), title("x")), ErrorCode.ROOM_ORPHANED);
 			assertError(
-				() -> service.updateTitle(other.getId(), r.id(), "x"), ErrorCode.ROOM_NOT_FOUND);
+				() -> service.update(guest.getId(), r.id(), personality(AiPersonality.EMOTIONAL)), ErrorCode.ROOM_ORPHANED);
+		}
+
+		@Test
+		void 복합_요청은_전부_아니면_전무_참여자_title_포함이면_mode_도_미변경() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+
+			assertError(
+				() -> service.update(guest.getId(), r.id(), new RoomUpdate("x", RoomMode.HUMAN, null)), ErrorCode.FORBIDDEN);
+			ChatRoom room = roomMapper.findById(r.id()).orElseThrow();
+			assertThat(room.getMode()).isEqualTo(RoomMode.AI);
+			assertThat(room.getTitle()).isEqualTo("새 대화");
+
+			RoomResponse updated = service.update(owner.getId(), r.id(), new RoomUpdate("둘", RoomMode.HUMAN, AiPersonality.EMOTIONAL));
+			assertThat(updated.title()).isEqualTo("둘");
+			assertThat(updated.mode()).isEqualTo(RoomMode.HUMAN);
+			assertThat(updated.aiPersonality()).isEqualTo(AiPersonality.EMOTIONAL);
 		}
 	}
 
@@ -254,6 +325,32 @@ class ChatRoomServiceTest {
 			assertThat(roomMapper.findById(r.id()).orElseThrow().getStatus()).isEqualTo(RoomStatus.ACTIVE);
 			assertThat(memberMapper.findActive(r.id(), guest.getId())).isEmpty();
 			assertThat(service.get(owner.getId(), r.id()).memberCount()).isEqualTo(1);
+		}
+
+		@Test
+		void 참여자_나가기시_HUMAN_이던_방은_AI_로_복귀() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+			service.update(owner.getId(), r.id(), new RoomUpdate(null, RoomMode.HUMAN, null));
+
+			service.leave(guest.getId(), r.id());
+
+			assertThat(roomMapper.findById(r.id()).orElseThrow().getMode()).isEqualTo(RoomMode.AI);
+		}
+
+		@Test
+		void ORPHANED_방에서_참여자_나가기는_확인_처리_멤버십만_종료_방_행_유지() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+			service.leave(owner.getId(), r.id());
+
+			service.leave(guest.getId(), r.id());
+
+			ChatRoom room = roomMapper.findById(r.id()).orElseThrow();
+			assertThat(room.getStatus()).isEqualTo(RoomStatus.ORPHANED);
+			assertThat(memberMapper.findActive(r.id(), guest.getId())).isEmpty();
+			assertThat(memberMapper.countActiveByRoomId(r.id())).isZero();
+			assertError(() -> service.get(guest.getId(), r.id()), ErrorCode.ROOM_NOT_FOUND);
 		}
 
 		@Test

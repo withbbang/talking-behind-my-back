@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -38,6 +39,14 @@ public class GlobalExceptionHandler {
 		ErrorCode code = ErrorCode.VALIDATION_FAILED;
 		return ResponseEntity.status(code.getStatus())
 			.body(ErrorResponse.of(code, code.getDefaultMessage(), fields));
+	}
+
+	/** JSON 파싱 실패·enum 에 없는 값(예: mode=FOO) — 본문은 로그에 남기지 않는다 (T-017). */
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException e) {
+		ErrorCode code = ErrorCode.VALIDATION_FAILED;
+		return ResponseEntity.status(code.getStatus())
+			.body(ErrorResponse.of(code, "요청 본문을 읽을 수 없습니다.", null));
 	}
 
 	@ExceptionHandler(MaxUploadSizeExceededException.class)

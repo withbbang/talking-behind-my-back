@@ -244,6 +244,68 @@ class ChatRoomControllerIntegrationTest {
 					.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"x\"}"))
 				.andExpect(status().isNotFound());
 		}
+
+		@Test
+		void mode_는_참여자도_200_혼자인_방에서_HUMAN_은_400_MODE_NOT_ALLOWED() throws Exception {
+			long id = createRoom(owner, null).get("id").asLong();
+
+			mvc.perform(patch("/rooms/" + id).cookie(access(owner))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"mode\":\"HUMAN\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("MODE_NOT_ALLOWED"));
+
+			memberMapper.insert(RoomMember.participant(id, guest.getId()));
+			mvc.perform(patch("/rooms/" + id).cookie(access(guest))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"mode\":\"HUMAN\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.mode").value("HUMAN"))
+				.andExpect(jsonPath("$.role").value("PARTICIPANT"));
+		}
+
+		@Test
+		void aiPersonality_개설자_200_참여자_403() throws Exception {
+			long id = createRoom(owner, null).get("id").asLong();
+			memberMapper.insert(RoomMember.participant(id, guest.getId()));
+
+			mvc.perform(patch("/rooms/" + id).cookie(access(owner))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"aiPersonality\":\"EMOTIONAL\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.aiPersonality").value("EMOTIONAL"));
+			mvc.perform(patch("/rooms/" + id).cookie(access(guest))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"aiPersonality\":\"RATIONAL\"}"))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("FORBIDDEN"));
+		}
+
+		@Test
+		void 빈_body_와_잘못된_enum_값은_400_VALIDATION_FAILED() throws Exception {
+			long id = createRoom(owner, null).get("id").asLong();
+
+			mvc.perform(patch("/rooms/" + id).cookie(access(owner))
+					.contentType(MediaType.APPLICATION_JSON).content("{}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+			mvc.perform(patch("/rooms/" + id).cookie(access(owner))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"mode\":\"FOO\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+			mvc.perform(patch("/rooms/" + id).cookie(access(owner))
+					.contentType(MediaType.APPLICATION_JSON).content("{not json"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+		}
+
+		@Test
+		void ORPHANED_방은_410_ROOM_ORPHANED() throws Exception {
+			long id = createRoom(owner, null).get("id").asLong();
+			memberMapper.insert(RoomMember.participant(id, guest.getId()));
+			mvc.perform(delete("/rooms/" + id).cookie(access(owner))).andExpect(status().isNoContent());
+
+			mvc.perform(patch("/rooms/" + id).cookie(access(guest))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"mode\":\"AI\"}"))
+				.andExpect(status().isGone())
+				.andExpect(jsonPath("$.code").value("ROOM_ORPHANED"));
+		}
 	}
 
 	@Nested
@@ -265,15 +327,30 @@ class ChatRoomControllerIntegrationTest {
 		}
 
 		@Test
-		void 참여자_나가기는_멤버십만_종료() throws Exception {
+		void 참여자_나가기는_멤버십만_종료_HUMAN_이던_mode_는_AI_복귀() throws Exception {
 			long id = createRoom(owner, null).get("id").asLong();
 			memberMapper.insert(RoomMember.participant(id, guest.getId()));
+			mvc.perform(patch("/rooms/" + id).cookie(access(owner))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"mode\":\"HUMAN\"}"))
+				.andExpect(status().isOk());
 
 			mvc.perform(delete("/rooms/" + id).cookie(access(guest))).andExpect(status().isNoContent());
 			mvc.perform(get("/rooms/" + id).cookie(access(owner)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("ACTIVE"))
+				.andExpect(jsonPath("$.mode").value("AI"))
 				.andExpect(jsonPath("$.memberCount").value(1));
+		}
+
+		@Test
+		void ORPHANED_방에서_참여자_나가기는_204_이후_404() throws Exception {
+			long id = createRoom(owner, null).get("id").asLong();
+			memberMapper.insert(RoomMember.participant(id, guest.getId()));
+			mvc.perform(delete("/rooms/" + id).cookie(access(owner))).andExpect(status().isNoContent());
+
+			mvc.perform(delete("/rooms/" + id).cookie(access(guest))).andExpect(status().isNoContent());
+			mvc.perform(get("/rooms/" + id).cookie(access(guest))).andExpect(status().isNotFound());
+			assertThat(roomMapper.findById(id)).isPresent();
 		}
 	}
 	@Nested

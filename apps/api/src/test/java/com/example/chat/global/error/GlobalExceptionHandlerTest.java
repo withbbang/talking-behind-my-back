@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -45,6 +47,19 @@ class GlobalExceptionHandlerTest {
 		assertThat(res.getBody().code()).isEqualTo("ROOM_NOT_FOUND");
 		assertThat(res.getBody().message()).isEqualTo("room 99");
 		assertThat(res.getBody().details()).isEqualTo(Map.of("roomId", 99));
+	}
+
+	@Test
+	@DisplayName("본문 파싱 실패(잘못된 JSON·enum 에 없는 값)는 400 VALIDATION_FAILED, 본문 내용은 노출하지 않는다")
+	void 본문_파싱_실패() {
+		ResponseEntity<ErrorResponse> res = handler.handleUnreadable(
+			new HttpMessageNotReadableException("Cannot deserialize value of type RoomMode from \"FOO\"", new MockHttpInputMessage(new byte[0])));
+
+		assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(res.getBody()).isNotNull();
+		assertThat(res.getBody().code()).isEqualTo("VALIDATION_FAILED");
+		assertThat(res.getBody().message()).doesNotContain("FOO");
+		assertThat(res.getBody().details()).isNull();
 	}
 
 	@Test
