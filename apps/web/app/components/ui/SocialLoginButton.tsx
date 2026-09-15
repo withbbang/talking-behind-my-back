@@ -10,7 +10,7 @@ export type SocialProvider = 'google' | 'naver' | 'kakao';
 const BRAND: Record<SocialProvider, { label: string; className: string; icon: ReactNode }> = {
   google: {
     label: '구글로 시작하기',
-    className: 'bg-white text-[#1f1f1f] border border-[#747775] dark:border-[#8e918f]',
+    className: 'bg-white text-[#1f1f1f]',
     icon: (
       <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
         <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.2-2.1 3.5-5.1 3.5-8.8z" />
@@ -48,7 +48,7 @@ export function SocialLoginButton({ provider }: { provider: SocialProvider }) {
   return (
     <a
       href={`/api/oauth2/authorization/${provider}`}
-      className={`flex h-13 w-full items-center gap-3 rounded-xl px-4 text-[15px] font-semibold outline-offset-2 focus-visible:outline-2 focus-visible:outline-current ${className}`}
+      className={`flex h-13 w-full items-center gap-3 rounded-2xl px-4 text-[15px] font-semibold outline-offset-3 focus-visible:outline-3 focus-visible:outline-accent active:scale-[0.98] motion-safe:transition-transform ${className}`}
     >
       <span className="flex w-6 shrink-0 justify-center">{icon}</span>
       <span className="flex-1 text-center">{label}</span>

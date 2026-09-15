@@ -34,3 +34,10 @@
 - 원하는 결과: D-012~ 기록 후 이 항목에 `[처리됨]`.
 - date: 2026-09-14
 
+
+### [개발자 → CEO] 표시명 "김영선 욕하는 앱" → "뒷담 친구" (D-011 보완)
+- 요청/이슈: 2026-09-15 사용자 지시로 사용자 노출 이름을 **뒷담 친구**로 변경(manifest name/short_name, `<title>`, 로그인 제목, README 제목).
+  슬러그 `talking-behind-my-back`(compose APP_NAME, package.json, 레포명)은 그대로.
+- 근거 파일: `apps/web/app/{manifest.ts,layout.tsx,(auth)/login/LoginClient.tsx}`, README.md, CONTEXT.md 8행(기획자 갱신 필요)
+- 원하는 결과: D-011 에 보완 한 줄 기록 → 이 항목 `[처리됨]`.
+- date: 2026-09-15

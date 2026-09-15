@@ -30,7 +30,7 @@ describe('useLogout', () => {
     client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   });
 
-  it('POST /auth/logout(재시도 없음) → 캐시 비우고 /login 으로 전체 이동', async () => {
+  it('POST /auth/logout(재시도 없음) → /login 으로 전체 이동. 캐시는 건드리지 않는다(재조회 낭비 방지)', async () => {
     apiFetchMock.mockResolvedValueOnce(undefined);
     client.setQueryData(ME_QUERY_KEY, { id: 1 });
 
@@ -39,7 +39,8 @@ describe('useLogout', () => {
 
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/login'));
     expect(apiFetchMock).toHaveBeenCalledWith('/auth/logout', { method: 'POST', retryOn401: false });
-    expect(client.getQueryData(ME_QUERY_KEY)).toBeUndefined();
+    expect(apiFetchMock).toHaveBeenCalledTimes(1);
+    expect(client.getQueryData(ME_QUERY_KEY)).toEqual({ id: 1 });
   });
 
   it('logout 요청이 실패해도 /login 으로 이동한다(쿠키가 남았으면 proxy 가 다시 돌려보낸다)', async () => {

@@ -10,18 +10,18 @@ export function HomeClient() {
   const logout = useLogout();
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[400px] flex-col justify-between px-6 pt-20 pb-[max(2rem,env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col justify-between px-5 pt-24 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
       <header>
-        <h1 className="text-[clamp(2rem,9vw,3rem)] leading-[1.05] font-extrabold tracking-[-0.04em] break-keep">
+        <h1 className="text-[clamp(3rem,15vw,4.5rem)] leading-none font-extrabold tracking-[-0.05em] break-keep">
           {me.data ? me.data.nickname : '…'}
         </h1>
         {me.data && (
-          <p className="mt-4 text-base break-keep opacity-70">
+          <p className="mt-5 text-[17px] leading-snug text-muted break-keep">
             {PROVIDER_LABEL[me.data.provider]} 계정으로 로그인됨. 채팅은 T-008 에서.
           </p>
         )}
         {me.data?.status === 'SUSPENDED' && (
-          <p role="alert" className="mt-4 rounded-lg bg-[#b3261e]/10 px-4 py-3 text-sm text-[#b3261e] dark:text-[#f2b8b5]">
+          <p role="alert" className="mt-4 rounded-2xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger">
             이용이 정지된 계정이에요. 문의가 필요하면 관리자에게 연락해주세요.
           </p>
         )}
@@ -31,7 +31,7 @@ export function HomeClient() {
         type="button"
         onClick={() => logout.mutate()}
         disabled={logout.isPending}
-        className="h-13 w-full rounded-xl border border-current text-[15px] font-semibold outline-offset-2 focus-visible:outline-2 focus-visible:outline-current disabled:opacity-50"
+        className="h-13 w-full rounded-2xl bg-surface text-[15px] font-semibold text-on-surface outline-offset-3 focus-visible:outline-3 focus-visible:outline-accent active:scale-[0.98] motion-safe:transition-transform disabled:opacity-50"
       >
         로그아웃
       </button>

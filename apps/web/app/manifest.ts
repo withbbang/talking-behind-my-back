@@ -4,14 +4,14 @@ import type { MetadataRoute } from 'next';
 // 서비스워커는 T-014 (Next 16 호환 확인 후).
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '김영선 욕하는 앱',
-    short_name: '욕하는 앱',
-    description: '김영선 뒷담화 전문 AI 친구. 말로 걸어도 되고 글로 걸어도 됨.',
+    name: '뒷담 친구',
+    short_name: '뒷담 친구',
+    description: '뒷담화 전문 AI 친구. 말로 걸어도 되고 글로 걸어도 됨.',
     start_url: '/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#ffffff',
-    theme_color: '#ffffff',
+    background_color: '#fff4f8',
+    theme_color: '#ff3d7f',
     lang: 'ko',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },

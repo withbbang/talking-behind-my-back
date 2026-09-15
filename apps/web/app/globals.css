@@ -1,15 +1,52 @@
 @import "tailwindcss";
 
+/*
+ * 디자인 토큰 — 핑크 테마 (2026-09-15, T-005 이후 사용자 결정). DESIGN.md 컬러 토큰 미결 항목의 개발자 초안.
+ * 핵심 은유는 "말풍선"(app/icon.svg 와 동일 계열: #FF4D6A / #E5163C / #0C0A10).
+ * 다크 모드는 시스템 설정을 따른다(DESIGN.md#원칙, 수동 토글 없음). surface 는 라이트/다크에서 반전된다.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #fff4f8;
+  --ink: #2b0a1a;
+  --muted: rgb(43 10 26 / 0.62);
+  --surface: #2b0a1a;
+  --on-surface: #fff4f8;
+  --accent: #ff3d7f;
+  --danger: #c4002e;
+  --danger-bg: rgb(196 0 46 / 0.1);
+  /* 말풍선(surface) 안에서 쓰는 알림색 — surface 가 반전되므로 별도 토큰 */
+  --alert-on-surface: #ffd0de;
+  --alert-on-surface-bg: rgb(255 61 127 / 0.24);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #170611;
+    --ink: #ffe1eb;
+    --muted: rgb(255 225 235 / 0.62);
+    --surface: #ff3d7f;
+    --on-surface: #170611;
+    --accent: #ff6b9c;
+    --danger: #ff8fa8;
+    --danger-bg: rgb(255 143 168 / 0.16);
+    --alert-on-surface: #170611;
+    --alert-on-surface-bg: rgb(23 6 17 / 0.16);
   }
+}
+
+/* Tailwind 4 테마 변수 — `bg-bg`, `text-ink`, `bg-surface`, `text-accent` 등으로 사용 */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-on-surface: var(--on-surface);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-alert-on-surface: var(--alert-on-surface);
+  --color-alert-on-surface-bg: var(--alert-on-surface-bg);
+  --font-sans: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 }
 
 html,
@@ -18,8 +55,31 @@ body {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
   /* 모바일 키보드/safe-area 대응은 (chat) 레이아웃에서 100dvh 로 처리 (DESIGN.md#원칙) */
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 로그인 말풍선 1회 등장. 시스템이 모션 줄이기면 즉시 표시. */
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bubble-in {
+  animation: bubble-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble-in {
+    animation: none;
+  }
 }

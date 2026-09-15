@@ -1,4 +1,4 @@
-# 김영선 욕하는 앱 (talking-behind-my-back)
+# 뒷담 친구 (talking-behind-my-back)
 
 심심이 같은 음성 대화 앱. 소셜 로그인 → 채팅방 여러 개 → 방마다 텍스트/음성 대화, 음성도 텍스트로 기록.
 표시명·슬러그는 D-011. 레포: https://github.com/withbbang/talking-behind-my-back

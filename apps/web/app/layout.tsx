@@ -3,16 +3,16 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: '김영선 욕하는 앱',
-  description: '김영선 뒷담화 전문 AI 친구. 말로 걸어도 되고 글로 걸어도 됨.',
-  applicationName: '김영선 욕하는 앱',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: '욕하는 앱' },
+  title: '뒷담 친구',
+  description: '뒷담화 전문 AI 친구. 말로 걸어도 되고 글로 걸어도 됨.',
+  applicationName: '뒷담 친구',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: '뒷담 친구' },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: light)', color: '#fff4f8' },
+    { media: '(prefers-color-scheme: dark)', color: '#170611' },
   ],
   width: 'device-width',
   initialScale: 1,

@@ -137,6 +137,9 @@
 - test: 30 케이스 신규 — `proxy.test.ts` 6, `features/auth/{loginErrorMessage 5, session 3, useMe 3, useLogout 2}`,
   `components/ui/SocialLoginButton.test.tsx` 4, `(auth)/login/LoginClient.test.tsx` 4, `HomeClient.test.tsx` 3. 전체 38 통과 + lint 0 errors + typecheck + build(2026-09-14 로컬).
   `api.test.ts` 의 기존 typecheck 오류(TS18046, T-001) 3줄 수정. 390×844 스크린샷으로 `/login?error=access_denied` 육안 확인.
+  **실왕복 확인(2026-09-15, 로컬 compose+api+web, Playwright)**: 구글 세션 silent refresh 복원(`/login` → refresh 204 → `/` → me 200),
+  `/login` 직접 접근 → `/` 307, 로그아웃 → `/login` + 이후 refresh 401, 네이버 신규 로그인 → 콜백 → `/` me 200(NAVER), 15분 뒤 access 만료 후 HMR RSC 재요청 → 307 → silent refresh 204 → 복귀.
+  (7) 2026-09-15 표시명 **뒷담 친구**(inbox/to-ceo D-011 보완 요청) + **핑크 테마**(globals.css 토큰, 말풍선 로그인, inbox/to-designer.md). `useLogout` 은 캐시 clear 없이 전체 이동만(clear 시 이동 전 재조회 낭비 실측).
 
 ## M2 텍스트 채팅 · SSE
 
