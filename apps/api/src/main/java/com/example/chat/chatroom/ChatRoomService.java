@@ -7,12 +7,13 @@ import com.example.chat.global.error.BusinessException;
 import com.example.chat.global.error.ErrorCode;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.function.Function;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 방 CRUD + 멤버십 (API.md#rooms, T-006). 입장/재발급은 T-016, 나가기 분기·mode·aiPersonality 는 T-017.
+ * 방 CRUD + 멤버십 (API.md#rooms, T-006) + 초대 입장/재발급 (T-016). 나가기 분기·mode·aiPersonality 는 T-017.
  * 멤버 검증은 항상 활성 멤버십(left_at IS NULL) 기준 — 비멤버·나간 멤버는 404 ROOM_NOT_FOUND 로 통일.
  */
 @Service
@@ -20,6 +21,8 @@ public class ChatRoomService {
 
 	/** 사용자당 활성 방 상한 — 개설 + 참여 합산 (SCHEMA.md #4) */
 	public static final int MAX_ACTIVE_ROOMS = 50;
+	/** 방 정원 — 개설자 + 참여자 1명 (SCHEMA.md #4-1) */
+	public static final int MAX_MEMBERS = 2;
 	private static final int INVITE_CODE_RETRIES = 5;
 
 	private final ChatRoomMapper rooms;
@@ -44,14 +47,20 @@ public class ChatRoomService {
 		return detail(rooms.findById(room.getId()).orElseThrow(), RoomMember.Role.OWNER);
 	}
 
-	/** invite_code UNIQUE 충돌(32^8 중 1)이면 새 코드로 재시도 */
 	private ChatRoom insertWithFreshCode(Long ownerId, String title) {
+		return withFreshCode(code -> {
+			ChatRoom room = ChatRoom.create(ownerId, title, code);
+			rooms.insert(room);
+			return room;
+		});
+	}
+
+	/** invite_code UNIQUE 충돌(32^8 중 1)이면 새 코드로 재시도. 생성·재발급 공용. */
+	private <T> T withFreshCode(Function<String, T> write) {
 		DuplicateKeyException last = null;
 		for (int i = 0; i < INVITE_CODE_RETRIES; i++) {
-			ChatRoom room = ChatRoom.create(ownerId, title, InviteCodes.generate());
 			try {
-				rooms.insert(room);
-				return room;
+				return write.apply(InviteCodes.generate());
 			} catch (DuplicateKeyException e) {
 				last = e;
 			}
@@ -96,6 +105,59 @@ public class ChatRoomService {
 		RoomMember me = activeMember(roomId, userId);
 		members.leave(roomId, userId);
 		if (me.isOwner()) rooms.updateStatus(roomId, RoomStatus.ORPHANED);
+	}
+
+	/** 개설자만. 참여자 403, 비멤버 404. 구 코드는 즉시 무효(UNIQUE 컬럼 교체). */
+	@Transactional
+	public InviteResponse regenerateInvite(Long userId, Long roomId) {
+		RoomMember me = activeMember(roomId, userId);
+		if (!me.isOwner()) throw new BusinessException(ErrorCode.FORBIDDEN);
+		String code = withFreshCode(c -> {
+			rooms.updateInviteCode(roomId, c);
+			return c;
+		});
+		return InviteResponse.of(code, baseUrl);
+	}
+
+	/** 입장 미리보기. 입장과 같은 검증(404/410/400/409)을 잠금 없이 수행 — 프론트가 버튼 전에 안내할 수 있게. 이미 멤버면 그대로 200. */
+	@Transactional(readOnly = true)
+	public JoinPreviewResponse preview(Long userId, String code) {
+		ChatRoom room = rooms.findByInviteCode(code).orElseThrow(() -> new BusinessException(ErrorCode.INVITE_NOT_FOUND));
+		List<RoomMember> active = members.findActiveByRoomId(room.getId());
+		checkJoinable(room, userId, active.size(), active.stream().anyMatch(m -> m.getUserId().equals(userId)));
+		String ownerNickname = active.stream().filter(RoomMember::isOwner).map(RoomMember::getNickname).findFirst().orElse(null);
+		return new JoinPreviewResponse(room.getId(), room.getTitle(), ownerNickname, active.size());
+	}
+
+	/**
+	 * 입장. 방 행을 FOR UPDATE 로 잠근 뒤 정원을 세므로 동시 입장은 한 명만 통과한다(SCHEMA.md #4-1).
+	 * 재입장은 left_at = NULL, joined_at = now. 이미 활성 멤버면 그대로 Room.
+	 */
+	@Transactional
+	public RoomResponse join(Long userId, String code) {
+		ChatRoom room = rooms.findByInviteCodeForUpdate(code).orElseThrow(() -> new BusinessException(ErrorCode.INVITE_NOT_FOUND));
+		boolean alreadyMember = members.findActive(room.getId(), userId).isPresent();
+		if (!checkJoinable(room, userId, members.countActiveByRoomId(room.getId()), alreadyMember)) {
+			if (members.countActiveByUserId(userId) >= MAX_ACTIVE_ROOMS) {
+				throw new BusinessException(ErrorCode.ROOM_LIMIT_EXCEEDED);
+			}
+			if (members.rejoin(room.getId(), userId) == 0) {
+				members.insert(RoomMember.participant(room.getId(), userId));
+			}
+		}
+		return detail(rooms.findById(room.getId()).orElseThrow(), RoomMember.Role.PARTICIPANT);
+	}
+
+	/**
+	 * 입장 가능 판정 순서(2026-09-15 결정): 410 ORPHANED → 400 SELF → 이미 멤버(true 반환, 통과) → 409 FULL.
+	 * 활성 방 상한(409 LIMIT)은 실제 입장 직전에만 본다. @return 이미 활성 멤버인지
+	 */
+	private static boolean checkJoinable(ChatRoom room, Long userId, int activeCount, boolean alreadyMember) {
+		if (room.isOrphaned()) throw new BusinessException(ErrorCode.ROOM_ORPHANED);
+		if (room.getOwnerId().equals(userId)) throw new BusinessException(ErrorCode.SELF_INVITE);
+		if (alreadyMember) return true;
+		if (activeCount >= MAX_MEMBERS) throw new BusinessException(ErrorCode.ROOM_FULL);
+		return false;
 	}
 
 	private RoomMember activeMember(Long roomId, Long userId) {

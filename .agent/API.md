@@ -68,6 +68,9 @@
   `mode` = `AI` \| `HUMAN`, 멤버 누구나 — 혼자인 방에서 `HUMAN` 은 400 `MODE_NOT_ALLOWED`.
   `aiPersonality` = `RATIONAL` \| `EMOTIONAL`, **개설자만**(참여자 403 `FORBIDDEN`), 대화 전후 언제든.
 - 입장 실패: 코드 없음 404 `INVITE_NOT_FOUND`, 정원(2명) 초과 409 `ROOM_FULL`, 개설자 이탈 방 410 `ROOM_ORPHANED`, 본인 방 400 `SELF_INVITE`, 활성 방 50개 초과 409 `ROOM_LIMIT_EXCEEDED`.
+  **판정 순서(T-016, 2026-09-15)**: 404 → 410 → 400 SELF → 이미 활성 멤버면 200 통과 → 409 FULL → 409 LIMIT(POST 만, 실제 입장 직전).
+  개설자는 항상 활성 멤버라 SELF 를 "이미 멤버" 보다 먼저 본다. `GET /rooms/join/{code}` 미리보기도 LIMIT 을 뺀 같은 검증을 잠금 없이 수행한다(프론트가 버튼 전에 안내).
+  코드 비교는 DB collation(대소문자 무시) 기준.
 - 초대 URL = `APP_BASE_URL/join/{code}`. QR 은 프론트가 이 URL 로 생성(별도 API 없음).
 - 참여자가 나가면 개설자 혼자 → `mode` 는 서버가 `AI` 로 되돌린다. 개설자가 나가면 방은 영구 ORPHANED(복구 없음).
 - 방 개수 상한 50 = 개설 + 참여 합산, `left_at IS NULL` 기준.

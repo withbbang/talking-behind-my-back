@@ -39,6 +39,19 @@
     SELECT COUNT(*) FROM room_members m WHERE m.user_id = #{userId} AND m.left_at IS NULL
   </select>
 
+  <select id="countActiveByRoomId" resultType="int">
+    SELECT COUNT(*) FROM room_members m WHERE m.room_id = #{roomId} AND m.left_at IS NULL
+  </select>
+
+  <update id="rejoin">
+    UPDATE room_members SET left_at = NULL, joined_at = NOW(3)
+    WHERE room_id = #{roomId} AND user_id = #{userId} AND left_at IS NOT NULL
+  </update>
+
+  <update id="setJoinedAt">
+    UPDATE room_members SET joined_at = #{at} WHERE room_id = #{roomId} AND user_id = #{userId}
+  </update>
+
   <update id="leave">
     UPDATE room_members SET left_at = NOW(3)
     WHERE room_id = #{roomId} AND user_id = #{userId} AND left_at IS NULL

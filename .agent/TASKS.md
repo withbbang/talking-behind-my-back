@@ -179,7 +179,7 @@
 - qa: PASS (QA_REPORT.md 2026-09-15, 개발자 대행) — 실서버 curl 수동 검증 포함. 후속: 잘못된 percent-encoding 쿼리 500 → 백로그.
 
 ## T-016 초대 코드 입장 + 재발급 (api)
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
 - spec: API.md#rooms
@@ -190,6 +190,14 @@
   - 동시 입장 2명 제한: `SELECT ... FOR UPDATE` 트랜잭션. 재입장은 `left_at=NULL, joined_at=now`. 이미 멤버면 200 그대로.
   - `POST /rooms/{id}/invite/regenerate` 개설자만(참여자 403), 구 코드 즉시 404.
   - 테스트: 서비스 단위 + MockMvc 통합(동시 입장은 스레드 2개로 1명만 성공).
+- test: 17 케이스 신규 — `ChatRoomServiceTest` Preview 3·Join 8·Regenerate 2, `ChatRoomControllerIntegrationTest` JoinByCode 2·Regenerate 1,
+  `ChatRoomJoinConcurrencyTest` 1(비-@Transactional, 스레드 2개 + JdbcTemplate 정리). 전체 145 통과(2026-09-15 로컬).
+  `FOR UPDATE` 를 빼면 동시 테스트가 3/3 실패하는 것 확인(잠금 실효성).
+- note: 착수 2026-09-15. 확정 — (1) 판정 순서 404 → 410 → 400 SELF → 이미 멤버 200 → 409 FULL → 409 LIMIT(개설자는 항상 활성 멤버라 SELF 우선).
+  (2) GET 미리보기도 POST 와 같은 검증(LIMIT 제외)을 잠금 없이 수행. (3) 재발급 응답은 `{inviteCode, inviteUrl}` 만. → API.md#rooms 갱신.
+  구현 메모: 정원 잠금은 `ChatRoomMapper.findByInviteCodeForUpdate`(방 행 `FOR UPDATE`) 후 `RoomMemberMapper.countActiveByRoomId`.
+  재입장은 `RoomMemberMapper.rejoin`(UPDATE left_at=NULL, joined_at=NOW) 0행이면 insert. 코드 재시도 헬퍼 `withFreshCode` 로 생성·재발급 공용.
+  `RoomMemberMapper.setJoinedAt` 은 테스트 전용. 동시 입장 테스트는 @Transactional 롤백 불가라 별도 클래스 + @AfterEach 삭제.
 
 ## T-017 나가기 분기 + 모드 토글 + AI 성격 (api)
 - status: TODO

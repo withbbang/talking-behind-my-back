@@ -49,7 +49,7 @@ class ChatRoomServiceTest {
 		return u;
 	}
 
-	/** T-016 전이라 입장 API 가 없다 — 참여자는 매퍼로 직접 넣는다. */
+	/** 입장 API 를 거치지 않고 참여자 행만 필요한 케이스 — 매퍼로 직접 넣는다. */
 	private void join(Long roomId, Long userId) {
 		memberMapper.insert(RoomMember.participant(roomId, userId));
 	}
@@ -265,6 +265,159 @@ class ChatRoomServiceTest {
 				() -> service.leave(owner.getId(), r.id()), ErrorCode.ROOM_NOT_FOUND);
 			assertError(
 				() -> service.leave(other.getId(), r.id()), ErrorCode.ROOM_NOT_FOUND);
+		}
+	}
+	@Nested
+	@DisplayName("preview (GET /rooms/join/{code})")
+	class Preview {
+
+		@Test
+		void 미리보기_필드_roomId_title_ownerNickname_memberCount() {
+			RoomResponse r = service.create(owner.getId(), "점심");
+
+			JoinPreviewResponse p = service.preview(guest.getId(), r.inviteCode());
+			assertThat(p.roomId()).isEqualTo(r.id());
+			assertThat(p.title()).isEqualTo("점심");
+			assertThat(p.ownerNickname()).isEqualTo("주인");
+			assertThat(p.memberCount()).isEqualTo(1);
+		}
+
+		@Test
+		void 이미_멤버면_그대로_200() {
+			RoomResponse r = service.create(owner.getId(), null);
+			service.join(guest.getId(), r.inviteCode());
+			service.create(other.getId(), null); // 손님의 방과 무관한 방
+
+			assertThat(service.preview(guest.getId(), r.inviteCode()).memberCount()).isEqualTo(2);
+		}
+
+		@Test
+		void 입장과_같은_검증_404_410_400_409() {
+			assertError(() -> service.preview(guest.getId(), "ZZZZZZZZ"), ErrorCode.INVITE_NOT_FOUND);
+
+			RoomResponse self = service.create(owner.getId(), null);
+			assertError(() -> service.preview(owner.getId(), self.inviteCode()), ErrorCode.SELF_INVITE);
+
+			RoomResponse full = service.create(owner.getId(), null);
+			join(full.id(), guest.getId());
+			assertError(() -> service.preview(other.getId(), full.inviteCode()), ErrorCode.ROOM_FULL);
+
+			RoomResponse orphaned = service.create(owner.getId(), null);
+			service.leave(owner.getId(), orphaned.id());
+			assertError(() -> service.preview(guest.getId(), orphaned.inviteCode()), ErrorCode.ROOM_ORPHANED);
+		}
+	}
+
+	@Nested
+	@DisplayName("join (POST /rooms/join/{code})")
+	class Join {
+
+		@Test
+		void 입장하면_PARTICIPANT_Room_초대코드는_null() {
+			RoomResponse r = service.create(owner.getId(), null);
+
+			RoomResponse joined = service.join(guest.getId(), r.inviteCode());
+			assertThat(joined.id()).isEqualTo(r.id());
+			assertThat(joined.role()).isEqualTo(RoomMember.Role.PARTICIPANT);
+			assertThat(joined.inviteCode()).isNull();
+			assertThat(joined.memberCount()).isEqualTo(2);
+			assertThat(joined.members()).extracting(RoomResponse.Member::nickname).containsExactly("주인", "손님");
+			RoomMember m = memberMapper.findActive(r.id(), guest.getId()).orElseThrow();
+			assertThat(m.getRole()).isEqualTo(RoomMember.Role.PARTICIPANT);
+			assertThat(m.getJoinedAt()).isNotNull();
+		}
+
+		@Test
+		void 재입장은_left_at_NULL_joined_at_갱신_행은_하나() {
+			RoomResponse r = service.create(owner.getId(), null);
+			service.join(guest.getId(), r.inviteCode());
+			LocalDateTime first = memberMapper.findActive(r.id(), guest.getId()).orElseThrow().getJoinedAt();
+			service.leave(guest.getId(), r.id());
+			memberMapper.setJoinedAt(r.id(), guest.getId(), first.minusMinutes(1)); // 재입장 시각 차이 강제
+
+			RoomResponse again = service.join(guest.getId(), r.inviteCode());
+
+			assertThat(again.role()).isEqualTo(RoomMember.Role.PARTICIPANT);
+			RoomMember m = memberMapper.findActive(r.id(), guest.getId()).orElseThrow();
+			assertThat(m.getLeftAt()).isNull();
+			assertThat(m.getJoinedAt()).isAfter(first.minusMinutes(1));
+			assertThat(memberMapper.findActiveByRoomId(r.id())).hasSize(2);
+		}
+
+		@Test
+		void 이미_멤버면_그대로_200_중복_없음() {
+			RoomResponse r = service.create(owner.getId(), null);
+			service.join(guest.getId(), r.inviteCode());
+
+			RoomResponse again = service.join(guest.getId(), r.inviteCode());
+			assertThat(again.memberCount()).isEqualTo(2);
+			assertThat(memberMapper.findActiveByRoomId(r.id())).hasSize(2);
+		}
+
+		@Test
+		void 코드_없음_INVITE_NOT_FOUND() {
+			assertError(() -> service.join(guest.getId(), "ZZZZZZZZ"), ErrorCode.INVITE_NOT_FOUND);
+			assertError(() -> service.join(guest.getId(), "zzz"), ErrorCode.INVITE_NOT_FOUND);
+		}
+
+		@Test
+		void 본인_방은_SELF_INVITE_이미_멤버보다_우선() {
+			RoomResponse r = service.create(owner.getId(), null);
+			assertError(() -> service.join(owner.getId(), r.inviteCode()), ErrorCode.SELF_INVITE);
+		}
+
+		@Test
+		void 정원_2명이면_ROOM_FULL() {
+			RoomResponse r = service.create(owner.getId(), null);
+			service.join(guest.getId(), r.inviteCode());
+
+			assertError(() -> service.join(other.getId(), r.inviteCode()), ErrorCode.ROOM_FULL);
+		}
+
+		@Test
+		void 개설자_이탈_방은_ROOM_ORPHANED_SELF_보다_우선() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+			service.leave(owner.getId(), r.id());
+
+			assertError(() -> service.join(other.getId(), r.inviteCode()), ErrorCode.ROOM_ORPHANED);
+			assertError(() -> service.join(owner.getId(), r.inviteCode()), ErrorCode.ROOM_ORPHANED);
+		}
+
+		@Test
+		void 입장자_활성_방_50개면_ROOM_LIMIT_EXCEEDED() {
+			for (int i = 0; i < ChatRoomService.MAX_ACTIVE_ROOMS; i++) service.create(guest.getId(), "r" + i);
+			RoomResponse r = service.create(owner.getId(), null);
+
+			assertError(() -> service.join(guest.getId(), r.inviteCode()), ErrorCode.ROOM_LIMIT_EXCEEDED);
+		}
+	}
+
+	@Nested
+	@DisplayName("regenerateInvite")
+	class Regenerate {
+
+		@Test
+		void 개설자_재발급_새_코드_구_코드는_INVITE_NOT_FOUND() {
+			RoomResponse r = service.create(owner.getId(), null);
+			String old = r.inviteCode();
+
+			InviteResponse res = service.regenerateInvite(owner.getId(), r.id());
+
+			assertThat(res.inviteCode()).matches("[A-HJ-NP-Z2-9]{8}").isNotEqualTo(old);
+			assertThat(res.inviteUrl()).isEqualTo("http://localhost:3000/join/" + res.inviteCode());
+			assertThat(service.get(owner.getId(), r.id()).inviteCode()).isEqualTo(res.inviteCode());
+			assertError(() -> service.join(guest.getId(), old), ErrorCode.INVITE_NOT_FOUND);
+			assertThat(service.join(guest.getId(), res.inviteCode()).id()).isEqualTo(r.id());
+		}
+
+		@Test
+		void 참여자는_FORBIDDEN_비멤버는_NOT_FOUND() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+
+			assertError(() -> service.regenerateInvite(guest.getId(), r.id()), ErrorCode.FORBIDDEN);
+			assertError(() -> service.regenerateInvite(other.getId(), r.id()), ErrorCode.ROOM_NOT_FOUND);
 		}
 	}
 }

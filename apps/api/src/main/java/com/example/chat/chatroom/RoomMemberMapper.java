@@ -1,11 +1,12 @@
 package com.example.chat.chatroom;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-/** mapper/RoomMemberMapper.xml. "활성" = left_at IS NULL. 재입장(left_at 복구)·정원 잠금은 T-016. */
+/** mapper/RoomMemberMapper.xml. "활성" = left_at IS NULL. 정원 잠금은 ChatRoomMapper.findByInviteCodeForUpdate 가 잡는다(T-016). */
 @Mapper
 public interface RoomMemberMapper {
 
@@ -19,6 +20,15 @@ public interface RoomMemberMapper {
 
 	/** 활성 방 상한(50) 판정용 — 개설 + 참여 합산 */
 	int countActiveByUserId(@Param("userId") Long userId);
+
+	/** 정원(2명) 판정용 활성 멤버 수 */
+	int countActiveByRoomId(@Param("roomId") Long roomId);
+
+	/** 재입장 — 나간 행(left_at NOT NULL)을 left_at = NULL, joined_at = now 로 되살린다. 행이 없거나 이미 활성이면 0. */
+	int rejoin(@Param("roomId") Long roomId, @Param("userId") Long userId);
+
+	/** 테스트 전용 — joined_at 을 직접 지정(재입장 갱신 검증). 서비스 코드에서는 쓰지 않는다. */
+	int setJoinedAt(@Param("roomId") Long roomId, @Param("userId") Long userId, @Param("at") LocalDateTime at);
 
 	/** 나가기. 이미 나간 멤버는 0. */
 	int leave(@Param("roomId") Long roomId, @Param("userId") Long userId);

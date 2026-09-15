@@ -35,6 +35,19 @@
     WHERE r.id = #{id}
   </select>
 
+  <select id="findByInviteCode" resultMap="roomMap">
+    SELECT <include refid="columns"/>
+    FROM chat_rooms r
+    WHERE r.invite_code = #{code}
+  </select>
+
+  <select id="findByInviteCodeForUpdate" resultMap="roomMap">
+    SELECT <include refid="columns"/>
+    FROM chat_rooms r
+    WHERE r.invite_code = #{code}
+    FOR UPDATE
+  </select>
+
   <select id="findByIdForMember" resultMap="roomMap">
     SELECT <include refid="columns"/>
     FROM chat_rooms r
@@ -61,6 +74,10 @@
 
   <update id="updateStatus">
     UPDATE chat_rooms SET status = #{status} WHERE id = #{id}
+  </update>
+
+  <update id="updateInviteCode">
+    UPDATE chat_rooms SET invite_code = #{code} WHERE id = #{id}
   </update>
 
   <update id="touchOnNewMessage">

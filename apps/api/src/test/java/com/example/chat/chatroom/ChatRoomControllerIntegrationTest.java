@@ -276,4 +276,92 @@ class ChatRoomControllerIntegrationTest {
 				.andExpect(jsonPath("$.memberCount").value(1));
 		}
 	}
+	@Nested
+	@DisplayName("GET/POST /rooms/join/{code}")
+	class JoinByCode {
+
+		@Test
+		void 미리보기_200_입장_200_PARTICIPANT_Room() throws Exception {
+			JsonNode room = createRoom(owner, "{\"title\":\"점심\"}");
+			String code = room.get("inviteCode").asText();
+
+			mvc.perform(get("/rooms/join/" + code).cookie(access(guest)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.roomId").value(room.get("id").asLong()))
+				.andExpect(jsonPath("$.title").value("점심"))
+				.andExpect(jsonPath("$.ownerNickname").value("주인"))
+				.andExpect(jsonPath("$.memberCount").value(1));
+			mvc.perform(post("/rooms/join/" + code).cookie(access(guest)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(room.get("id").asLong()))
+				.andExpect(jsonPath("$.role").value("PARTICIPANT"))
+				.andExpect(jsonPath("$.inviteCode").value((Object) null))
+				.andExpect(jsonPath("$.memberCount").value(2))
+				.andExpect(jsonPath("$.members.length()").value(2));
+			// 이미 멤버 → 그대로 200
+			mvc.perform(post("/rooms/join/" + code).cookie(access(guest)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.memberCount").value(2));
+		}
+
+		@Test
+		void 실패_404_400_409_410_그리고_미인증_401() throws Exception {
+			mvc.perform(get("/rooms/join/ZZZZZZZZ").cookie(access(guest)))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("INVITE_NOT_FOUND"));
+			mvc.perform(post("/rooms/join/ZZZZZZZZ").cookie(access(guest)))
+				.andExpect(status().isNotFound());
+
+			String code = createRoom(owner, null).get("inviteCode").asText();
+			mvc.perform(post("/rooms/join/" + code).cookie(access(owner)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("SELF_INVITE"));
+
+			mvc.perform(post("/rooms/join/" + code).cookie(access(guest))).andExpect(status().isOk());
+			mvc.perform(post("/rooms/join/" + code).cookie(access(newUser("남"))))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("ROOM_FULL"));
+
+			mvc.perform(delete("/rooms/" + createRoomId(code)).cookie(access(owner))).andExpect(status().isNoContent());
+			mvc.perform(get("/rooms/join/" + code).cookie(access(newUser("남2"))))
+				.andExpect(status().isGone())
+				.andExpect(jsonPath("$.code").value("ROOM_ORPHANED"));
+
+			mvc.perform(post("/rooms/join/" + code)).andExpect(status().isUnauthorized());
+		}
+
+		private long createRoomId(String code) {
+			return roomMapper.findByInviteCode(code).orElseThrow().getId();
+		}
+	}
+
+	@Nested
+	@DisplayName("POST /rooms/{id}/invite/regenerate")
+	class Regenerate {
+
+		@Test
+		void 개설자_200_새_코드_구_코드_404_참여자_403_비멤버_404() throws Exception {
+			JsonNode room = createRoom(owner, null);
+			long id = room.get("id").asLong();
+			String old = room.get("inviteCode").asText();
+			memberMapper.insert(RoomMember.participant(id, guest.getId()));
+
+			String json = mvc.perform(post("/rooms/" + id + "/invite/regenerate").cookie(access(owner)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.inviteCode", matchesPattern("[A-HJ-NP-Z2-9]{8}")))
+				.andExpect(jsonPath("$.inviteUrl", matchesPattern("http://localhost:3000/join/[A-HJ-NP-Z2-9]{8}")))
+				.andReturn().getResponse().getContentAsString();
+			String fresh = objectMapper.readTree(json).get("inviteCode").asText();
+			assertThat(fresh).isNotEqualTo(old);
+
+			mvc.perform(get("/rooms/join/" + old).cookie(access(newUser("남"))))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("INVITE_NOT_FOUND"));
+			mvc.perform(post("/rooms/" + id + "/invite/regenerate").cookie(access(guest)))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("FORBIDDEN"));
+			mvc.perform(post("/rooms/" + id + "/invite/regenerate").cookie(access(newUser("남2"))))
+				.andExpect(status().isNotFound());
+		}
+	}
 }

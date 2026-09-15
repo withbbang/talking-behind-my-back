@@ -19,8 +19,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * /rooms (API.md#rooms, T-006). 초대 입장·재발급(T-016), mode/aiPersonality PATCH(T-017) 는 이후 태스크.
+ * /rooms (API.md#rooms, T-006) + 초대 입장·재발급(T-016). mode/aiPersonality PATCH 는 T-017.
  * PATCH 는 title 만 받는다 — 다른 필드는 Jackson 이 무시(T-017 에서 추가).
+ * `/rooms/join/{code}` 는 `/rooms/{id}` 보다 리터럴 세그먼트가 우선 매칭된다.
  */
 @RestController
 @RequestMapping("/rooms")
@@ -66,5 +67,20 @@ public class ChatRoomController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void leave(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable Long id) {
 		service.leave(principal.userId(), id);
+	}
+
+	@PostMapping("/{id}/invite/regenerate")
+	public InviteResponse regenerateInvite(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable Long id) {
+		return service.regenerateInvite(principal.userId(), id);
+	}
+
+	@GetMapping("/join/{code}")
+	public JoinPreviewResponse preview(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable String code) {
+		return service.preview(principal.userId(), code);
+	}
+
+	@PostMapping("/join/{code}")
+	public RoomResponse join(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable String code) {
+		return service.join(principal.userId(), code);
 	}
 }

@@ -18,6 +18,12 @@ public interface ChatRoomMapper {
 
 	Optional<ChatRoom> findById(@Param("id") Long id);
 
+	/** 초대 코드로 조회(미리보기). 잠금 없음. */
+	Optional<ChatRoom> findByInviteCode(@Param("code") String code);
+
+	/** 입장 트랜잭션용 — 행 잠금(FOR UPDATE)으로 정원 판정을 직렬화한다(SCHEMA.md #4-1). */
+	Optional<ChatRoom> findByInviteCodeForUpdate(@Param("code") String code);
+
 	/** userId 가 활성 멤버(left_at IS NULL)인 경우에만. ORPHANED 방도 멤버십이 남아 있으면 반환. */
 	Optional<ChatRoom> findByIdForMember(@Param("id") Long id, @Param("userId") Long userId);
 
@@ -31,6 +37,9 @@ public interface ChatRoomMapper {
 	int updateTitle(@Param("id") Long id, @Param("title") String title);
 
 	int updateStatus(@Param("id") Long id, @Param("status") RoomStatus status);
+
+	/** 초대 코드 재발급. UNIQUE 충돌은 DuplicateKeyException. */
+	int updateInviteCode(@Param("id") Long id, @Param("code") String code);
 
 	/** 메시지 저장 시 message_count +1, last_message_at = now */
 	int touchOnNewMessage(@Param("id") Long id);
