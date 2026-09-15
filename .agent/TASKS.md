@@ -179,7 +179,7 @@
 - qa: PASS (QA_REPORT.md 2026-09-15, 개발자 대행) — 실서버 curl 수동 검증 포함. 후속: 잘못된 percent-encoding 쿼리 500 → 백로그.
 
 ## T-016 초대 코드 입장 + 재발급 (api)
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M2
 - spec: API.md#rooms
@@ -198,6 +198,7 @@
   구현 메모: 정원 잠금은 `ChatRoomMapper.findByInviteCodeForUpdate`(방 행 `FOR UPDATE`) 후 `RoomMemberMapper.countActiveByRoomId`.
   재입장은 `RoomMemberMapper.rejoin`(UPDATE left_at=NULL, joined_at=NOW) 0행이면 insert. 코드 재시도 헬퍼 `withFreshCode` 로 생성·재발급 공용.
   `RoomMemberMapper.setJoinedAt` 은 테스트 전용. 동시 입장 테스트는 @Transactional 롤백 불가라 별도 클래스 + @AfterEach 삭제.
+- qa: PASS (QA_REPORT.md 2026-09-15, 개발자 대행) — 실서버 curl 22 스텝 수동 검증 포함.
 
 ## T-017 나가기 분기 + 모드 토글 + AI 성격 (api)
 - status: TODO

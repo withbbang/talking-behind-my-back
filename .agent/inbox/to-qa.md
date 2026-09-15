@@ -52,7 +52,7 @@
 - 결과: QA_REPORT.md#T-006 PASS (2026-09-15, 사용자 지시로 개발자 대행 기록)
 - date: 2026-09-15
 
-### [개발자 → QA] T-016 초대 코드 입장 + 재발급 (api) 검증 요청
+### [개발자 → QA] T-016 초대 코드 입장 + 재발급 (api) 검증 요청 [처리됨 2026-09-15]
 - 요청/이슈: `cd infra && docker compose -f docker-compose.dev.yml up -d mysql` 후 `cd apps/api && ./gradlew test` 통과 확인(145 케이스, T-016 신규 17).
   수동(선택): api 기동 후 사용자 2명 쿠키로 `POST /api/rooms` → `GET/POST /api/rooms/join/{code}` → `POST /api/rooms/{id}/invite/regenerate` → 구 코드 404.
 - 근거 파일: API.md#rooms(판정 순서 추가), TASKS.md#T-016 note, `apps/api/src/test/java/com/example/chat/chatroom/{ChatRoomServiceTest,ChatRoomControllerIntegrationTest,ChatRoomJoinConcurrencyTest}.java`
@@ -63,4 +63,5 @@
   (4) 재발급: 개설자 200 `{inviteCode, inviteUrl}`, 참여자 403, 비멤버 404, 구 코드 즉시 404.
   (5) 미리보기 응답 `{ roomId, title, ownerNickname, memberCount }` 만 — 초대 코드·멤버 목록 미노출.
 - 범위 외: 참여자 나가기 시 mode 복귀·mode/aiPersonality PATCH(T-017), web 입장 화면(T-018).
+- 결과: QA_REPORT.md#T-016 PASS (2026-09-15, 사용자 지시로 개발자 대행 기록)
 - date: 2026-09-15

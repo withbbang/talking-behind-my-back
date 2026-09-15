@@ -154,3 +154,20 @@
   - (블록 아님, 후속) 잘못된 percent-encoding 쿼리(`?cursor=%%%25`)는 Tomcat `InvalidParameterException` 이 `GlobalExceptionHandler` 까지 와서 **500 `INTERNAL_ERROR`**. T-006 무관(전 엔드포인트 공통, T-002 핸들러). 400 매핑은 백로그.
   - (후속 T-016) 참여자 입장 경로가 없어 참여자 케이스는 DB 직접 삽입으로 검증. (후속 T-017) 참여자 나가기 시 `mode=AI` 복귀 미구현(설계대로).
 - date: 2026-09-15
+
+### T-016 초대 코드 입장 + 재발급 (api)
+- verdict: PASS (사용자 지시로 개발자 대행 기록, 2026-09-15)
+- tests: 존재 / `./gradlew test --rerun` 145 passed, 0 failed (신규 17: `ChatRoomServiceTest` Preview 3·Join 8·Regenerate 2, `ChatRoomControllerIntegrationTest` JoinByCode 2·Regenerate 1, `ChatRoomJoinConcurrencyTest` 1) / 에이전트 실행(로컬 compose MySQL).
+- checked:
+  - acceptance 커버리지: 미리보기 필드 4개, 입장 → PARTICIPANT Room(초대코드 null), 404/409 FULL/410/400 SELF/409 LIMIT(입장자 50개), 재입장 `left_at=NULL`+`joined_at` 갱신·행 1개, 이미 멤버 200, 재발급 개설자만·참여자 403·비멤버 404·구 코드 즉시 404.
+  - 동시 입장: 스레드 2개 동시 → 1명 성공·1명 `ROOM_FULL`·활성 멤버 2. **`FOR UPDATE` 를 빼면 3/3 실패** 확인 — 잠금이 실제로 정원을 지킨다.
+  - API.md 계약 일치: 판정 순서 404→410→400 SELF→이미 멤버 200→409 FULL→409 LIMIT(API.md 에 명시됨), 응답 JSON 필드명, `inviteUrl` = `APP_BASE_URL/join/{code}`.
+  - **실서버 수동(bootRun + HS256 직접 서명 쿠키, DB 직접 삽입 유저 3명, 22 스텝)**: 미인증 401 / 미리보기 200 `{roomId,title,ownerNickname,memberCount:1}` / 잘못된 코드 404 / 본인 입장 400 `SELF_INVITE` / 손님 입장 200 `PARTICIPANT` `inviteCode:null` members 2 / 재입장 200 중복 없음 /
+    3번째 미리보기·입장 409 `ROOM_FULL` / 손님 나가기 204 → DB `left_at` 세팅 → 재입장 200 → DB 행 1개·`left_at NULL`·`joined_at` 갱신 / 재발급 참여자 403·비멤버 404·개설자 200 새 8자 / 구 코드 404·새 코드 미리보기 정상·`GET /rooms/{id}` 새 코드 반영 /
+    개설자 나가기 204 → 미리보기·입장(개설자 본인 포함) 410 `ROOM_ORPHANED`. 검증 후 QA 데이터 삭제.
+  - 소문자 코드 입력은 DB collation(ci) 으로 200 매칭 — API.md 에 명시됨.
+  - 보안: 서버 로그에 토큰·초대 코드 없음 ✓(grep 0건). WARN 은 전부 4xx `BusinessException` 해석 로그. 시크릿 없음 ✓.
+- issues:
+  - (블록 아님, QA 절차) `docker exec mysql` 로 한글 닉네임 삽입 시 `--default-character-set=utf8mb4` 없으면 이중 인코딩 → `ownerNickname` 깨져 보임. api 무관(HEX 로 확인). 수동 검증 시 플래그 필수.
+  - (블록 아님, 후속 T-017) 참여자 나가기 시 `mode=AI` 복귀 미구현(설계대로). (후속 T-018) web 입장 화면.
+- date: 2026-09-15
