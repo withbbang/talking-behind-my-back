@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.chat.message.DailyUsageMapper">
+
+  <resultMap id="usageMap" type="com.example.chat.message.DailyUsage">
+    <id     property="id"               column="id"/>
+    <result property="userId"           column="user_id"/>
+    <result property="usageDate"        column="usage_date"/>
+    <result property="messageCount"     column="message_count"/>
+    <result property="promptTokens"     column="prompt_tokens"/>
+    <result property="completionTokens" column="completion_tokens"/>
+    <result property="sttSeconds"       column="stt_seconds"/>
+    <result property="ttsChars"         column="tts_chars"/>
+  </resultMap>
+
+  <sql id="columns">
+    id, user_id, usage_date, message_count, prompt_tokens, completion_tokens, stt_seconds, tts_chars
+  </sql>
+
+  <insert id="addMessage">
+    INSERT INTO daily_usage (user_id, usage_date, message_count)
+    VALUES (#{userId}, #{date}, 1)
+    ON DUPLICATE KEY UPDATE message_count = message_count + 1
+  </insert>
+
+  <insert id="addTokens">
+    INSERT INTO daily_usage (user_id, usage_date, prompt_tokens, completion_tokens)
+    VALUES (#{userId}, #{date}, #{promptTokens}, #{completionTokens})
+    ON DUPLICATE KEY UPDATE
+      prompt_tokens = prompt_tokens + VALUES(prompt_tokens),
+      completion_tokens = completion_tokens + VALUES(completion_tokens)
+  </insert>
+
+  <select id="find" resultMap="usageMap">
+    SELECT <include refid="columns"/>
+    FROM daily_usage
+    WHERE user_id = #{userId} AND usage_date = #{date}
+  </select>
+
+</mapper>

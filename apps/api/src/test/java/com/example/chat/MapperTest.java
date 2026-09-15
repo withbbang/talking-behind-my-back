@@ -10,10 +10,13 @@ import com.example.chat.chatroom.RoomMember;
 import com.example.chat.chatroom.RoomMemberMapper;
 import com.example.chat.chatroom.RoomMode;
 import com.example.chat.chatroom.RoomStatus;
+import com.example.chat.message.DailyUsage;
+import com.example.chat.message.DailyUsageMapper;
 import com.example.chat.message.Message;
 import com.example.chat.message.MessageMapper;
 import com.example.chat.user.User;
 import com.example.chat.user.UserMapper;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +39,7 @@ class MapperTest {
 	@Autowired ChatRoomMapper roomMapper;
 	@Autowired RoomMemberMapper memberMapper;
 	@Autowired MessageMapper messageMapper;
+	@Autowired DailyUsageMapper usageMapper;
 
 	private User newUser(String nickname) {
 		User u = User.builder().nickname(nickname).build();
@@ -297,6 +301,38 @@ class MapperTest {
 			// LLM 컨텍스트: 최근 N개 (DESC)
 			assertThat(messageMapper.findRecentByRoomId(r.getId(), 2))
 				.extracting(Message::getId).containsExactly(m3.getId(), m2.getId());
+		}
+	}
+
+	@Nested
+	@DisplayName("DailyUsageMapper")
+	class Usage {
+
+		@Test
+		void 같은_날_upsert_로_누적되고_다른_날은_별도_행() {
+			User me = newUser("me");
+			LocalDate d1 = LocalDate.of(2026, 9, 16);
+			LocalDate d2 = d1.plusDays(1);
+
+			assertThat(usageMapper.find(me.getId(), d1)).isEmpty();
+
+			usageMapper.addMessage(me.getId(), d1);
+			usageMapper.addMessage(me.getId(), d1);
+			usageMapper.addTokens(me.getId(), d1, 320, 18);
+			usageMapper.addTokens(me.getId(), d1, 10, 2);
+			usageMapper.addTokens(me.getId(), d2, 5, 1);
+
+			DailyUsage u1 = usageMapper.find(me.getId(), d1).orElseThrow();
+			assertThat(u1.getMessageCount()).isEqualTo(2);
+			assertThat(u1.getPromptTokens()).isEqualTo(330);
+			assertThat(u1.getCompletionTokens()).isEqualTo(20);
+			assertThat(u1.getSttSeconds()).isZero();
+			assertThat(u1.getTtsChars()).isZero();
+
+			DailyUsage u2 = usageMapper.find(me.getId(), d2).orElseThrow();
+			assertThat(u2.getMessageCount()).isZero();
+			assertThat(u2.getPromptTokens()).isEqualTo(5);
+			assertThat(u2.getUsageDate()).isEqualTo(d2);
 		}
 	}
 

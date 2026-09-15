@@ -138,6 +138,19 @@
 - impact: `message/{RoomEventBus, RoomAiExecutor, MessageService}`, `llm/OmniRouteClient`, API.md#messages, CONVENTIONS.md SSE 규칙. → T-007
 - date: 2026-09-16 (개발자 대행 기록, 사용자 결정)
 
+### D-019 T-007 SSE/큐 세부 확정 — 이벤트 형식·하트비트·라벨·가중 문구·풀 크기
+- decision:
+  - 이벤트 payload: `message`={Message} / `delta`={replyTo,text} / `done`={message,replyTo,promptTokens,completionTokens} / `error`={replyTo,code,message} / `mode`={mode} / `member`={action,userId,nickname,role,roomStatus}. `replyTo` = 트리거 USER 메시지 id(동시 잡 델타 구분).
+  - 하트비트: 서버가 20초마다 SSE 주석 `: ping`(`@Scheduled`), `SseEmitter` 타임아웃 무제한. nginx `proxy_read_timeout 300s` 우회, EventSource 재연결 공백 유실 방지.
+  - 컨텍스트 라벨 닉네임은 나간 멤버 포함(`RoomMemberMapper.findAllByRoomId`). 재입장 시 같은 사람이 두 라벨로 갈라지지 않게.
+  - 가중 지시 문구: "이 방에는 개설자 {닉}과 참여자 {닉}이 있다. 개설자의 요청과 취향 그리고 개설자 편향 적으로 80%, 참여자를 20% 비중으로 반영해 답한다. 각 메시지 앞 [이름] 은 발신자다."
+  - AI 스레드풀 core 2 / max 4 / queue 16(설정값). 초과 시 503 `AI_BUSY`.
+  - QA 백로그(`ExceptionHandlerExceptionResolver` WARN 이 본문 값 로그) 는 T-007 에 로거 레벨 `ERROR` 한 줄로 포함.
+  - 커밋 2개: (1) `OmniRouteClient` + `DailyUsageMapper`, (2) 이벤트 버스·큐·서비스·컨트롤러·문서.
+- rationale: D-018 확정 후 남은 구현 갈림길. 하트비트 없는 안(타임아웃 4분 + 재연결 의존)은 재연결 공백 중 `delta`/`done` 유실로 T-008 복잡도가 오른다.
+- impact: API.md#messages 확정, CONVENTIONS.md SSE 규칙, `application.yml` executor/logging, T-007.
+- date: 2026-09-16 (개발자 대행 기록, 사용자 결정)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

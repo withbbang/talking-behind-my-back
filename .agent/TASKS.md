@@ -240,10 +240,10 @@
 - qa: PASS (QA_REPORT.md 2026-09-16, 개발자 대행) — 실서버 14 스텝 수동 검증 포함.
 
 ## T-007 방 이벤트 SSE + 직렬 큐 + 4:1 컨텍스트 + OmniRoute 클라이언트 (api)
-- status: TODO
+- status: IN_PROGRESS
 - owner: 개발자
 - milestone: M2
-- spec: API.md#messages, D-006, D-018(D-008 보완: 방 단위 서버 잡 + 직렬 큐), D-017
+- spec: API.md#messages, D-006, D-018(D-008 보완: 방 단위 서버 잡 + 직렬 큐), D-017, D-019(세부)
 - blocked_by: T-019
 - acceptance:
   - `llm/OmniRouteClient` — `omniRouteWebClient`(WebClientConfig) 로 `/chat/completions` `stream=true`, MockWebServer 로 델타 파싱 테스트.
