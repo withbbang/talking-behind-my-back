@@ -35,6 +35,12 @@ public class RoomEventBus {
 		emitter.onCompletion(() -> remove(roomId, emitter));
 		emitter.onTimeout(() -> remove(roomId, emitter));
 		emitter.onError(e -> remove(roomId, emitter));
+		// 첫 바이트를 즉시 내보내 헤더가 바로 커밋되게 — 없으면 EventSource.onopen 이 첫 이벤트/하트비트까지 기다린다(QA 실서버).
+		try {
+			emitter.send(SseEmitter.event().comment("connected"));
+		} catch (IOException | RuntimeException e) {
+			remove(roomId, emitter);
+		}
 		return emitter;
 	}
 

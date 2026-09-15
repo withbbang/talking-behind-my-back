@@ -95,7 +95,7 @@
 - 결과: QA_REPORT.md#T-019 PASS (2026-09-16, 사용자 지시로 개발자 대행 기록)
 - date: 2026-09-16
 
-### [개발자 → QA] T-007 방 이벤트 SSE + 직렬 큐 + 컨텍스트 + OmniRoute 클라이언트 (api) 검증 요청
+### [개발자 → QA] T-007 방 이벤트 SSE + 직렬 큐 + 컨텍스트 + OmniRoute 클라이언트 (api) 검증 요청 [처리됨 2026-09-16]
 - 요청/이슈: `cd infra && docker compose -f docker-compose.dev.yml up -d mysql` 후 `cd apps/api && ./gradlew test` 통과 확인(215 케이스, T-007 신규 42).
   수동(선택, OmniRoute 기동 필요): 터미널 A `curl -N -b access=<jwt> localhost:8080/api/rooms/{id}/events` → 터미널 B `curl -b access=<jwt> -H 'Content-Type: application/json' -d '{"content":"안녕"}' localhost:8080/api/rooms/{id}/messages` → A 에 `message` → `delta`… → `done` 순서, 20초 간격 `: ping`. nginx(:3000) 경유도 동일하게 버퍼링 없이 도착하는지.
 - 근거 파일: DECISIONS.md#D-018/#D-019, API.md#messages(확정)·#공통(503), CONVENTIONS.md#백엔드(SSE 규칙),
@@ -113,4 +113,5 @@
   (7) 하트비트: mock 구독자 전원에 `:ping`; 끊긴 emitter 는 send 실패/완료/타임아웃 시 제거.
   (8) 로그: `ExceptionHandlerExceptionResolver` WARN 억제(잘못된 enum 값 미노출), 시크릿·본문 로그 없음.
 - 범위 외: web(T-008/T-018), STT/TTS(T-009), admin stats(daily_usage 조회, T-011), 수평 확장(Redis).
+- 결과: QA_REPORT.md#T-007 PASS (2026-09-16, 사용자 지시로 개발자 대행 기록). 실서버 검증 중 발견 2건(시큐리티 ASYNC/ERROR 디스패치, `: connected`) 수정 후 217 통과.
 - date: 2026-09-16

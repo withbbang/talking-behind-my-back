@@ -203,3 +203,20 @@
   - (후속 T-007) `effectiveAiPrompt()` 컨텍스트 조립. (후속 T-008) 프롬프트 편집 UI. (후속 T-011) 어드민 persona 화면 제거 반영.
 - date: 2026-09-16
 
+### T-007 방 이벤트 SSE + 직렬 큐 + 4:1 컨텍스트 + OmniRoute 클라이언트 (api)
+- verdict: PASS (사용자 지시로 개발자 대행 기록, 2026-09-16) — 실서버 검증 중 결함 2건 발견 → 같은 태스크에서 수정·재검증 후 PASS
+- tests: 존재 / `./gradlew test` 217 passed, 0 failed (신규 44: `llm/OmniRouteClientTest` 6, `message/{AiContextBuilderTest 5, RoomEventBusTest 6, RoomAiExecutorTest 5, MessageServiceTest 12, MessageControllerIntegrationTest 10}`, `MapperTest` +3, `ChatRoomServiceTest.Events` 5) / 에이전트 실행(로컬 compose MySQL). 각 파일 RED(컴파일 실패·404·401) → GREEN 확인.
+- checked:
+  - acceptance 커버리지: OmniRouteClient(MockWebServer 델타·usage·[DONE]·비JSON 무시·5xx·타임아웃·연결 거부) / `GET events` 멤버만·SseEmitter·6종 이벤트 / POST 202 → USER 저장 → touch → `message` → HUMAN 종료 / 직렬 큐(같은 방 순차·다른 방 병렬·같은 유저 409·포화 503·start 거부 되돌림·예외 잡 비차단) / 컨텍스트(유효 프롬프트 + D-019 문구 + 라벨 + 나간 멤버 닉 + HUMAN 포함 + 최근 30 시간순) / 스트림 중 tx 없음(TransactionTemplate 2회 분리) / `daily_usage` 발신자 귀속 / `GET messages` 커서 / 자동 제목 / API.md 확정.
+  - API.md 계약 일치: 이벤트 6종 payload·`replyTo`, 판정 순서 400→401→404→410→409/503, 503 `AI_BUSY` 에러 표, Message JSON(ASSISTANT 는 senderUserId/inputType/mode null), CONVENTIONS SSE 규칙.
+  - **실서버 수동(bootRun + fake OmniRoute(SSE 3델타+usage, 1초 지연) + HS256 직접 서명 쿠키, DB 직접 삽입 유저 2명, 29 스텝 스크립트)**: 미인증 401 / 비멤버 events·messages 404 / `Content-Type: text/event-stream` / 입장 → `member JOINED`(닉 UTF-8 정상) / 공백·4,001자·`AUDIO` 400(값 미노출) / AI POST 202 → 0.3초 뒤 같은 유저 409 `ROOM_BUSY`, 참여자 202 /
+    개설자 수신 순서 `message,message,delta×3,done,delta×3,done`(USER 는 즉시, AI 는 직렬) / `replyTo` 매칭·`promptTokens 111`·ASSISTANT `안녕하세요!` / 참여자도 동일 수신 / 제목 30자 / fake 요청 body `stream:true`·`include_usage`·system 에 D-019 문구·`[개설자 QA철수]`/`[참여자 QA영희]` 라벨 /
+    DB messages 4행(ASSISTANT 2, model fake-gpt, prompt_tokens 합 222)·`daily_usage` 각 1건 111/7·`chat_rooms.message_count 4` / history size=3 → 커서 → 1건·next null / 잘못된 커서 400 / PATCH HUMAN → `mode` / HUMAN VOICE 전송 → `message` 만 / 참여자 나가기 → `member LEFT`,`mode AI` / 개설자 나가기 → `member LEFT roomStatus ORPHANED` / 20초 내 `: ping`. 검증 후 QA 데이터 삭제(잔여 0).
+  - **발견·수정 1 (결함)**: SSE 클라이언트 끊김 시 톰캣 ASYNC/ERROR 재디스패치가 시큐리티 체인을 다시 타고 `JwtAuthFilter`(async 건너뜀) 없이 익명 → `AuthorizationDeniedException` + "response already committed" ERROR 스택 2건/끊김. `SecurityConfig` 에 `dispatcherTypeMatchers(ASYNC, ERROR).permitAll()` 추가, RED(ERROR 디스패치 401) → GREEN(404) 테스트 `MessageControllerIntegrationTest.Events.ASYNC_ERROR_디스패치는_시큐리티가_막지_않는다`. 재실행 시 ERROR 0.
+  - **발견·수정 2 (UX)**: 구독 직후 헤더가 첫 이벤트/하트비트까지 커밋되지 않는 경우 있음(curl 1초 내 헤더 미수신 2/3회) → `EventSource.onopen` 지연. `RoomEventBus.subscribe` 가 `: connected` 주석을 즉시 보낸다(RED→GREEN `RoomEventBusTest`). 재실행 시 1초 내 헤더 수신.
+  - 보안: 서버 로그 토큰(`eyJ`) 0, 요청 본문 값(`AUDIO`/`연타`) 0, WARN 0(`ExceptionHandlerExceptionResolver` 억제 확인), 시크릿 없음 ✓.
+- issues:
+  - (블록 아님, 백로그) 동시 잡 시 컨텍스트 순서: 참여자가 AI 답변 중에 보낸 USER 메시지가 그 답변(ASSISTANT) 보다 먼저 저장되므로 두 번째 잡의 컨텍스트가 `[개설자] Q1, [참여자] Q2, A1` 순이 된다. id 순(실제 시간순)이라 사양 위반은 아니나 LLM 이 A1 을 Q2 의 답으로 오해할 수 있음. 필요 시 `messages.reply_to_message_id` 컬럼 추가 후 Q/A 쌍으로 정렬 — CEO 판단.
+  - (블록 아님, 환경) macOS 로컬에서 netty `MacOSDnsServerAddressStreamProvider` 미탑재 ERROR 1줄(첫 WebClient 호출). NAS(linux) 컨테이너에는 해당 없음. 거슬리면 `netty-resolver-dns-native-macos` 테스트 의존성.
+  - (후속 T-008) `lib/sse.ts`: `replyTo` 로 델타 매칭, `: connected`/`: ping` 무시, 재연결 시 `GET messages` 보충. (후속 T-011) admin stats 는 `daily_usage` 조회.
+- date: 2026-09-16

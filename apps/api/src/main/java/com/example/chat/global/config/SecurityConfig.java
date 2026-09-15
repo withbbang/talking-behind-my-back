@@ -13,6 +13,7 @@ import com.example.chat.auth.oauth2.SocialOAuth2UserService;
 import com.example.chat.global.error.ErrorCode;
 import com.example.chat.global.error.ErrorResponse;
 import com.example.chat.user.UserMapper;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -75,6 +76,9 @@ public class SecurityConfig {
 				.failureHandler(failureHandler))
 			.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
 			.authorizeHttpRequests(auth -> auth
+				// SSE 클라이언트 끊김 등 ASYNC/ERROR 재디스패치는 REQUEST 단계에서 이미 인가됐다. 익명으로 다시 판정하면
+				// "response already committed" ERROR 로그만 남긴다(T-007 QA). 시큐리티는 REQUEST 디스패치에서만.
+				.dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
 				// 경로는 context-path(/api) 이후 기준
 				.requestMatchers("/actuator/health").permitAll()
 				.requestMatchers("/oauth2/**", "/login/**").permitAll()

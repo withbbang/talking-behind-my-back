@@ -195,5 +195,19 @@ class MessageControllerIntegrationTest {
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
 		}
+
+		/**
+		 * SSE 클라이언트가 끊기면 톰캣이 ASYNC/ERROR 디스패치로 필터 체인을 다시 태운다. JwtAuthFilter 는 async 디스패치를
+		 * 건너뛰므로 익명 → 시큐리티가 401 을 쓰려다 "response already committed" ERROR 를 남겼다(T-007 QA 실서버).
+		 * 시큐리티는 REQUEST 디스패치에서만 판정해야 한다 — ERROR 디스패치는 401 이 아니라 원래 처리(여기선 404)로 간다.
+		 */
+		@Test
+		void ASYNC_ERROR_디스패치는_시큐리티가_막지_않는다() throws Exception {
+			mvc.perform(get("/nope").with(req -> { req.setDispatcherType(jakarta.servlet.DispatcherType.ERROR); return req; }))
+				.andExpect(status().isNotFound());
+			mvc.perform(get("/nope").with(req -> { req.setDispatcherType(jakarta.servlet.DispatcherType.ASYNC); return req; }))
+				.andExpect(status().isNotFound());
+			mvc.perform(get("/nope")).andExpect(status().isUnauthorized());   // 일반 REQUEST 는 여전히 401
+		}
 	}
 }

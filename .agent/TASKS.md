@@ -36,6 +36,8 @@
   기본값을 채운다. 빠지면 기동 시 `redirectUri cannot be empty`. registration `client-id` 가 빈 문자열이어도 죽는다 → 로컬 기본값은 placeholder.
 - **`Filter` 타입 @Bean 은 Boot 가 서블릿 필터로도 자동 등록한다.** 시큐리티 체인 전용 필터는 `FilterRegistrationBean.setEnabled(false)` 로 막을 것(T-004 `JwtAuthFilter`).
 - **nginx `proxy_set_header` 는 location 에 하나라도 있으면 server 레벨을 전부 무시한다.** 공통 헤더는 location 마다 반복(T-015).
+- **SSE(SseEmitter) + Spring Security 는 `dispatcherTypeMatchers(ASYNC, ERROR).permitAll()` 필수.** 클라이언트가 끊기면 톰캣이 ASYNC/ERROR 로 재디스패치하는데
+  `OncePerRequestFilter` 인증 필터는 그걸 건너뛰어 익명 → 끊길 때마다 "response already committed" ERROR 스택(T-007 QA). 구독 직후 `: connected` 주석으로 헤더를 바로 커밋할 것.
 - **Spring Security 7 OAuth2 클래스는 Homepage/Admin 에 참고코드가 없다.** `javap -cp <jar>` 로 시그니처 확인 후 사용.
   `InvalidClientRegistrationIdException` 은 package-private(IllegalArgumentException 하위).
 
@@ -240,7 +242,7 @@
 - qa: PASS (QA_REPORT.md 2026-09-16, 개발자 대행) — 실서버 14 스텝 수동 검증 포함.
 
 ## T-007 방 이벤트 SSE + 직렬 큐 + 4:1 컨텍스트 + OmniRoute 클라이언트 (api)
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M2
 - spec: API.md#messages, D-006, D-018(D-008 보완: 방 단위 서버 잡 + 직렬 큐), D-017, D-019(세부)
@@ -255,7 +257,8 @@
   - `GET /rooms/{id}/messages?cursor&size`(API.md#messages) 컨트롤러 포함 — 매퍼 `findByRoomId` 재사용, `id` 커서.
   - 제목 자동: 방 `title == "새 대화"` 이고 첫 USER 메시지면 앞 30자(`ChatRoom.autoTitle`).
   - 이 태스크에서 SSE/큐 형식 확정 후 API.md#messages 초안 → 확정.
-- test: 42 케이스 신규 — `llm/OmniRouteClientTest` 6(MockWebServer), `message/{AiContextBuilderTest 5, RoomEventBusTest 5, RoomAiExecutorTest 5, MessageServiceTest 12, MessageControllerIntegrationTest 9}`, `MapperTest` +3(Usage 1, AllMembers 1, findById), `ChatRoomServiceTest.Events` 5. 전체 215 통과(2026-09-16 로컬).
+- test: 44 케이스 신규 — `llm/OmniRouteClientTest` 6(MockWebServer), `message/{AiContextBuilderTest 5, RoomEventBusTest 6, RoomAiExecutorTest 5, MessageServiceTest 12, MessageControllerIntegrationTest 10}`, `MapperTest` +3(Usage 1, AllMembers 1, findById), `ChatRoomServiceTest.Events` 5. 전체 217 통과(2026-09-16 로컬).
+- qa: PASS (QA_REPORT.md 2026-09-16, 개발자 대행) — 실서버 29 스텝(fake OmniRoute) 수동 검증. QA 중 발견 2건(ASYNC/ERROR 디스패치 401 ERROR 로그, 구독 직후 헤더 미커밋) 같은 태스크에서 수정.
 - note: 구현 메모 — 큐는 `RoomAiExecutor.reserve()`(409/503 판정) → tx 저장 → `Ticket.start()` 순서. 저장 뒤 409 를 내면 중복 저장이 남아서 예약을 먼저 한다.
   `mode`/`member` 이벤트는 `ChatRoomService` 가 트랜잭션 안에서 바로 발행(afterCommit 훅은 테스트 롤백 트랜잭션에서 안 돈다).
   `RoomEventBus.subscribe(roomId, emitter)` 공개 오버로드는 테스트 mock 주입용. `daily_usage` 매퍼는 `message` 패키지(admin/speech 도 여기 것을 쓴다).

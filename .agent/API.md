@@ -136,6 +136,7 @@ data: {"mode":"HUMAN"}
 event: member                       # 입장·나가기. roomStatus 는 이벤트 시점 방 상태(개설자 나가기 → ORPHANED)
 data: {"action":"JOINED","userId":8,"nickname":"영희","role":"PARTICIPANT","roomStatus":"ACTIVE"}
 
+: connected                         # 구독 직후 1회 (헤더 즉시 커밋용, EventSource 는 무시)
 : ping                              # 20초 하트비트 (EventSource 는 무시)
 ```
 - 구독자가 0명이어도 잡은 완주·저장한다(D-018). 재연결 시 놓친 이벤트는 `GET /rooms/{id}/messages` 로 보충(프론트 T-008).

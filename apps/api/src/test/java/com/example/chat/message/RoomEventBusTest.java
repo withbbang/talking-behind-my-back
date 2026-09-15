@@ -29,6 +29,14 @@ class RoomEventBusTest {
 	}
 
 	@Test
+	void 구독_직후_connected_주석으로_헤더를_바로_흘린다() {
+		EventRecorder a = new EventRecorder();
+		bus.subscribe(1L, a.emitter);
+		assertThat(a.comments).containsExactly(":connected");
+		assertThat(a.events).isEmpty();
+	}
+
+	@Test
 	void 구독자_0명인_방에_publish_해도_예외_없음() {
 		bus.publish(99L, "delta", Map.of("text", "x"));
 		assertThat(bus.subscriberCount(99L)).isZero();
@@ -74,8 +82,8 @@ class RoomEventBusTest {
 
 		bus.heartbeat();
 
-		assertThat(a.comments).containsExactly(":ping");
-		assertThat(b.comments).containsExactly(":ping");
+		assertThat(a.comments).containsExactly(":connected", ":ping");
+		assertThat(b.comments).containsExactly(":connected", ":ping");
 		assertThat(a.events).isEmpty();
 	}
 }
