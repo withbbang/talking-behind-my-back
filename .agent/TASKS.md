@@ -201,7 +201,7 @@
 - qa: PASS (QA_REPORT.md 2026-09-15, 개발자 대행) — 실서버 curl 22 스텝 수동 검증 포함.
 
 ## T-017 나가기 분기 + 모드 토글 + AI 성격 (api)
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M2
 - spec: API.md#rooms
@@ -219,6 +219,7 @@
   `GlobalExceptionHandler.handleUnreadable` — 메시지에 본문 값(예: `FOO`) 을 넣지 않는다. 잠금 경합 자체는 별도 동시성 테스트 없음(T-016 과 같은 행 잠금, 판정 경로는 단위 테스트가 덮음).
 - test: 16 케이스 신규 — `AiPersonalityTest` 2, `ChatRoomServiceTest` Update 7(UpdateTitle 1 대체)·Leave 2, `ChatRoomControllerIntegrationTest` PATCH 4·DELETE 1,
   `GlobalExceptionHandlerTest` 1. 전체 161 통과(2026-09-15 로컬).
+- qa: PASS (QA_REPORT.md 2026-09-15, 개발자 대행) — 실서버 19 스텝 수동 검증 포함. 백로그: Spring 예외 리졸버 WARN 에 잘못된 enum 값 노출(프레임워크 로그).
 
 ## T-007 방 이벤트 SSE + 직렬 큐 + 4:1 컨텍스트 + OmniRoute 클라이언트 (api)
 - status: TODO

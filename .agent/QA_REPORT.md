@@ -171,3 +171,19 @@
   - (블록 아님, QA 절차) `docker exec mysql` 로 한글 닉네임 삽입 시 `--default-character-set=utf8mb4` 없으면 이중 인코딩 → `ownerNickname` 깨져 보임. api 무관(HEX 로 확인). 수동 검증 시 플래그 필수.
   - (블록 아님, 후속 T-017) 참여자 나가기 시 `mode=AI` 복귀 미구현(설계대로). (후속 T-018) web 입장 화면.
 - date: 2026-09-15
+
+### T-017 나가기 분기 + 모드 토글 + AI 성격 (api)
+- verdict: PASS (사용자 지시로 개발자 대행 기록, 2026-09-15)
+- tests: 존재 / `./gradlew test --rerun` 161 passed, 0 failed (신규 16: `AiPersonalityTest` 2, `ChatRoomServiceTest` Update 7·Leave 2, `ChatRoomControllerIntegrationTest` PATCH 4·DELETE 1, `GlobalExceptionHandlerTest` 1) / 에이전트 실행(로컬 compose MySQL). RED(컴파일 실패) → GREEN 확인.
+- checked:
+  - acceptance 커버리지: 참여자 DELETE → `left_at` + `mode=AI` 복귀 / ORPHANED 방 참여자 DELETE = 멤버십 종료·방 행 유지 / `PATCH mode` 멤버 누구나, 혼자 HUMAN 400 `MODE_NOT_ALLOWED` / `PATCH aiPersonality` 개설자만·참여자 403, 기본 RATIONAL / `AiPersonality.systemPrompt()` 두 값 non-blank·상이.
+  - API.md 계약 일치: 판정 순서 404 → 400 검증 → 410 ORPHANED → 403 → 400 MODE(API.md T-017 확정 문단), 빈 body `{}` 400, 잘못된 enum·깨진 JSON 400 `VALIDATION_FAILED`, 전부-아니면-전무.
+  - **실서버 수동(bootRun + HS256 직접 서명 쿠키, DB 직접 삽입 유저 2명, 19 스텝 스크립트)**: 생성 201 `AI/RATIONAL` / 혼자 HUMAN 400 / `{}` 400 / `mode=FOO` 400 + 응답 메시지에 `FOO` 없음 / 깨진 JSON 400 / 공백 title 400 `details.title` /
+    개설자 aiPersonality 200 / 손님 입장 → 참여자 aiPersonality 403 / 참여자 `{title,mode}` 복합 403 후 DB `mode=AI`·title 불변 / 참여자 mode HUMAN 200 / 개설자 3필드 복합 200 /
+    HUMAN 상태에서 손님 나가기 204 → 개설자 GET `mode=AI`·memberCount 1 / 재입장 200 / 개설자 나가기 204 → 손님 PATCH 410 `ROOM_ORPHANED` / 손님 나가기 204 → GET 404·DB status ORPHANED 행 유지 / 나간 뒤 PATCH 404. 검증 후 QA 데이터 삭제(잔여 0).
+  - 잠금: `update`·`leave` 모두 `findByIdForUpdate` 로 방 행을 잠근 뒤 멤버 수 판정 — T-016 과 같은 패턴. 별도 동시성 테스트는 없음(개발자 note 명시).
+  - 보안: 서버 로그에 토큰·쿠키 없음 ✓, ERROR·스택트레이스 0 ✓, 시크릿 없음 ✓. 잘못된 enum 500 → 400 으로 개선 확인(이전 T-006 백로그 "잘못된 percent-encoding 쿼리 500" 과는 별개).
+- issues:
+  - (블록 아님, 백로그) Spring `ExceptionHandlerExceptionResolver` 의 WARN 이 Jackson 메시지를 그대로 남겨 잘못된 enum 값(예: `"FOO"`)이 로그에 찍힌다. 우리 핸들러 응답·로그는 깨끗함. 필요 시 해당 로거 레벨 조정 또는 `warnLogCategory` 비활성화 — CONVENTIONS "본문 로그 금지" 관점에서 T-007 착수 전 CEO 판단.
+  - (후속 T-007) `mode` 변경·멤버 이탈 SSE 브로드캐스트. (후속 T-008/T-018) web 토글·나가기 UI.
+- date: 2026-09-15

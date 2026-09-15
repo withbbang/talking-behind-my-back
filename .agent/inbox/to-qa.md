@@ -66,7 +66,7 @@
 - 결과: QA_REPORT.md#T-016 PASS (2026-09-15, 사용자 지시로 개발자 대행 기록)
 - date: 2026-09-15
 
-### [개발자 → QA] T-017 나가기 분기 + 모드 토글 + AI 성격 (api) 검증 요청
+### [개발자 → QA] T-017 나가기 분기 + 모드 토글 + AI 성격 (api) 검증 요청 [처리됨 2026-09-15]
 - 요청/이슈: `cd infra && docker compose -f docker-compose.dev.yml up -d mysql` 후 `cd apps/api && ./gradlew test` 통과 확인(161 케이스, T-017 신규 16).
   수동(선택): 사용자 2명 쿠키로 `POST /api/rooms` → 손님 `POST /api/rooms/join/{code}` → `PATCH /api/rooms/{id}` `{"mode":"HUMAN"}` 200 → 손님 `DELETE` 204 → 주인 `GET` 에서 `mode` `AI`.
 - 근거 파일: API.md#rooms(T-017 확정 문단 + 변경 이력), TASKS.md#T-017 note, `apps/api/src/main/java/com/example/chat/chatroom/{AiPersonality,RoomUpdate,ChatRoomService}.java`,
@@ -78,4 +78,5 @@
   (4) `"mode":"FOO"` / 깨진 JSON → 400 `VALIDATION_FAILED`, 메시지에 본문 값 미노출(이전엔 500).
   (5) `AiPersonality.systemPrompt()` 두 값 비어 있지 않고 서로 다름 — 문구는 초안, T-007 컨텍스트에서 사용.
 - 범위 외: `mode`/`member` SSE 브로드캐스트(T-007), web 화면(T-008/T-018).
+- 결과: QA_REPORT.md#T-017 PASS (2026-09-15, 사용자 지시로 개발자 대행 기록)
 - date: 2026-09-15
