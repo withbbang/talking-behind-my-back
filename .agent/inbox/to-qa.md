@@ -35,3 +35,19 @@
   표시명 "뒷담 친구" + 핑크 테마 적용됨 — 라이트/다크 대비 확인 포함.
 - 결과: QA_REPORT.md#T-005 PASS (2026-09-15, 사용자 지시로 개발자 대행 기록)
 - date: 2026-09-14
+
+### [개발자 → QA] T-006 채팅방 CRUD + 멤버십 스키마 + 키셋 커서 (api) 검증 요청 [처리됨 2026-09-15]
+- 요청/이슈: `cd infra && docker compose -f docker-compose.dev.yml up -d mysql` 후 `cd apps/api && ./gradlew test` 통과 확인(128 케이스, T-006 신규 40).
+  Flyway V2 가 로컬 DB 에 적용된다(되돌리려면 volume 삭제).
+- 근거 파일: TASKS.md#T-006, API.md#rooms(2026-09-15 구현 이력), SCHEMA.md #4 #4-1 #5, `apps/api/src/main/resources/db/migration/V2__rooms_members.sql`,
+  `apps/api/src/main/java/com/example/chat/chatroom/*`, `global/{AppProperties,CursorCodec,CursorPage}`
+- 확인 포인트:
+  (1) 테스트 존재: `CursorCodecTest` 5, `InviteCodeTest` 3, `ChatRoomServiceTest` 15, `ChatRoomControllerIntegrationTest` 13, `MapperTest` Rooms 6·Members 3·Messages 1.
+  (2) 수동(curl, 로그인 쿠키 필요 — 브라우저 로그인 후 DevTools 쿠키 복사): `POST /api/rooms` 201 에 `inviteCode` 8자·`inviteUrl` `http://localhost:3000/join/{code}`, 시간 `...Z`.
+      `GET /api/rooms?size=2` → `nextCursor` 로 끝까지 순회 시 중복 없음. `PATCH` 공백 title 400 `details.title`. `DELETE` 204 후 `GET` 404.
+  (3) 다른 계정으로 `GET /api/rooms/{id}` → 404 `ROOM_NOT_FOUND`(403 아님, API.md 통일 규칙).
+  (4) V2 백필: 로컬 DB 에 V1 방이 있었다면 `chat_rooms.invite_code` 채워짐·`room_members` OWNER 행 있음·`deleted_at` 컬럼 없음. (개발자는 스크래치 DB 에서 V1→V2 왕복 확인함)
+  (5) 참여자 경로(입장 API 없음 — T-016)는 통합 테스트로만 커버: 참여자 `PATCH title` 403, `inviteCode` null, ORPHANED 방 200.
+- 범위 외: 초대 입장/재발급(T-016), 참여자 나가기 시 mode 복귀·mode/aiPersonality PATCH(T-017).
+- 결과: QA_REPORT.md#T-006 PASS (2026-09-15, 사용자 지시로 개발자 대행 기록)
+- date: 2026-09-15

@@ -5,9 +5,11 @@
   <resultMap id="messageMap" type="com.example.chat.message.Message">
     <id     property="id"               column="id"/>
     <result property="roomId"           column="room_id"/>
+    <result property="senderUserId"     column="sender_user_id"/>
     <result property="role"             column="role"/>
     <result property="content"          column="content"/>
     <result property="inputType"        column="input_type"/>
+    <result property="mode"             column="mode"/>
     <result property="model"            column="model"/>
     <result property="promptTokens"     column="prompt_tokens"/>
     <result property="completionTokens" column="completion_tokens"/>
@@ -15,12 +17,12 @@
   </resultMap>
 
   <sql id="columns">
-    id, room_id, role, content, input_type, model, prompt_tokens, completion_tokens, created_at
+    id, room_id, sender_user_id, role, content, input_type, mode, model, prompt_tokens, completion_tokens, created_at
   </sql>
 
   <insert id="insert" parameterType="com.example.chat.message.Message" useGeneratedKeys="true" keyProperty="id">
-    INSERT INTO messages (room_id, role, content, input_type, model, prompt_tokens, completion_tokens)
-    VALUES (#{roomId}, #{role}, #{content}, #{inputType}, #{model}, #{promptTokens}, #{completionTokens})
+    INSERT INTO messages (room_id, sender_user_id, role, content, input_type, mode, model, prompt_tokens, completion_tokens)
+    VALUES (#{roomId}, #{senderUserId}, #{role}, #{content}, #{inputType}, #{mode}, #{model}, #{promptTokens}, #{completionTokens})
   </insert>
 
   <select id="findByRoomId" resultMap="messageMap">

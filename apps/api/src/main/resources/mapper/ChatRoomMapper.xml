@@ -4,56 +4,74 @@
 
   <resultMap id="roomMap" type="com.example.chat.chatroom.ChatRoom">
     <id     property="id"            column="id"/>
-    <result property="userId"        column="user_id"/>
+    <result property="ownerId"       column="owner_id"/>
     <result property="title"         column="title"/>
+    <result property="inviteCode"    column="invite_code"/>
+    <result property="aiPersonality" column="ai_personality"/>
+    <result property="mode"          column="mode"/>
+    <result property="status"        column="status"/>
     <result property="messageCount"  column="message_count"/>
     <result property="lastMessageAt" column="last_message_at"/>
     <result property="createdAt"     column="created_at"/>
     <result property="updatedAt"     column="updated_at"/>
-    <result property="deletedAt"     column="deleted_at"/>
+    <result property="memberCount"   column="member_count"/>
   </resultMap>
 
+  <!-- 모든 select 는 chat_rooms r 별칭을 전제로 한다 -->
   <sql id="columns">
-    id, user_id, title, message_count, last_message_at, created_at, updated_at, deleted_at
+    r.id, r.owner_id, r.title, r.invite_code, r.ai_personality, r.mode, r.status,
+    r.message_count, r.last_message_at, r.created_at, r.updated_at,
+    (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id AND m.left_at IS NULL) AS member_count
   </sql>
 
   <insert id="insert" parameterType="com.example.chat.chatroom.ChatRoom" useGeneratedKeys="true" keyProperty="id">
-    INSERT INTO chat_rooms (user_id, title)
-    VALUES (#{userId}, #{title})
+    INSERT INTO chat_rooms (owner_id, title, invite_code, ai_personality, mode, status, last_message_at, created_at)
+    VALUES (#{ownerId}, #{title}, #{inviteCode}, #{aiPersonality}, #{mode}, #{status}, NOW(3), NOW(3))
   </insert>
 
-  <select id="findByIdAndUserId" resultMap="roomMap">
+  <select id="findById" resultMap="roomMap">
     SELECT <include refid="columns"/>
-    FROM chat_rooms
-    WHERE id = #{id} AND user_id = #{userId} AND deleted_at IS NULL
+    FROM chat_rooms r
+    WHERE r.id = #{id}
   </select>
 
-  <select id="findByUserId" resultMap="roomMap">
+  <select id="findByIdForMember" resultMap="roomMap">
     SELECT <include refid="columns"/>
-    FROM chat_rooms
+    FROM chat_rooms r
+    JOIN room_members me ON me.room_id = r.id AND me.user_id = #{userId} AND me.left_at IS NULL
+    WHERE r.id = #{id}
+  </select>
+
+  <select id="findListByMember" resultMap="roomMap">
+    SELECT <include refid="columns"/>
+    FROM chat_rooms r
+    JOIN room_members me ON me.room_id = r.id AND me.user_id = #{userId} AND me.left_at IS NULL
     <where>
-      user_id = #{userId} AND deleted_at IS NULL
-      <if test="cursorId != null">AND id &lt; #{cursorId}</if>
+      <if test="cursorAt != null and cursorId != null">
+        (r.last_message_at &lt; #{cursorAt} OR (r.last_message_at = #{cursorAt} AND r.id &lt; #{cursorId}))
+      </if>
     </where>
-    ORDER BY last_message_at DESC, id DESC
+    ORDER BY r.last_message_at DESC, r.id DESC
     LIMIT #{size}
   </select>
 
   <update id="updateTitle">
-    UPDATE chat_rooms SET title = #{title}
-    WHERE id = #{id} AND user_id = #{userId} AND deleted_at IS NULL
+    UPDATE chat_rooms SET title = #{title} WHERE id = #{id}
+  </update>
+
+  <update id="updateStatus">
+    UPDATE chat_rooms SET status = #{status} WHERE id = #{id}
   </update>
 
   <update id="touchOnNewMessage">
     UPDATE chat_rooms
     SET message_count = message_count + 1,
-        last_message_at = CURRENT_TIMESTAMP(3)
-    WHERE id = #{id} AND deleted_at IS NULL
+        last_message_at = NOW(3)
+    WHERE id = #{id}
   </update>
 
-  <update id="softDelete">
-    UPDATE chat_rooms SET deleted_at = CURRENT_TIMESTAMP(3)
-    WHERE id = #{id} AND user_id = #{userId} AND deleted_at IS NULL
+  <update id="setLastMessageAt">
+    UPDATE chat_rooms SET last_message_at = #{at} WHERE id = #{id}
   </update>
 
 </mapper>

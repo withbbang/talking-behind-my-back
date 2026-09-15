@@ -152,7 +152,7 @@
 > 결정 사항은 `inbox/to-ceo.md` D-017~ 초안 참조. 계약: API.md#rooms, SCHEMA.md #4/#4-1/#5. CONTEXT.md/PLAN.md 갱신은 기획자.
 
 ## T-006 채팅방 기본 CRUD + 멤버십 스키마 + 키셋 커서 (api)
-- status: TODO
+- status: DONE
 - owner: 개발자
 - milestone: M2
 - spec: API.md#rooms, SCHEMA.md#4 #4-1 #5, D-010 폐기(to-ceo)
@@ -169,6 +169,14 @@
   - 응답 시간은 UTC `Z`(`app.time-zone` 기본 `Asia/Seoul` 기준 `LocalDateTime → Instant`). Jackson `Instant` ISO 직렬화 확인(tools.jackson).
   - 테스트: `CursorCodecTest`, `InviteCodeTest`, `ChatRoomServiceTest`(단위), `ChatRoomControllerIntegrationTest`(MockMvc + 실제 SecurityConfig: 401/404/409/400, 페이지 경계 중복 없음), `MapperTest.Rooms` 재작성.
 - note: 초대 입장(T-016), 나가기 분기·mode·aiPersonality(T-017), 이벤트/큐/컨텍스트(T-007), web(T-008, T-018) 으로 분리.
+  착수 2026-09-15. 확정 — (1) V2 백필: `invite_code` 는 SQL 로 id→base32 8자(운영 데이터 없음, 재발급은 T-016), `deleted_at` 행은 ORPHANED + OWNER `left_at` 이관 후 컬럼 DROP,
+  기존 USER 메시지 `sender_user_id = owner_id`, `mode='AI'`. (2) **PATCH title 은 OWNER 만**(참여자 403) → API.md 갱신. (3) API.md 에 있는 rooms 에러 코드 전부 `ErrorCode` 에 지금 추가.
+  구현 메모: `global/AppProperties(app.base-url, app.time-zone)` 신설 — DB DATETIME 은 서울 로컬시각이라 `LocalDateTime.atZone(Asia/Seoul).toInstant()` 로 응답(SCHEMA.md 공통 규칙 정정).
+  Jackson 3 는 `Instant` 를 ISO `Z` 문자열로 기본 직렬화(통합 테스트로 확인). 목록 `role` 은 `owner_id` 비교, 상세는 멤버십 행. `ChatRoomMapper.setLastMessageAt` 는 테스트 전용(정렬 키 강제).
+  서비스 테스트는 AuthServiceTest 와 같이 실제 매퍼(@SpringBootTest+@Transactional) — 참여자 입장은 T-016 전이라 `RoomMemberMapper.insert` 로 직접 넣음.
+- test: 40 케이스 신규 — `global/CursorCodecTest` 5, `chatroom/InviteCodeTest` 3, `ChatRoomServiceTest` 15, `ChatRoomControllerIntegrationTest`(MockMvc + 실제 SecurityConfig) 13,
+  `MapperTest` Rooms 6·Members 3·Messages 1 재작성. 전체 128 통과(2026-09-15 로컬, V1→V2 백필은 스크래치 DB 로 별도 확인).
+- qa: PASS (QA_REPORT.md 2026-09-15, 개발자 대행) — 실서버 curl 수동 검증 포함. 후속: 잘못된 percent-encoding 쿼리 500 → 백로그.
 
 ## T-016 초대 코드 입장 + 재발급 (api)
 - status: TODO
@@ -328,3 +336,4 @@
 - 토큰 기준 컨텍스트 윈도우(D-006 open)
 - 사용량 일일 상한 + 어드민 알림(D-007 open)
 - `MapperTest` 를 `@MybatisTest` 슬라이스로 전환(속도) — Boot 4 `AutoConfigureTestDatabase` 패키지 확인 후
+- 잘못된 percent-encoding 쿼리스트링(Tomcat `InvalidParameterException`) 500 → 400 `VALIDATION_FAILED` 매핑(T-006 QA 발견)

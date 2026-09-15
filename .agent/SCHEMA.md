@@ -7,8 +7,9 @@
 ## 공통 규칙
 - 이름: 테이블·컬럼 snake_case, 테이블은 복수형.
 - PK: `id BIGINT UNSIGNED AUTO_INCREMENT`.
-- 시간: `DATETIME(3)` UTC. `created_at`/`updated_at` 기본 `CURRENT_TIMESTAMP(3)`.
-- soft delete: `deleted_at DATETIME(3) NULL`. 조회 시 `deleted_at IS NULL` 필수.
+- 시간: `DATETIME(3)`. **저장값은 서울 로컬시각**(MySQL `TZ=Asia/Seoul`, JDBC `serverTimezone=Asia/Seoul`) — API 응답은 `app.time-zone` 으로 `Instant`(UTC `Z`) 변환(T-006 `AppProperties`).
+  `created_at`/`updated_at` 기본 `CURRENT_TIMESTAMP(3)`.
+- soft delete: `deleted_at DATETIME(3) NULL`. 조회 시 `deleted_at IS NULL` 필수. (chat_rooms 는 V2 에서 제거 — 나가기 모델)
 - enum은 `VARCHAR(20)` + 앱 레벨 enum (MySQL ENUM 미사용 — 값 추가 시 ALTER 회피).
 - FK는 선언하되 `ON DELETE` 캐스케이드 없음(soft delete 정책과 충돌).
 
@@ -70,6 +71,8 @@
 - **soft delete 없음.** V1 `deleted_at` 은 V2 에서 제거. "삭제" = 나가기 = `room_members.left_at`. 방·메시지 행은 영구 보존(물리 삭제 없음).
 - 개설자 이탈: `status = ORPHANED` + 개설자 `left_at`. 참여자 멤버십은 남겨 두어 프론트가 "이용할 수 없는 채팅방" 모달을 띄우고, 확인 시 참여자 `left_at`.
 - 활성 방 상한: 사용자당 50개(개설 + 참여, `left_at IS NULL` 기준). 앱 레벨 판정.
+- **V2 백필(2026-09-15, 운영 데이터 없음)**: `invite_code` 는 SQL 로 `id` 를 base32 8자 인코딩(결정적, 재발급은 T-016), `last_message_at NULL → created_at`,
+  `deleted_at` 있던 방은 `status=ORPHANED` + OWNER `left_at=deleted_at` 로 이관 후 컬럼 DROP. 기존 방 전부 OWNER 멤버십 백필(`joined_at=created_at`).
 
 ## 4-1. room_members — 방 멤버십 (V2 신설)
 | 컬럼 | 타입 | 제약 | 설명 |
@@ -102,6 +105,7 @@
 
 - INDEX `(room_id, id)`, `(sender_user_id)`. 메시지 개별 삭제 없음. 방 이탈해도 메시지는 남는다.
 - HUMAN 모드 대화도 저장되며 AI 컨텍스트에 포함된다(발신자 라벨 부착, T-007).
+- V2 백필: 기존 USER 행은 `sender_user_id = 방 owner_id`, `mode='AI'`(V1 은 1인 방). ASSISTANT 는 둘 다 NULL 유지.
 - 오디오 관련 컬럼 없음 — 원본을 저장하지 않는다(D-007).
 
 ## 6. personas — 페르소나(시스템 프롬프트)

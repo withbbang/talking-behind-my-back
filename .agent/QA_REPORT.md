@@ -137,3 +137,20 @@
   - (블록 아님) nginx dev.conf 가 `/_next/webpack-hmr` 웹소켓 업그레이드 헤더 없음 → 콘솔 HMR 오류(dev 전용, 기능 영향 없음). 원하면 별도 T 로.
   - (후속 T-013) iOS 홈화면 PWA 소셜 왕복. (후속 T-008) 토스트 zustand 스토어 승격.
 - date: 2026-09-15
+
+### T-006 채팅방 기본 CRUD + 멤버십 스키마 + 키셋 커서 (api)
+- verdict: PASS (사용자 지시로 개발자 대행 기록, 2026-09-15)
+- tests: 존재 / `./gradlew clean test` 128 passed, 0 failed (신규 40: `CursorCodecTest` 5, `InviteCodeTest` 3, `ChatRoomServiceTest` 15, `ChatRoomControllerIntegrationTest` 13, `MapperTest` Rooms 6·Members 3·Messages 1) / 에이전트 실행(로컬 compose MySQL).
+- checked:
+  - acceptance 커버리지: V2 마이그레이션 컬럼·인덱스·백필(스크래치 DB 에 V1 데이터 넣고 V2 적용 — deleted 방 ORPHANED+left_at, invite_code 8자, sender_user_id=owner, deleted_at 컬럼 제거 확인),
+    도메인 5종 + `Message.senderUserId/mode`, `(last_message_at, id)` 키셋(같은 시각 강제 후 size=2 순회 중복 없음 — 서비스·통합·매퍼 3중), 50개 상한 409, 비멤버 404, 참여자 초대코드 null, PATCH 검증·권한, DELETE 분기, UTC `Z`.
+  - API.md 계약 일치: 상태 코드 201/200/204/400/401/403/404/409, 에러 형식 `{code,message,details}`, Room 필드명 camelCase, 목록 `members:null`+`memberCount`.
+  - SCHEMA.md 일치: `room_members` UNIQUE(room_id,user_id)·INDEX(user_id,left_at), `chat_rooms` UNIQUE(invite_code)·(owner_id)·(last_message_at DESC,id DESC) — information_schema 로 확인.
+  - **실서버 수동(bootRun + HS256 직접 서명 쿠키, DB 직접 삽입 유저 2명)**: 미인증 401 `UNAUTHENTICATED` / POST 201(`inviteUrl` `http://localhost:3000/join/{8자}`, 시각 `…Z`) / title trim / size=2 순회 3페이지 5개 중복 없음·`members:null` /
+    잘못된 커서(`***`, `YWJj`, `AAAA`, `x`) 400 `VALIDATION_FAILED` / PATCH 공백 400 `details.title` / 타인 GET 404 / 참여자 GET `PARTICIPANT`·`inviteCode:null`·members 2 / 참여자 PATCH 403 / OWNER DELETE 204 → owner 404, 참여자 200 `ORPHANED` memberCount 1 / 참여자 DELETE 204.
+    DB: 방 `ORPHANED`, 멤버십 둘 다 `left_at` 세팅. 검증 후 QA 데이터 삭제.
+  - 체크리스트 — 권한: 타인 방 404 ✓. 보안: 로그에 토큰·제목 본문 없음 ✓, 시크릿 없음 ✓(`app.time-zone` 기본값만 추가).
+- issues:
+  - (블록 아님, 후속) 잘못된 percent-encoding 쿼리(`?cursor=%%%25`)는 Tomcat `InvalidParameterException` 이 `GlobalExceptionHandler` 까지 와서 **500 `INTERNAL_ERROR`**. T-006 무관(전 엔드포인트 공통, T-002 핸들러). 400 매핑은 백로그.
+  - (후속 T-016) 참여자 입장 경로가 없어 참여자 케이스는 DB 직접 삽입으로 검증. (후속 T-017) 참여자 나가기 시 `mode=AI` 복귀 미구현(설계대로).
+- date: 2026-09-15

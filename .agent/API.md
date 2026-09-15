@@ -14,6 +14,7 @@
 - ID: 숫자(BIGINT) → JSON number. 노출용 외부 ID가 필요하면 별도 결정.
 - 페이징: 커서 기반 `?cursor=<opaque>&size=<n>` (기본 30, 최대 100 — 범위 밖은 clamp). 응답 `{ items, nextCursor }`, 마지막이면 `nextCursor: null`.
   커서는 **불투명 문자열**(서버가 준 `nextCursor` 를 그대로 되돌려준다). 방 목록은 `(lastMessageAt, id)` 키셋, 메시지는 `id` 키셋 — 프론트는 형식을 해석하지 않는다.
+  변조/형식 오류 커서는 400 `VALIDATION_FAILED`.
 
 ### 에러 형식
 ```json
@@ -57,13 +58,14 @@
 | GET | `/rooms?cursor&size` | 내가 활성 멤버인 방 목록(개설+참여, ORPHANED 포함), `lastMessageAt` 내림차순 |
 | POST | `/rooms` | 방 생성. body 없음 또는 `{ "title"?: string }`. 201 Room. 개설자 OWNER 멤버십 + 초대 코드 발급. 활성 방 50개 초과 409 `ROOM_LIMIT_EXCEEDED` |
 | GET | `/rooms/{id}` | 방 상세 + 멤버. 멤버 아니면 404. ORPHANED 도 200(`status` 로 구분) |
-| PATCH | `/rooms/{id}` | `{ "title"?, "mode"?, "aiPersonality"? }` 부분 갱신. 200 Room |
+| PATCH | `/rooms/{id}` | `{ "title"?, "mode"?, "aiPersonality"? }` 부분 갱신. 200 Room. `title` 은 **개설자만**(참여자 403) |
 | DELETE | `/rooms/{id}` | **나가기**. 204. 개설자 → 방 `ORPHANED`(참여자 멤버십은 유지). 참여자 → 멤버십 종료, 방 `mode=AI` 복귀. ORPHANED 방에서 참여자 호출 = "이용할 수 없는 방" 확인 처리 |
 | POST | `/rooms/{id}/invite/regenerate` | 초대 코드 재발급(개설자만, 구 코드 즉시 무효). 200 `{ inviteCode, inviteUrl }` |
 | GET | `/rooms/join/{code}` | 입장 전 미리보기 `{ roomId, title, ownerNickname, memberCount }`. 이미 멤버면 그대로 200 |
 | POST | `/rooms/join/{code}` | 입장. 200 Room. 재입장 허용 |
 
-- PATCH 규칙: `title` 1~100자(공백만 → 400). `mode` = `AI` \| `HUMAN`, 멤버 누구나 — 혼자인 방에서 `HUMAN` 은 400 `MODE_NOT_ALLOWED`.
+- PATCH 규칙: `title` 1~100자(공백만 → 400 `VALIDATION_FAILED`, `details.title`), **개설자만**(참여자 403 `FORBIDDEN`, 2026-09-15 결정).
+  `mode` = `AI` \| `HUMAN`, 멤버 누구나 — 혼자인 방에서 `HUMAN` 은 400 `MODE_NOT_ALLOWED`.
   `aiPersonality` = `RATIONAL` \| `EMOTIONAL`, **개설자만**(참여자 403 `FORBIDDEN`), 대화 전후 언제든.
 - 입장 실패: 코드 없음 404 `INVITE_NOT_FOUND`, 정원(2명) 초과 409 `ROOM_FULL`, 개설자 이탈 방 410 `ROOM_ORPHANED`, 본인 방 400 `SELF_INVITE`, 활성 방 50개 초과 409 `ROOM_LIMIT_EXCEEDED`.
 - 초대 URL = `APP_BASE_URL/join/{code}`. QR 은 프론트가 이 URL 로 생성(별도 API 없음).
@@ -80,7 +82,8 @@ Room:
 }
 ```
 - `role` = 요청자의 역할 `OWNER` \| `PARTICIPANT`. `inviteCode`/`inviteUrl` 은 **개설자에게만** 내려간다(참여자는 `null`).
-- 목록(`GET /rooms`) 항목은 `members` 대신 `memberCount` 만.
+- 목록(`GET /rooms`) 항목은 `members: null`, `memberCount` 만 채운다(상세는 둘 다). 나머지 필드는 Room 과 동일.
+- `POST /rooms` body 의 `title` 은 trim 후 비면 "새 대화", 100자 초과 400.
 
 ## messages
 
@@ -161,3 +164,4 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 - 2026-09-13 초안 (T-000)
 - 2026-09-14 T-004: refresh 쿠키 Path `/api/auth`, `/auth/me`에 `status` 추가·`provider` 대문자, refresh 실패 시 쿠키 삭제, logout 인증 불필요, `?error=` 코드 명시. **API 변경 — T-005 acceptance 확인 필요.**
 - 2026-09-15 T-006 착수: **2인 채팅방 요건** 반영 — rooms 전면 개정(멤버십·초대·나가기·mode·aiPersonality), 커서 불투명 문자열, 에러코드 6개 추가, messages 에 `senderUserId`/`mode`, POST messages 202 + `/rooms/{id}/events` 초안. **API 변경 — T-007/T-008 acceptance 재작성(TASKS.md), PLAN.md M2 갱신 필요(기획자).**
+- 2026-09-15 T-006 구현: PATCH `title` 은 개설자만(참여자 403), 잘못된 커서 400, 목록 항목 `members: null`. **API 변경(권한) — T-008 acceptance 에 반영 필요.**

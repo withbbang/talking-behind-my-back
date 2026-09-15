@@ -93,7 +93,8 @@ logging:
 
 # ---- 앱 설정 (전부 환경변수 → infra/.env.example 과 1:1) ----
 app:
-  base-url: ${APP_BASE_URL:http://localhost:3000}   # OAuth 성공 후 redirect, 쿠키 Domain 기준
+  base-url: ${APP_BASE_URL:http://localhost:3000}   # OAuth 성공 후 redirect, 초대 URL, 쿠키 Domain 기준
+  time-zone: ${APP_TIME_ZONE:Asia/Seoul}            # DB DATETIME(서울 로컬시각) → API Instant(UTC) 변환. MySQL TZ 와 같아야 한다
   jwt:
     # 로컬 기본값. 운영은 application-prod.yml 에서 기본값 없이 ${JWT_SECRET} 만 받아 미설정 시 기동 실패.
     secret: ${JWT_SECRET:local-dev-only-secret-change-me-32bytes-min!!}

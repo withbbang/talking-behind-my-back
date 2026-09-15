@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.chat.chatroom.RoomMemberMapper">
+
+  <resultMap id="memberMap" type="com.example.chat.chatroom.RoomMember">
+    <id     property="id"       column="id"/>
+    <result property="roomId"   column="room_id"/>
+    <result property="userId"   column="user_id"/>
+    <result property="role"     column="role"/>
+    <result property="joinedAt" column="joined_at"/>
+    <result property="leftAt"   column="left_at"/>
+    <result property="nickname" column="nickname"/>
+  </resultMap>
+
+  <sql id="columns">
+    m.id, m.room_id, m.user_id, m.role, m.joined_at, m.left_at
+  </sql>
+
+  <insert id="insert" parameterType="com.example.chat.chatroom.RoomMember" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO room_members (room_id, user_id, role)
+    VALUES (#{roomId}, #{userId}, #{role})
+  </insert>
+
+  <select id="findActive" resultMap="memberMap">
+    SELECT <include refid="columns"/>, NULL AS nickname
+    FROM room_members m
+    WHERE m.room_id = #{roomId} AND m.user_id = #{userId} AND m.left_at IS NULL
+  </select>
+
+  <select id="findActiveByRoomId" resultMap="memberMap">
+    SELECT <include refid="columns"/>, u.nickname
+    FROM room_members m
+    JOIN users u ON u.id = m.user_id
+    WHERE m.room_id = #{roomId} AND m.left_at IS NULL
+    ORDER BY m.joined_at, m.id
+  </select>
+
+  <select id="countActiveByUserId" resultType="int">
+    SELECT COUNT(*) FROM room_members m WHERE m.user_id = #{userId} AND m.left_at IS NULL
+  </select>
+
+  <update id="leave">
+    UPDATE room_members SET left_at = NOW(3)
+    WHERE room_id = #{roomId} AND user_id = #{userId} AND left_at IS NULL
+  </update>
+
+</mapper>
