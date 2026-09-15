@@ -240,7 +240,7 @@
 - qa: PASS (QA_REPORT.md 2026-09-16, 개발자 대행) — 실서버 14 스텝 수동 검증 포함.
 
 ## T-007 방 이벤트 SSE + 직렬 큐 + 4:1 컨텍스트 + OmniRoute 클라이언트 (api)
-- status: IN_PROGRESS
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
 - spec: API.md#messages, D-006, D-018(D-008 보완: 방 단위 서버 잡 + 직렬 큐), D-017, D-019(세부)
@@ -255,6 +255,12 @@
   - `GET /rooms/{id}/messages?cursor&size`(API.md#messages) 컨트롤러 포함 — 매퍼 `findByRoomId` 재사용, `id` 커서.
   - 제목 자동: 방 `title == "새 대화"` 이고 첫 USER 메시지면 앞 30자(`ChatRoom.autoTitle`).
   - 이 태스크에서 SSE/큐 형식 확정 후 API.md#messages 초안 → 확정.
+- test: 42 케이스 신규 — `llm/OmniRouteClientTest` 6(MockWebServer), `message/{AiContextBuilderTest 5, RoomEventBusTest 5, RoomAiExecutorTest 5, MessageServiceTest 12, MessageControllerIntegrationTest 9}`, `MapperTest` +3(Usage 1, AllMembers 1, findById), `ChatRoomServiceTest.Events` 5. 전체 215 통과(2026-09-16 로컬).
+- note: 구현 메모 — 큐는 `RoomAiExecutor.reserve()`(409/503 판정) → tx 저장 → `Ticket.start()` 순서. 저장 뒤 409 를 내면 중복 저장이 남아서 예약을 먼저 한다.
+  `mode`/`member` 이벤트는 `ChatRoomService` 가 트랜잭션 안에서 바로 발행(afterCommit 훅은 테스트 롤백 트랜잭션에서 안 돈다).
+  `RoomEventBus.subscribe(roomId, emitter)` 공개 오버로드는 테스트 mock 주입용. `daily_usage` 매퍼는 `message` 패키지(admin/speech 도 여기 것을 쓴다).
+  가중 지시는 참여자가 한 번도 없던 방에는 안 붙는다(이름 자리가 비어서). 환경변수 `AI_CORE_THREADS/AI_MAX_THREADS/AI_QUEUE_SIZE` 는 기본값 있음 — NAS .env 반영 선택.
+  후속: T-008 `lib/sse.ts` 는 `replyTo` 로 델타 매칭, 재연결 시 `GET messages` 보충. 수평 확장 시 RoomEventBus → Redis.
 
 ## T-008 채팅 셸 + 방 생성 + 모드/성격 + 스트리밍 UI (web)
 - status: TODO

@@ -96,6 +96,27 @@ class MapperTest {
 
 
 	@Nested
+	@DisplayName("RoomMemberMapper.findAllByRoomId")
+	class AllMembers {
+
+		@Test
+		void 나간_멤버도_닉네임과_함께_포함_입장순() {
+			User me = newUser("me");
+			User guest = newUser("guest");
+			ChatRoom r = newRoom(me.getId(), "방");
+			join(r.getId(), guest.getId());
+			memberMapper.leave(r.getId(), guest.getId());
+
+			List<RoomMember> all = memberMapper.findAllByRoomId(r.getId());
+
+			assertThat(all).extracting(RoomMember::getUserId).containsExactly(me.getId(), guest.getId());
+			assertThat(all).extracting(RoomMember::getNickname).containsExactly("me", "guest");
+			assertThat(all.get(1).getLeftAt()).isNotNull();
+			assertThat(memberMapper.findActiveByRoomId(r.getId())).hasSize(1);
+		}
+	}
+
+	@Nested
 	@DisplayName("ChatRoomMapper")
 	class Rooms {
 
@@ -280,6 +301,8 @@ class MapperTest {
 			messageMapper.insert(m3);
 
 			assertThat(messageMapper.countByRoomId(r.getId())).isEqualTo(3);
+			assertThat(messageMapper.findById(m2.getId())).get().extracting(Message::getCreatedAt).isNotNull();
+			assertThat(messageMapper.findById(-1L)).isEmpty();
 
 			// 최신부터 2개
 			List<Message> first = messageMapper.findByRoomId(r.getId(), null, 2);

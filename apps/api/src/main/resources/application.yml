@@ -90,6 +90,8 @@ logging:
     dateformat: "yyyy-MM-dd'T'HH:mm:ss.SSSXXX, Asia/Seoul"
   level:
     com.example.chat: INFO
+    # 잘못된 enum 등 역직렬화 실패 WARN 에 요청 본문 값이 찍힌다(QA 2026-09-15 백로그, D-019). 우리 핸들러가 400 을 만들므로 끈다.
+    org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver: ERROR
 
 # ---- 앱 설정 (전부 환경변수 → infra/.env.example 과 1:1) ----
 app:
@@ -109,6 +111,10 @@ app:
     model: ${LLM_MODEL:chat-default}
     context-max-messages: ${LLM_CONTEXT_MAX_MESSAGES:30}
     timeout-seconds: ${LLM_TIMEOUT_SECONDS:120}
+  ai:                                       # AI 잡 스레드풀 (D-019). 초과 시 503 AI_BUSY
+    core-threads: ${AI_CORE_THREADS:2}
+    max-threads: ${AI_MAX_THREADS:4}
+    queue-size: ${AI_QUEUE_SIZE:16}
   speech:
     stt-provider: ${STT_PROVIDER:openai}    # openai | clova
     tts-provider: ${TTS_PROVIDER:openai}

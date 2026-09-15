@@ -19,11 +19,7 @@ import tools.jackson.databind.ObjectMapper;
  * `stream_options.include_usage` 로 마지막 청크에 usage 를 요청하며, 상류가 안 주면 토큰은 null.
  */
 @Component
-public class OmniRouteClient {
-
-	public record ChatMessage(String role, String content) {}
-
-	public record Result(String content, Integer promptTokens, Integer completionTokens, String model) {}
+public class OmniRouteClient implements LlmClient {
 
 	private final WebClient webClient;
 	private final LlmProperties props;
@@ -34,6 +30,7 @@ public class OmniRouteClient {
 		this.props = props;
 	}
 
+	@Override
 	public Result stream(List<ChatMessage> messages, Consumer<String> onDelta) {
 		Map<String, Object> body = Map.of(
 			"model", props.model(),

@@ -94,3 +94,23 @@
 - 범위 외: T-007 컨텍스트 조립(`effectiveAiPrompt()` 사용), web 편집 UI(T-008).
 - 결과: QA_REPORT.md#T-019 PASS (2026-09-16, 사용자 지시로 개발자 대행 기록)
 - date: 2026-09-16
+
+### [개발자 → QA] T-007 방 이벤트 SSE + 직렬 큐 + 컨텍스트 + OmniRoute 클라이언트 (api) 검증 요청
+- 요청/이슈: `cd infra && docker compose -f docker-compose.dev.yml up -d mysql` 후 `cd apps/api && ./gradlew test` 통과 확인(215 케이스, T-007 신규 42).
+  수동(선택, OmniRoute 기동 필요): 터미널 A `curl -N -b access=<jwt> localhost:8080/api/rooms/{id}/events` → 터미널 B `curl -b access=<jwt> -H 'Content-Type: application/json' -d '{"content":"안녕"}' localhost:8080/api/rooms/{id}/messages` → A 에 `message` → `delta`… → `done` 순서, 20초 간격 `: ping`. nginx(:3000) 경유도 동일하게 버퍼링 없이 도착하는지.
+- 근거 파일: DECISIONS.md#D-018/#D-019, API.md#messages(확정)·#공통(503), CONVENTIONS.md#백엔드(SSE 규칙),
+  `apps/api/src/main/java/com/example/chat/llm/{LlmClient,OmniRouteClient,LlmException}.java`,
+  `apps/api/src/main/java/com/example/chat/message/{RoomEventBus,RoomAiExecutor,AiExecutorConfig,AiExecutorProperties,AiContextBuilder,MessageService,MessageController,MessageResponse,DailyUsage,DailyUsageMapper}.java`,
+  `apps/api/src/main/resources/mapper/{DailyUsageMapper,MessageMapper,RoomMemberMapper}.xml`, `application.yml`(app.ai.*, logging), `chatroom/ChatRoomService.java`(mode/member 발행),
+  테스트 `src/test/java/com/example/chat/{llm/OmniRouteClientTest, message/*, MapperTest, chatroom/ChatRoomServiceTest#Events}.java`
+- 확인 포인트:
+  (1) POST 202 `{messageId}`; 비멤버·나간 멤버 404, ORPHANED 410, 공백/4,001자/잘못된 inputType 400(저장 없음).
+  (2) 이벤트 순서 `message` → `delta`* → `done`(ASSISTANT 저장·토큰 발신자 귀속) / 실패 시 `error`(미저장·토큰 0). HUMAN 모드는 `message` 만.
+  (3) 큐: 같은 방 순차·다른 방 병렬, 같은 유저 진행·대기 중 409 `ROOM_BUSY`(저장 전 판정), 풀 포화 503 `AI_BUSY`, 잡 시작 시 HUMAN 이면 skip, 예외 잡이 큐를 막지 않음.
+  (4) 컨텍스트: system = 유효 프롬프트 + D-019 가중 문구(참여자 있던 방만), USER `[개설자 닉]`/`[참여자 닉]`(나간 멤버·HUMAN 대화 포함), 최근 30 시간순, 방금 보낸 메시지 포함.
+  (5) `mode`/`member` 이벤트: PATCH mode, join(JOINED, 재입장 중복 없음), 참여자 leave(LEFT → mode AI), 개설자 leave(LEFT, roomStatus ORPHANED).
+  (6) 제목 자동: "새 대화" + 첫 메시지 → 앞 30자, 이후·직접 정한 제목은 불변.
+  (7) 하트비트: mock 구독자 전원에 `:ping`; 끊긴 emitter 는 send 실패/완료/타임아웃 시 제거.
+  (8) 로그: `ExceptionHandlerExceptionResolver` WARN 억제(잘못된 enum 값 미노출), 시크릿·본문 로그 없음.
+- 범위 외: web(T-008/T-018), STT/TTS(T-009), admin stats(daily_usage 조회, T-011), 수평 확장(Redis).
+- date: 2026-09-16

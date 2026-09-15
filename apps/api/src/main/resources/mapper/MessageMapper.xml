@@ -25,6 +25,12 @@
     VALUES (#{roomId}, #{senderUserId}, #{role}, #{content}, #{inputType}, #{mode}, #{model}, #{promptTokens}, #{completionTokens})
   </insert>
 
+  <select id="findById" resultMap="messageMap">
+    SELECT <include refid="columns"/>
+    FROM messages
+    WHERE id = #{id}
+  </select>
+
   <select id="findByRoomId" resultMap="messageMap">
     SELECT <include refid="columns"/>
     FROM messages

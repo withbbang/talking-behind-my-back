@@ -1,6 +1,7 @@
 package com.example.chat.message;
 
 import java.util.List;
+import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -9,6 +10,8 @@ import org.apache.ibatis.annotations.Param;
 public interface MessageMapper {
 
 	int insert(Message message);
+
+	Optional<Message> findById(@Param("id") Long id);
 
 	/** 과거 메시지 페이지: id DESC, cursorId 보다 작은 것. null 이면 최신부터. (API.md#messages) */
 	List<Message> findByRoomId(@Param("roomId") Long roomId, @Param("cursorId") Long cursorId, @Param("size") int size);

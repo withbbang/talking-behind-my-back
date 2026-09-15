@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.chat.global.CursorPage;
+import com.example.chat.message.EventRecorder;
+import com.example.chat.message.RoomEventBus;
 import com.example.chat.global.error.BusinessException;
 import com.example.chat.global.error.ErrorCode;
 import com.example.chat.user.User;
@@ -13,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +34,7 @@ class ChatRoomServiceTest {
 	@Autowired ChatRoomMapper roomMapper;
 	@Autowired RoomMemberMapper memberMapper;
 	@Autowired UserMapper userMapper;
+	@Autowired RoomEventBus bus;
 
 	private User owner;
 	private User guest;
@@ -582,4 +586,73 @@ class ChatRoomServiceTest {
 			assertError(() -> service.regenerateInvite(other.getId(), r.id()), ErrorCode.ROOM_NOT_FOUND);
 		}
 	}
+
+	@Nested
+	@DisplayName("방 이벤트 브로드캐스트 (T-007 mode/member)")
+	class Events {
+
+		private RoomResponse room;
+		private EventRecorder events;
+
+		@BeforeEach
+		void subscribe() {
+			room = service.create(owner.getId(), null);
+			events = new EventRecorder();
+			bus.subscribe(room.id(), events.emitter);
+		}
+
+		@Test
+		void 입장하면_member_JOINED() {
+			service.join(guest.getId(), room.inviteCode());
+
+			assertThat(events.names()).containsExactly("member");
+			assertThat(events.last().data()).isEqualTo(Map.of(
+				"action", "JOINED", "userId", guest.getId(), "nickname", "손님", "role", "PARTICIPANT", "roomStatus", "ACTIVE"));
+		}
+
+		@Test
+		void 이미_멤버가_다시_입장하면_이벤트_없음() {
+			service.join(guest.getId(), room.inviteCode());
+			events.events.clear();
+			service.join(guest.getId(), room.inviteCode());
+			assertThat(events.events).isEmpty();
+		}
+
+		@Test
+		void mode_바꾸면_mode_이벤트_title_만_바꾸면_없음() {
+			join(room.id(), guest.getId());
+			service.update(owner.getId(), room.id(), new RoomUpdate("제목", null, null, null));
+			assertThat(events.events).isEmpty();
+
+			service.update(guest.getId(), room.id(), new RoomUpdate(null, RoomMode.HUMAN, null, null));
+			assertThat(events.names()).containsExactly("mode");
+			assertThat(events.last().data()).isEqualTo(Map.of("mode", "HUMAN"));
+		}
+
+		@Test
+		void 참여자가_HUMAN_방에서_나가면_member_LEFT_후_mode_AI() {
+			join(room.id(), guest.getId());
+			service.update(guest.getId(), room.id(), new RoomUpdate(null, RoomMode.HUMAN, null, null));
+			events.events.clear();
+
+			service.leave(guest.getId(), room.id());
+
+			assertThat(events.names()).containsExactly("member", "mode");
+			assertThat(events.events.get(0).data()).isEqualTo(Map.of(
+				"action", "LEFT", "userId", guest.getId(), "nickname", "손님", "role", "PARTICIPANT", "roomStatus", "ACTIVE"));
+			assertThat(events.events.get(1).data()).isEqualTo(Map.of("mode", "AI"));
+		}
+
+		@Test
+		void 개설자가_나가면_member_LEFT_roomStatus_ORPHANED() {
+			join(room.id(), guest.getId());
+
+			service.leave(owner.getId(), room.id());
+
+			assertThat(events.names()).containsExactly("member");
+			assertThat(events.last().data()).isEqualTo(Map.of(
+				"action", "LEFT", "userId", owner.getId(), "nickname", "주인", "role", "OWNER", "roomStatus", "ORPHANED"));
+		}
+	}
+
 }

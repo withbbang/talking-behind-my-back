@@ -35,6 +35,14 @@
     ORDER BY m.joined_at, m.id
   </select>
 
+  <select id="findAllByRoomId" resultMap="memberMap">
+    SELECT <include refid="columns"/>, u.nickname
+    FROM room_members m
+    JOIN users u ON u.id = m.user_id
+    WHERE m.room_id = #{roomId}
+    ORDER BY m.joined_at, m.id
+  </select>
+
   <select id="countActiveByUserId" resultType="int">
     SELECT COUNT(*) FROM room_members m WHERE m.user_id = #{userId} AND m.left_at IS NULL
   </select>

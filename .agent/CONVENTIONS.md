@@ -40,7 +40,8 @@
 - MyBatis: 매퍼 XML은 `resources/mapper/<Domain>Mapper.xml`, 인터페이스와 1:1. `resultMap` 명시, `SELECT *` 금지, 컬럼 목록은 `<sql id="columns">`. 동적 SQL은 `<where>`/`<if>`만. 복수 파라미터는 `@Param`. 단건은 `Optional<T>`.
 - Flyway: `V{n}__{snake_desc}.sql`. Flyway 가 DDL 을 단독 소유(D-009). 운영 DDL 수동 실행 금지. init SQL 에 테이블 생성 금지.
 - 예외: 비즈니스 예외는 `BusinessException(ErrorCode)` 하나. `GlobalExceptionHandler`가 API.md 에러 형식으로 변환. 새 코드는 API.md 에 먼저.
-- SSE: `SseEmitter` 또는 `Flux<ServerSentEvent>` — 하나로 통일(T-007에서 결정 후 여기 기록).
+- SSE: **`SseEmitter`** 로 통일(D-018, T-007). 방 단위 브로드캐스트는 `message/RoomEventBus`(구독·발행·하트비트 `: ping` 20초·끊김 제거) 하나만 거친다. 컨트롤러가 emitter 를 직접 만들지 않는다. emitter 타임아웃은 0(무제한).
+- 외부 LLM 호출은 `llm/LlmClient` 인터페이스 뒤에(구현 `OmniRouteClient`). 테스트는 `message/SyncAiTestConfig`(FakeLlm + 동기 실행기)를 `@Import`.
 - 트랜잭션: 스트리밍 중 DB 트랜잭션을 열어두지 않는다. USER 저장 → 커밋 → 스트림 → ASSISTANT 저장 → 커밋.
 - 테스트: JUnit5 + AssertJ. 매퍼는 `@SpringBootTest + @Transactional`(로컬 compose MySQL / CI MySQL 서비스, 롤백). 예외핸들러 같은 순수 로직은 직접 호출 단위 테스트(Homepage 방식). HTTP 레벨은 실제 컨트롤러 `@WebMvcTest` — 테스트 클래스 안의 nested 컨트롤러는 Boot 4 에서 등록되지 않는다. 외부 HTTP는 MockWebServer(4.12.0).
 - 설정: `application.yml`(공통, `${ENV:기본값}` — 기본값은 로컬 compose 기준) / `-prod`(비밀은 기본값 없이 `${ENV}` 만) / `-test`. 프로파일별 시크릿 파일은 gitignore.

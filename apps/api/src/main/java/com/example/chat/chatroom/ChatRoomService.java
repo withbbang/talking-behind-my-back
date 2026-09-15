@@ -5,6 +5,8 @@ import com.example.chat.global.CursorCodec;
 import com.example.chat.global.CursorPage;
 import com.example.chat.global.error.BusinessException;
 import com.example.chat.global.error.ErrorCode;
+import com.example.chat.message.RoomEventBus;
+import com.example.chat.user.UserMapper;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -28,12 +30,16 @@ public class ChatRoomService {
 
 	private final ChatRoomMapper rooms;
 	private final RoomMemberMapper members;
+	private final UserMapper users;
+	private final RoomEventBus bus;
 	private final String baseUrl;
 	private final ZoneId zone;
 
-	public ChatRoomService(ChatRoomMapper rooms, RoomMemberMapper members, AppProperties props) {
+	public ChatRoomService(ChatRoomMapper rooms, RoomMemberMapper members, UserMapper users, RoomEventBus bus, AppProperties props) {
 		this.rooms = rooms;
 		this.members = members;
+		this.users = users;
+		this.bus = bus;
 		this.baseUrl = props.baseUrl();
 		this.zone = props.zoneId();
 	}
@@ -104,7 +110,10 @@ public class ChatRoomService {
 			throw new BusinessException(ErrorCode.MODE_NOT_ALLOWED);
 		}
 		if (update.title() != null) rooms.updateTitle(roomId, update.title().trim());
-		if (update.mode() != null) rooms.updateMode(roomId, update.mode());
+		if (update.mode() != null) {
+			rooms.updateMode(roomId, update.mode());
+			bus.publish(roomId, "mode", Map.of("mode", update.mode().name()));
+		}
 		if (update.aiPersonality() != null) {
 			rooms.updateAiPersonality(roomId, update.aiPersonality());
 			rooms.updateAiPrompt(roomId, null);   // 프리셋 재선택 = 커스텀 프롬프트 초기화 (D-017)
@@ -135,8 +144,13 @@ public class ChatRoomService {
 		members.leave(roomId, userId);
 		if (me.isOwner()) {
 			rooms.updateStatus(roomId, RoomStatus.ORPHANED);
-		} else if (!room.isOrphaned() && room.getMode() != RoomMode.AI) {
-			rooms.updateMode(roomId, RoomMode.AI);
+			publishMember(roomId, "LEFT", userId, RoomMember.Role.OWNER, RoomStatus.ORPHANED);
+		} else {
+			publishMember(roomId, "LEFT", userId, RoomMember.Role.PARTICIPANT, room.getStatus());
+			if (!room.isOrphaned() && room.getMode() != RoomMode.AI) {
+				rooms.updateMode(roomId, RoomMode.AI);
+				bus.publish(roomId, "mode", Map.of("mode", RoomMode.AI.name()));
+			}
 		}
 	}
 
@@ -177,6 +191,7 @@ public class ChatRoomService {
 			if (members.rejoin(room.getId(), userId) == 0) {
 				members.insert(RoomMember.participant(room.getId(), userId));
 			}
+			publishMember(room.getId(), "JOINED", userId, RoomMember.Role.PARTICIPANT, room.getStatus());
 		}
 		return detail(rooms.findById(room.getId()).orElseThrow(), RoomMember.Role.PARTICIPANT);
 	}
@@ -191,6 +206,16 @@ public class ChatRoomService {
 		if (alreadyMember) return true;
 		if (activeCount >= MAX_MEMBERS) throw new BusinessException(ErrorCode.ROOM_FULL);
 		return false;
+	}
+
+	/**
+	 * `member` 이벤트 (T-007, D-019). 트랜잭션 안에서 바로 발행한다 — 커밋 직전 수 ms 차이는 알림 용도로 무해하고,
+	 * afterCommit 훅은 테스트 트랜잭션(롤백)에서 절대 돌지 않아 검증이 불가능하다.
+	 */
+	private void publishMember(Long roomId, String action, Long userId, RoomMember.Role role, RoomStatus status) {
+		String nickname = users.findById(userId).map(u -> u.getNickname()).orElse("");
+		bus.publish(roomId, "member", Map.of(
+			"action", action, "userId", userId, "nickname", nickname, "role", role.name(), "roomStatus", status.name()));
 	}
 
 	private RoomMember activeMember(Long roomId, Long userId) {

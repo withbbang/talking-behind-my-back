@@ -39,6 +39,7 @@ public enum ErrorCode {
 	PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "업로드 크기 제한을 초과했습니다."),
 	// 502
 	LLM_UPSTREAM_ERROR(HttpStatus.BAD_GATEWAY, "AI 응답에 실패했습니다."),
+	AI_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "AI 가 바쁩니다. 잠시 후 다시 보내주세요."),
 	SPEECH_UPSTREAM_ERROR(HttpStatus.BAD_GATEWAY, "음성 처리에 실패했습니다."),
 	// 500
 	INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");

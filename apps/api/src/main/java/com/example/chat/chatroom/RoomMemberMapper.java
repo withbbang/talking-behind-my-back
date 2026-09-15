@@ -18,6 +18,9 @@ public interface RoomMemberMapper {
 	/** users 조인으로 nickname 포함. joined_at, id 순. */
 	List<RoomMember> findActiveByRoomId(@Param("roomId") Long roomId);
 
+	/** 나간 멤버 포함(left_at 무관), 입장순. T-007 컨텍스트 라벨용 — 나간 사람 메시지도 실제 닉으로 (D-019). */
+	List<RoomMember> findAllByRoomId(@Param("roomId") Long roomId);
+
 	/** 활성 방 상한(50) 판정용 — 개설 + 참여 합산 */
 	int countActiveByUserId(@Param("userId") Long userId);
 

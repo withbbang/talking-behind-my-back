@@ -26,10 +26,11 @@
 | 401 | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `TOKEN_REUSED` | 인증 없음/만료/refresh 재사용 감지 |
 | 403 | `FORBIDDEN`, `USER_SUSPENDED` | 권한 없음(참여자가 `title`/`aiPersonality`/`aiPrompt` 변경 등), 정지 회원 |
 | 404 | `ROOM_NOT_FOUND`, `MESSAGE_NOT_FOUND`, `INVITE_NOT_FOUND` | 멤버 아닌 방도 404로 통일. 초대 코드 없음 |
-| 409 | `ROOM_BUSY`, `ROOM_FULL`, `ROOM_LIMIT_EXCEEDED` | 같은 유저 대기 요청 존재, 방 정원(2명) 초과, 활성 방 50개 초과 |
+| 409 | `ROOM_BUSY`, `ROOM_FULL`, `ROOM_LIMIT_EXCEEDED` | 같은 유저의 AI 잡 진행·대기 중, 방 정원(2명) 초과, 활성 방 50개 초과 |
 | 410 | `ROOM_ORPHANED` | 개설자가 이탈한 방에 입장 시도 |
 | 413 | `PAYLOAD_TOO_LARGE` | nginx `client_max_body_size` 초과 |
 | 502 | `LLM_UPSTREAM_ERROR`, `SPEECH_UPSTREAM_ERROR` | 외부 API 실패 |
+| 503 | `AI_BUSY` | AI 잡 스레드풀 포화(T-007) |
 | 500 | `INTERNAL_ERROR` | 그 외 |
 
 ## auth
@@ -99,46 +100,55 @@ Room:
 
 | Method | Path | 설명 |
 |---|---|---|
-| GET | `/rooms/{id}/messages?cursor&size` | 과거 메시지, `id` 내림차순(최신 먼저). 프론트가 역순 렌더. |
-| POST | `/rooms/{id}/messages` | 메시지 전송. **T-007 재정의(2026-09-15)**: 202 + `{ messageId }`, 결과는 방 이벤트 스트림으로 수신. 아래 SSE 형식은 초안 — T-007 착수 시 확정. |
-| GET | `/rooms/{id}/events` | 방 이벤트 SSE 구독(멤버만). `message`(유저 메시지) / `delta` / `done` / `error` / `mode` / `member`. T-007 에서 확정 |
+| GET | `/rooms/{id}/messages?cursor&size` | 과거 메시지, `id` 내림차순(최신 먼저). 프론트가 역순 렌더. 멤버만(비멤버 404). |
+| POST | `/rooms/{id}/messages` | 메시지 전송. **202** + `{ "messageId": 101 }`. 결과는 방 이벤트 스트림으로 수신 (D-018). |
+| GET | `/rooms/{id}/events` | 방 이벤트 SSE 구독(멤버만, 비멤버 404). `text/event-stream`, 타임아웃 없음, 20초마다 `: ping` 주석 (D-019). |
 
 POST body:
 ```json
 { "content": "안녕", "inputType": "TEXT" }
 ```
-`inputType` = `TEXT` \| `VOICE`. 상한 4,000자.
+`inputType` = `TEXT` \| `VOICE`(생략 시 TEXT). `content` 공백 불가, 상한 4,000자(400 `details.content`).
 
-응답 `text/event-stream` (D-008):
-```
-event: user
-data: {"messageId": 101, "createdAt": "..."}
+POST 판정 순서: 400 검증(바인딩) → 401 → 404(비멤버·나간 멤버) → 410 `ROOM_ORPHANED` → (AI 모드) 409 `ROOM_BUSY` / 503 `AI_BUSY`.
+- USER 메시지는 요청 안에서 저장·커밋되고 `message` 이벤트로 브로드캐스트된다. `HUMAN` 모드면 여기서 끝(AI 응답 없음).
+- `AI` 모드면 방당 직렬 큐에 잡을 넣는다. 같은 유저의 잡이 진행·대기 중이면 409(저장 전에 판정 — 중복 저장 없음). 풀 포화면 503(그 방에 이미 도는 잡이 있으면 다른 유저의 대기는 허용).
+- 제목이 아직 "새 대화"이고 방의 첫 메시지면 앞 30자로 자동 제목(`ChatRoom.autoTitle`).
+- `daily_usage`: 전송 시 발신자 `message_count +1`, AI 완료 시 트리거 메시지 발신자에게 토큰 귀속.
 
-event: delta
-data: {"text": "안녕하"}
+`GET /rooms/{id}/events` 이벤트 (T-007 확정, D-019):
+```
+event: message                      # USER 메시지 저장 직후 (양쪽 멤버 모두 받음 — 낙관적 렌더 치환용)
+data: {"id":101,"role":"USER","senderUserId":7,"content":"안녕","inputType":"TEXT","mode":"AI","createdAt":"..."}
 
-event: delta
-data: {"text": "세요!"}
+event: delta                        # AI 응답 조각. replyTo = 트리거 USER 메시지 id
+data: {"replyTo":101,"text":"안녕하"}
 
-event: done
-data: {"messageId": 102, "promptTokens": 320, "completionTokens": 18, "model": "chat-default"}
+event: done                         # AI 응답 저장 완료. message 는 ASSISTANT Message
+data: {"replyTo":101,"message":{"id":102,"role":"ASSISTANT","senderUserId":null,"content":"안녕하세요!","inputType":null,"mode":null,"createdAt":"..."},"promptTokens":320,"completionTokens":18}
+
+event: error                        # OmniRoute 실패/타임아웃/빈 응답 — ASSISTANT 미저장, 부분 델타 폐기
+data: {"replyTo":101,"code":"LLM_UPSTREAM_ERROR","message":"AI 응답에 실패했습니다."}
+
+event: mode                         # PATCH mode / 참여자 나가기로 AI 복귀
+data: {"mode":"HUMAN"}
+
+event: member                       # 입장·나가기. roomStatus 는 이벤트 시점 방 상태(개설자 나가기 → ORPHANED)
+data: {"action":"JOINED","userId":8,"nickname":"영희","role":"PARTICIPANT","roomStatus":"ACTIVE"}
+
+: ping                              # 20초 하트비트 (EventSource 는 무시)
 ```
-실패 시:
-```
-event: error
-data: {"code": "LLM_UPSTREAM_ERROR", "message": "..."}
-```
-- 첫 이벤트 `user`는 USER 메시지 저장 확인(프론트 낙관적 렌더의 id 치환용).
-- ~~동일 방에 진행 중 요청 존재 → 409~~ → **방 단위 직렬 큐**(2026-09-15 결정, D-008 보완): USER 메시지는 즉시 저장·브로드캐스트, AI 응답은 방당 순차 처리. 같은 유저의 대기 요청이 이미 있으면 409 `ROOM_BUSY`.
-- `HUMAN` 모드에서는 AI 응답 없음(저장 + `message` 브로드캐스트만).
-- AI 컨텍스트 = 어드민 기본 페르소나 + 방 `aiPersonality` 문구 + 개설자 4 : 참여자 1 가중 지시 + 최근 N개(발신자 라벨 `[개설자 닉]`/`[참여자 닉]`, HUMAN 모드 대화 포함).
-- 클라이언트 중단 시 서버는 OmniRoute 스트림을 취소하고 ASSISTANT 메시지를 저장하지 않는다(D-008 open, 확정 시 갱신).
+- 구독자가 0명이어도 잡은 완주·저장한다(D-018). 재연결 시 놓친 이벤트는 `GET /rooms/{id}/messages` 로 보충(프론트 T-008).
+- 잡 시작 시점에 방이 `HUMAN` 이면 건너뛴다(이벤트 없음). 이미 스트리밍 중인 잡은 완주.
+- 한 방에 잡이 2건까지 쌓일 수 있다(개설자·참여자 각 1건). 직렬이라 델타는 섞이지 않지만 프론트는 `replyTo` 로 구분한다.
+- AI 컨텍스트 = `effectiveAiPrompt`(D-017) + 가중 지시(참여자가 있던 방만, D-019 문구) + 최근 N(`LLM_CONTEXT_MAX_MESSAGES`, 기본 30)개 시간순. USER 는 `[개설자 닉]`/`[참여자 닉]` 라벨(나간 멤버 포함, HUMAN 모드 대화 포함), ASSISTANT 는 `assistant` 역할.
+- 인스턴스 1대 in-memory 버스. 수평 확장 시 Redis pub/sub 로 교체.
 
 Message:
 ```json
-{ "id": 102, "role": "ASSISTANT", "senderUserId": null, "content": "안녕하세요!", "inputType": null, "mode": "AI", "createdAt": "..." }
+{ "id": 102, "role": "ASSISTANT", "senderUserId": null, "content": "안녕하세요!", "inputType": null, "mode": null, "createdAt": "..." }
 ```
-`role` = `USER` \| `ASSISTANT`. `inputType`·`senderUserId` 는 USER 메시지에만. `mode` = 발신 당시 방 모드.
+`role` = `USER` \| `ASSISTANT`. `inputType`·`senderUserId`·`mode` 는 USER 메시지에만(ASSISTANT 는 null). `mode` = 발신 당시 방 모드.
 
 ## speech
 
@@ -174,3 +184,4 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 - 2026-09-15 T-006 구현: PATCH `title` 은 개설자만(참여자 403), 잘못된 커서 400, 목록 항목 `members: null`. **API 변경(권한) — T-008 acceptance 에 반영 필요.**
 - 2026-09-15 T-017 구현: PATCH `mode`/`aiPersonality` 활성화, 빈 body·잘못된 enum 400, ORPHANED 방 PATCH 410, 참여자 나가기 시 `mode=AI` 복귀. **API 변경 — T-008/T-018 acceptance 에 반영 필요.**
 - 2026-09-16 T-019(D-017): 어드민 페르소나 폐기 — `/admin/personas` 삭제, `PATCH /rooms/{id}` 에 `aiPrompt`, Room 에 `aiPrompt`/`effectiveAiPrompt`. 프리셋 재선택 시 `aiPrompt` 초기화. **API 변경 — T-008(성격/프롬프트 편집 UI)·T-011(어드민 persona 화면 제거) acceptance 반영 필요.**
+- 2026-09-16 T-007 구현: **messages 확정** — POST 202 `{messageId}`, `/rooms/{id}/events` 이벤트 6종 + `: ping`, `delta`/`done`/`error` 에 `replyTo`, 503 `AI_BUSY` 추가, 비멤버 404·ORPHANED 410. `mode`/`member` 이벤트는 rooms PATCH/leave/join 에서 발행. **API 변경 — T-008 `lib/sse.ts` 리듀서·acceptance 에 반영 필요.**

@@ -54,8 +54,8 @@ class OmniRouteClientTest {
 		return "{\"id\":\"c1\",\"model\":\"gpt-x\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"" + content + "\"},\"finish_reason\":null}]}";
 	}
 
-	private static OmniRouteClient.ChatMessage user(String content) {
-		return new OmniRouteClient.ChatMessage("user", content);
+	private static LlmClient.ChatMessage user(String content) {
+		return new LlmClient.ChatMessage("user", content);
 	}
 
 	@Test
@@ -68,8 +68,8 @@ class OmniRouteClientTest {
 			"[DONE]"));
 		List<String> deltas = new ArrayList<>();
 
-		OmniRouteClient.Result result = client.stream(List.of(
-			new OmniRouteClient.ChatMessage("system", "너는 친구다"),
+		LlmClient.Result result = client.stream(List.of(
+			new LlmClient.ChatMessage("system", "너는 친구다"),
 			user("[개설자 철수] 안녕")), deltas::add);
 
 		assertThat(deltas).containsExactly("안녕", "하세요", "!");
@@ -94,7 +94,7 @@ class OmniRouteClientTest {
 		server.enqueue(sse(chunk("a"), chunk("b"), "[DONE]"));
 		List<String> deltas = new ArrayList<>();
 
-		OmniRouteClient.Result result = client.stream(List.of(user("hi")), deltas::add);
+		LlmClient.Result result = client.stream(List.of(user("hi")), deltas::add);
 
 		assertThat(result.content()).isEqualTo("ab");
 		assertThat(result.promptTokens()).isNull();
@@ -107,7 +107,7 @@ class OmniRouteClientTest {
 		server.enqueue(sse(chunk("a"), "not-json", "{\"choices\":[{\"delta\":{\"content\":null}}]}", chunk("b"), "[DONE]"));
 		List<String> deltas = new ArrayList<>();
 
-		OmniRouteClient.Result result = client.stream(List.of(user("hi")), deltas::add);
+		LlmClient.Result result = client.stream(List.of(user("hi")), deltas::add);
 
 		assertThat(deltas).containsExactly("a", "b");
 		assertThat(result.content()).isEqualTo("ab");
