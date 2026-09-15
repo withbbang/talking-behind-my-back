@@ -18,7 +18,7 @@
 - API 변경: refresh 쿠키 Path, `/auth/me` `status`·`provider` 대문자 → 기획자가 T-005 acceptance 갱신 필요.
 - date: 2026-09-14
 
-### [개발자 → QA] T-005 로그인 페이지 + 세션 유지 + 라우트 가드 검증 요청
+### [개발자 → QA] T-005 로그인 페이지 + 세션 유지 + 라우트 가드 검증 요청 [처리됨 2026-09-15]
 - 요청/이슈: `cd apps/web && npm test && npm run lint && npm run typecheck && npm run build` 통과 확인(38 케이스).
   수동: compose dev + api + `npm run dev` 띄우고 `http://localhost:3000` 접속.
 - 근거 파일: TASKS.md#T-005 note, `apps/web/proxy.ts`, `apps/web/app/(auth)/login/*`, `apps/web/app/features/auth/*`
@@ -33,4 +33,5 @@
 - 범위 외(기존 미결): `icons/*.png` 404 (T-001 note, DESIGN.md 아이콘 미결), 약관/개인정보 링크 없음(v1 결정).
 - 추가(2026-09-15): 개발자가 (1)(2)(3)(4) 를 로컬 실왕복으로 확인함(TASKS.md#T-005 note). 남은 확인: (5) 취소 경로 실왕복, (6)(7) 반응형·접근성, 카카오 왕복.
   표시명 "뒷담 친구" + 핑크 테마 적용됨 — 라이트/다크 대비 확인 포함.
+- 결과: QA_REPORT.md#T-005 PASS (2026-09-15, 사용자 지시로 개발자 대행 기록)
 - date: 2026-09-14

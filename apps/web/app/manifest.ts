@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-// PWA manifest. 아이콘 파일은 public/icons/ 에 추가 필요 (DESIGN.md 미결: 앱 아이콘/스플래시).
+// PWA manifest. 아이콘은 public/icons/*.png(192/512/maskable), 파비콘은 app/icon.svg, iOS 는 app/apple-icon.png.
 // 서비스워커는 T-014 (Next 16 호환 확인 후).
 export default function manifest(): MetadataRoute.Manifest {
   return {

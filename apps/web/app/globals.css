@@ -14,9 +14,6 @@
   --accent: #ff3d7f;
   --danger: #c4002e;
   --danger-bg: rgb(196 0 46 / 0.1);
-  /* 말풍선(surface) 안에서 쓰는 알림색 — surface 가 반전되므로 별도 토큰 */
-  --alert-on-surface: #ffd0de;
-  --alert-on-surface-bg: rgb(255 61 127 / 0.24);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,8 +26,6 @@
     --accent: #ff6b9c;
     --danger: #ff8fa8;
     --danger-bg: rgb(255 143 168 / 0.16);
-    --alert-on-surface: #170611;
-    --alert-on-surface-bg: rgb(23 6 17 / 0.16);
   }
 }
 
@@ -44,8 +39,6 @@
   --color-accent: var(--accent);
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
-  --color-alert-on-surface: var(--alert-on-surface);
-  --color-alert-on-surface-bg: var(--alert-on-surface-bg);
   --font-sans: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 }
 

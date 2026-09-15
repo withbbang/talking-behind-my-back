@@ -11,5 +11,5 @@
   소셜 버튼은 각사 브랜드색 유지. 약관/개인정보 링크 없음(v1).
 - 근거 파일: `apps/web/app/globals.css`, `apps/web/app/(auth)/login/LoginClient.tsx`, `apps/web/app/icon.svg`
 - 원하는 결과: DESIGN.md#원칙 또는 새 "토큰" 절에 위 값 기록, 미결 항목에서 컬러 토큰 제거. 바꾸고 싶은 값은 to-dev.md 로.
-  남은 미결: PWA 아이콘 png(`public/icons/*`, 현재 404)·스플래시 — `icon.svg` 기준으로 192/512/maskable 필요.
+  2026-09-15 추가: 제목 중앙 정렬, 소개문 우측 2줄, 말풍선 안내문 없음, 오류는 상단 토스트(`components/ui/Toast`). 아이콘 세트(악마 하트) 적용 완료 — 미결에서 제거 가능.
 - date: 2026-09-15

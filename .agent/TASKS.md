@@ -116,7 +116,7 @@
   카카오 scope 는 `profile_nickname, account_email` — 프로필 사진 동의항목 "사용 안함"(2026-09-14, 비즈 앱 전환 후 이메일만 켬). authorization request 쿠키 TTL 10분.
 
 ## T-005 로그인 페이지 + 세션 유지 + 라우트 가드 (web)
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M1
 - spec: DESIGN.md#로그인, API.md#auth
@@ -134,12 +134,15 @@
   (4) `app/page.tsx` 는 임시로 `useMe` 닉네임 + 로그아웃 표시(세션 유지 검증용, T-008 에서 교체).
   (5) 로그인/로그아웃 전환은 `lib/navigation.hardNavigate`(전체 이동) — proxy 가 쿠키를 다시 보고 React Query 캐시도 폐기.
   (6) 로그인 화면 스타일은 DESIGN.md 골격만(컬러 토큰 미결) — 브랜드색은 버튼 3개에만, 제목 좌측 정렬·버튼 하단 엄지 영역.
-- test: 30 케이스 신규 — `proxy.test.ts` 6, `features/auth/{loginErrorMessage 5, session 3, useMe 3, useLogout 2}`,
-  `components/ui/SocialLoginButton.test.tsx` 4, `(auth)/login/LoginClient.test.tsx` 4, `HomeClient.test.tsx` 3. 전체 38 통과 + lint 0 errors + typecheck + build(2026-09-14 로컬).
+- test: 33 케이스 신규 — `proxy.test.ts` 6, `features/auth/{loginErrorMessage 5, session 3, useMe 3, useLogout 2}`,
+  `components/ui/{SocialLoginButton 4, Toast 3}`, `(auth)/login/LoginClient.test.tsx` 4, `HomeClient.test.tsx` 3. 전체 41 통과 + lint 0 errors + typecheck + build(2026-09-15 로컬).
+- qa: PASS (QA_REPORT.md 2026-09-15) — 네이버·카카오 실왕복, 세션 유지, 로그아웃, 토스트, 접근성, PWA 아이콘.
   `api.test.ts` 의 기존 typecheck 오류(TS18046, T-001) 3줄 수정. 390×844 스크린샷으로 `/login?error=access_denied` 육안 확인.
   **실왕복 확인(2026-09-15, 로컬 compose+api+web, Playwright)**: 구글 세션 silent refresh 복원(`/login` → refresh 204 → `/` → me 200),
   `/login` 직접 접근 → `/` 307, 로그아웃 → `/login` + 이후 refresh 401, 네이버 신규 로그인 → 콜백 → `/` me 200(NAVER), 15분 뒤 access 만료 후 HMR RSC 재요청 → 307 → silent refresh 204 → 복귀.
   (7) 2026-09-15 표시명 **뒷담 친구**(inbox/to-ceo D-011 보완 요청) + **핑크 테마**(globals.css 토큰, 말풍선 로그인, inbox/to-designer.md). `useLogout` 은 캐시 clear 없이 전체 이동만(clear 시 이동 전 재조회 낭비 실측).
+  (8) 2026-09-15 UI 피드백 반영: 제목 중앙, 소개 우측 2줄("뒷담화 전문 AI 친구 / 무엇이든지 이야기 해도 돼!"), 말풍선 안내문 제거, 오류는 `components/ui/Toast`(상단, 5초).
+      아이콘 세트 적용(`app/icon.svg`, `app/apple-icon.png`, `public/icons/*` — 사용자 제공).
 
 ## M2 텍스트 채팅 · SSE
 

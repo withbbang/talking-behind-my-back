@@ -117,3 +117,23 @@
   - (블록 아님, 후속 T-012) 운영 DSM 뒤에서 `X-Forwarded-Proto/Host` 실제 전달 확인.
 - date: 2026-09-14
 
+
+### T-005 로그인 페이지 + 세션 유지 + 라우트 가드 (web)
+- verdict: PASS
+- tests: `cd apps/web && npm test` 41 케이스 통과(에이전트 실행, 2026-09-15). lint 0 errors, typecheck, build 통과.
+  `proxy.test.ts` 6, `features/auth/*` 13, `SocialLoginButton` 4, `Toast` 3, `LoginClient` 4, `HomeClient` 3, `api.test.ts` 8.
+- checked (로컬 compose nginx+MySQL, api bootRun, next dev, Playwright headed — 2026-09-15):
+  - 쿠키 없이 `/` → `/login` 307. `/login` 버튼 3개 a 태그, 각 `/api/oauth2/authorization/{provider}` 302.
+  - 신규 로그인 왕복: 네이버(빵선이) PASS, 카카오 2회 PASS, 구글은 silent refresh 복원으로 확인. 콜백 → `/` → `/auth/me` 200, 닉네임·공급자 표시.
+  - 로그인 상태 `/login` 직접 접근 → `/` 307. 클라이언트 뒤로가기로 `/login` 복귀 시 LoginClient silent refresh 204 → `/` 복귀.
+  - 세션 유지: 15분 access 만료 후 `/` 재요청 → 307 → `/login` → refresh 204 → `/`(사용자 조작 없음). 새 브라우저 컨텍스트에서도 refresh 쿠키로 복원.
+  - 로그아웃 → `/login`, 이후 refresh 401. 카카오 콜백 뒤로가기 재전송 → `authorization_request_not_found` → `/login?error=` 정상.
+  - `?error=access_denied` → 상단 토스트(role=alert, 5초 자동 닫힘·닫기 버튼), silent refresh 미실행. 공급자 화면에 취소 버튼이 없어 직접 URL 로 검증.
+  - 390×844 라이트/다크: 제목 중앙, 소개 우측 2줄, 하단 말풍선 안 버튼 3개. 대비 제목 16.8:1, 보조문 약 5:1(AA).
+  - 접근성: Tab 순서 구글→네이버→카카오, 포커스 링 3px accent, `region "로그인"`, svg aria-hidden, `lang=ko`.
+  - PWA 자원: `icon.svg`/`apple-icon.png`/`icons/*.png`/manifest 200.
+- issues:
+  - (블록 아님) `127.0.0.1:3000` 으로 접근하면 Next dev cross-origin 차단으로 hydration 안 됨 — dev 전용, 운영 무관. 로컬은 `localhost` 사용.
+  - (블록 아님) nginx dev.conf 가 `/_next/webpack-hmr` 웹소켓 업그레이드 헤더 없음 → 콘솔 HMR 오류(dev 전용, 기능 영향 없음). 원하면 별도 T 로.
+  - (후속 T-013) iOS 홈화면 PWA 소셜 왕복. (후속 T-008) 토스트 zustand 스토어 승격.
+- date: 2026-09-15
