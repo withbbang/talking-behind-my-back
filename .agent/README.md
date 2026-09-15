@@ -18,6 +18,7 @@
 | DECISIONS.md | 우선순위·범위·기술 결정 로그 (D-번호) | CEO | 전원 |
 | CONVENTIONS.md | 브랜치·커밋·코딩·테스트·툴 규칙 | CEO | 전원 |
 | DESIGN.md | 화면 설계·인터랙션 | 디자이너 | 개발자, QA |
+| BRAND.md | 브랜드 가이드(이름·컬러·타이포·로고·보이스) | 디자이너 | 전원 |
 | API.md | 프론트↔백 API 계약 | 개발자 | 전원 |
 | SCHEMA.md | DB 스키마 | 개발자 | 전원 |
 | TASKS.md | 작업 큐 (T-번호) | owner가 자기 라인만 | 전원 |
