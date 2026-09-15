@@ -29,6 +29,8 @@ public class ChatRoom {
 	private String inviteCode;
 	@Builder.Default
 	private AiPersonality aiPersonality = AiPersonality.RATIONAL;
+	/** 개설자가 직접 쓴 시스템 프롬프트. null 이면 프리셋 문구(T-019, D-017). */
+	private String aiPrompt;
 	@Builder.Default
 	private RoomMode mode = RoomMode.AI;
 	@Builder.Default
@@ -49,6 +51,11 @@ public class ChatRoom {
 
 	public boolean isOrphaned() {
 		return status == RoomStatus.ORPHANED;
+	}
+
+	/** AI 에 실제로 넣는 시스템 프롬프트 — 커스텀(aiPrompt) 우선, 없으면 프리셋 문구. T-007 컨텍스트가 쓴다. */
+	public String effectiveAiPrompt() {
+		return aiPrompt != null ? aiPrompt : aiPersonality.systemPrompt();
 	}
 
 	/** 첫 메시지 앞 30자 → 제목. 개행/연속 공백은 하나로. 비면 "새 대화". */

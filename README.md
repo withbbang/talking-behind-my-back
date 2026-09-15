@@ -43,7 +43,7 @@ apps/web/
 │   │   ├── layout.tsx                 # 사이드바(채팅방 목록) + 메인
 │   │   ├── page.tsx                   # draft 방 (D-010)
 │   │   └── rooms/[roomId]/page.tsx
-│   ├── (admin)/admin/                 # T-011: layout(ROLE_ADMIN), page, users/, rooms/, persona/
+│   ├── (admin)/admin/                 # T-011: layout(ROLE_ADMIN), page, users/, rooms/
 │   ├── components/
 │   │   ├── chat/                      # MessageList, Composer, StreamingBubble
 │   │   ├── voice/                     # VoiceButton, VoiceModeOverlay, AudioPlayer
@@ -76,7 +76,7 @@ apps/api/src/main/java/com/example/chat/
 ├── user/          ✅ User(Role/Status), UserMapper
 ├── chatroom/      ✅ ChatRoom(autoTitle), ChatRoomMapper                 · T-006: Controller/Service
 ├── message/       ✅ Message(Role/InputType), MessageMapper             · T-007: ChatController(SSE), ChatService
-├── persona/       ✅ Persona, PersonaMapper                              · T-011: admin 에서 CRUD
+├── persona/       ❌ T-019(D-017) 로 삭제 — 시스템 프롬프트는 chat_rooms.ai_personality/ai_prompt
 ├── llm/           ✅ LlmProperties                                       · T-007: OmniRouteClient, dto/
 ├── auth/          T-004: AuthController, CustomOAuth2UserService, OAuth2SuccessHandler, userinfo/, SocialAccount, RefreshToken + 매퍼
 ├── speech/        T-009: SttProvider/TtsProvider, openai/, clova/, SpeechProperties, SpeechController

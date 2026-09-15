@@ -212,9 +212,10 @@ class ChatRoomServiceTest {
 	@DisplayName("update (PATCH /rooms/{id})")
 	class Update {
 
-		private static RoomUpdate title(String t) { return new RoomUpdate(t, null, null); }
-		private static RoomUpdate mode(RoomMode m) { return new RoomUpdate(null, m, null); }
-		private static RoomUpdate personality(AiPersonality p) { return new RoomUpdate(null, null, p); }
+		private static RoomUpdate title(String t) { return new RoomUpdate(t, null, null, null); }
+		private static RoomUpdate mode(RoomMode m) { return new RoomUpdate(null, m, null, null); }
+		private static RoomUpdate personality(AiPersonality p) { return new RoomUpdate(null, null, p, null); }
+		private static RoomUpdate prompt(String p) { return new RoomUpdate(null, null, null, p); }
 
 		@Test
 		void title_은_개설자만_참여자는_FORBIDDEN_비멤버는_NOT_FOUND() {
@@ -230,7 +231,7 @@ class ChatRoomServiceTest {
 		void 빈_갱신과_공백_title_은_VALIDATION_FAILED() {
 			RoomResponse r = service.create(owner.getId(), null);
 
-			assertError(() -> service.update(owner.getId(), r.id(), new RoomUpdate(null, null, null)), ErrorCode.VALIDATION_FAILED);
+			assertError(() -> service.update(owner.getId(), r.id(), new RoomUpdate(null, null, null, null)), ErrorCode.VALIDATION_FAILED);
 			assertThatThrownBy(() -> service.update(owner.getId(), r.id(), title("   ")))
 				.isInstanceOf(BusinessException.class)
 				.extracting("details").asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP).containsKey("title");
@@ -284,15 +285,79 @@ class ChatRoomServiceTest {
 			join(r.id(), guest.getId());
 
 			assertError(
-				() -> service.update(guest.getId(), r.id(), new RoomUpdate("x", RoomMode.HUMAN, null)), ErrorCode.FORBIDDEN);
+				() -> service.update(guest.getId(), r.id(), new RoomUpdate("x", RoomMode.HUMAN, null, null)), ErrorCode.FORBIDDEN);
 			ChatRoom room = roomMapper.findById(r.id()).orElseThrow();
 			assertThat(room.getMode()).isEqualTo(RoomMode.AI);
 			assertThat(room.getTitle()).isEqualTo("새 대화");
 
-			RoomResponse updated = service.update(owner.getId(), r.id(), new RoomUpdate("둘", RoomMode.HUMAN, AiPersonality.EMOTIONAL));
+			RoomResponse updated = service.update(owner.getId(), r.id(), new RoomUpdate("둘", RoomMode.HUMAN, AiPersonality.EMOTIONAL, null));
 			assertThat(updated.title()).isEqualTo("둘");
 			assertThat(updated.mode()).isEqualTo(RoomMode.HUMAN);
 			assertThat(updated.aiPersonality()).isEqualTo(AiPersonality.EMOTIONAL);
+		}
+
+		@Test
+		void aiPrompt_없으면_effectiveAiPrompt_는_프리셋_문구() {
+			RoomResponse r = service.create(owner.getId(), null);
+
+			assertThat(r.aiPrompt()).isNull();
+			assertThat(r.effectiveAiPrompt()).isEqualTo(AiPersonality.RATIONAL.systemPrompt());
+		}
+
+		@Test
+		void aiPrompt_는_개설자만_trim_저장_참여자는_FORBIDDEN() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+
+			RoomResponse updated = service.update(owner.getId(), r.id(), prompt("  짧게 답해.  "));
+			assertThat(updated.aiPrompt()).isEqualTo("짧게 답해.");
+			assertThat(updated.effectiveAiPrompt()).isEqualTo("짧게 답해.");
+			assertThat(updated.aiPersonality()).isEqualTo(AiPersonality.RATIONAL);
+			assertError(() -> service.update(guest.getId(), r.id(), prompt("x")), ErrorCode.FORBIDDEN);
+			assertThat(roomMapper.findById(r.id()).orElseThrow().getAiPrompt()).isEqualTo("짧게 답해.");
+			// 참여자도 조회는 된다
+			assertThat(service.get(guest.getId(), r.id()).effectiveAiPrompt()).isEqualTo("짧게 답해.");
+		}
+
+		@Test
+		void aiPrompt_빈_문자열_또는_공백은_초기화_프리셋으로_복귀() {
+			RoomResponse r = service.create(owner.getId(), null);
+			service.update(owner.getId(), r.id(), prompt("커스텀"));
+
+			RoomResponse cleared = service.update(owner.getId(), r.id(), prompt("   "));
+			assertThat(cleared.aiPrompt()).isNull();
+			assertThat(cleared.effectiveAiPrompt()).isEqualTo(AiPersonality.RATIONAL.systemPrompt());
+			assertThat(roomMapper.findById(r.id()).orElseThrow().getAiPrompt()).isNull();
+		}
+
+		@Test
+		void aiPersonality_재선택하면_aiPrompt_초기화() {
+			RoomResponse r = service.create(owner.getId(), null);
+			service.update(owner.getId(), r.id(), prompt("커스텀"));
+
+			RoomResponse updated = service.update(owner.getId(), r.id(), personality(AiPersonality.EMOTIONAL));
+			assertThat(updated.aiPersonality()).isEqualTo(AiPersonality.EMOTIONAL);
+			assertThat(updated.aiPrompt()).isNull();
+			assertThat(updated.effectiveAiPrompt()).isEqualTo(AiPersonality.EMOTIONAL.systemPrompt());
+		}
+
+		@Test
+		void aiPersonality_와_aiPrompt_를_함께_보내면_커스텀이_남는다() {
+			RoomResponse r = service.create(owner.getId(), null);
+
+			RoomResponse updated = service.update(owner.getId(), r.id(), new RoomUpdate(null, null, AiPersonality.EMOTIONAL, "둘 다"));
+			assertThat(updated.aiPersonality()).isEqualTo(AiPersonality.EMOTIONAL);
+			assertThat(updated.aiPrompt()).isEqualTo("둘 다");
+			assertThat(updated.effectiveAiPrompt()).isEqualTo("둘 다");
+		}
+
+		@Test
+		void ORPHANED_방은_aiPrompt_도_ROOM_ORPHANED() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+			service.leave(owner.getId(), r.id());
+
+			assertError(() -> service.update(guest.getId(), r.id(), prompt("x")), ErrorCode.ROOM_ORPHANED);
 		}
 	}
 
@@ -331,7 +396,7 @@ class ChatRoomServiceTest {
 		void 참여자_나가기시_HUMAN_이던_방은_AI_로_복귀() {
 			RoomResponse r = service.create(owner.getId(), null);
 			join(r.id(), guest.getId());
-			service.update(owner.getId(), r.id(), new RoomUpdate(null, RoomMode.HUMAN, null));
+			service.update(owner.getId(), r.id(), new RoomUpdate(null, RoomMode.HUMAN, null, null));
 
 			service.leave(guest.getId(), r.id());
 

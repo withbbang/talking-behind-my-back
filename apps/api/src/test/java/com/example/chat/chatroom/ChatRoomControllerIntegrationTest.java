@@ -278,6 +278,44 @@ class ChatRoomControllerIntegrationTest {
 		}
 
 		@Test
+		void aiPrompt_개설자_200_effectiveAiPrompt_반영_참여자_403() throws Exception {
+			long id = createRoom(owner, null).get("id").asLong();
+			memberMapper.insert(RoomMember.participant(id, guest.getId()));
+
+			mvc.perform(get("/rooms/" + id).cookie(access(owner)))
+				.andExpect(jsonPath("$.aiPrompt").value(org.hamcrest.Matchers.nullValue()))
+				.andExpect(jsonPath("$.effectiveAiPrompt").value(AiPersonality.RATIONAL.systemPrompt()));
+			mvc.perform(patch("/rooms/" + id).cookie(access(owner))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"aiPrompt\":\" 반말로 짧게 \"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.aiPrompt").value("반말로 짧게"))
+				.andExpect(jsonPath("$.effectiveAiPrompt").value("반말로 짧게"));
+			mvc.perform(patch("/rooms/" + id).cookie(access(guest))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"aiPrompt\":\"x\"}"))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("FORBIDDEN"));
+			// 초기화 + 목록 항목에도 내려간다
+			mvc.perform(patch("/rooms/" + id).cookie(access(owner))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"aiPrompt\":\"\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.aiPrompt").value(org.hamcrest.Matchers.nullValue()))
+				.andExpect(jsonPath("$.effectiveAiPrompt").value(AiPersonality.RATIONAL.systemPrompt()));
+			mvc.perform(get("/rooms").cookie(access(guest)))
+				.andExpect(jsonPath("$.items[0].effectiveAiPrompt").value(AiPersonality.RATIONAL.systemPrompt()));
+		}
+
+		@Test
+		void aiPrompt_2001자는_400_VALIDATION_FAILED_details_aiPrompt() throws Exception {
+			long id = createRoom(owner, null).get("id").asLong();
+
+			mvc.perform(patch("/rooms/" + id).cookie(access(owner))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"aiPrompt\":\"" + "x".repeat(2001) + "\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+				.andExpect(jsonPath("$.details.aiPrompt").isString());
+		}
+
+		@Test
 		void 빈_body_와_잘못된_enum_값은_400_VALIDATION_FAILED() throws Exception {
 			long id = createRoom(owner, null).get("id").asLong();
 

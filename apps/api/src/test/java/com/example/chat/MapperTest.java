@@ -12,8 +12,6 @@ import com.example.chat.chatroom.RoomMode;
 import com.example.chat.chatroom.RoomStatus;
 import com.example.chat.message.Message;
 import com.example.chat.message.MessageMapper;
-import com.example.chat.persona.Persona;
-import com.example.chat.persona.PersonaMapper;
 import com.example.chat.user.User;
 import com.example.chat.user.UserMapper;
 import java.time.LocalDateTime;
@@ -38,7 +36,6 @@ class MapperTest {
 	@Autowired ChatRoomMapper roomMapper;
 	@Autowired RoomMemberMapper memberMapper;
 	@Autowired MessageMapper messageMapper;
-	@Autowired PersonaMapper personaMapper;
 
 	private User newUser(String nickname) {
 		User u = User.builder().nickname(nickname).build();
@@ -107,11 +104,23 @@ class MapperTest {
 			assertThat(found.getOwnerId()).isEqualTo(me.getId());
 			assertThat(found.getInviteCode()).isEqualTo(r.getInviteCode());
 			assertThat(found.getAiPersonality()).isEqualTo(AiPersonality.RATIONAL);
+			assertThat(found.getAiPrompt()).isNull();
 			assertThat(found.getMode()).isEqualTo(RoomMode.AI);
 			assertThat(found.getStatus()).isEqualTo(RoomStatus.ACTIVE);
 			assertThat(found.getMessageCount()).isZero();
 			assertThat(found.getLastMessageAt()).isEqualTo(found.getCreatedAt());
 			assertThat(found.getMemberCount()).isEqualTo(1);
+		}
+
+		@Test
+		void updateAiPrompt_는_null_로_초기화도_된다() {
+			User me = newUser("me");
+			ChatRoom r = newRoom(me.getId(), "방");
+
+			assertThat(roomMapper.updateAiPrompt(r.getId(), "커스텀 프롬프트")).isEqualTo(1);
+			assertThat(roomMapper.findById(r.getId()).orElseThrow().getAiPrompt()).isEqualTo("커스텀 프롬프트");
+			assertThat(roomMapper.updateAiPrompt(r.getId(), null)).isEqualTo(1);
+			assertThat(roomMapper.findById(r.getId()).orElseThrow().getAiPrompt()).isNull();
 		}
 
 		@Test
@@ -291,56 +300,4 @@ class MapperTest {
 		}
 	}
 
-	@Nested
-	@DisplayName("PersonaMapper")
-	class Personas {
-
-		@Test
-		void 시드_기본_페르소나가_활성이다() {
-			Persona active = personaMapper.findActive().orElseThrow();
-			assertThat(active.isActive()).isTrue();
-			assertThat(active.getSystemPrompt()).isNotBlank();
-		}
-
-		@Test
-		void 활성화는_항상_하나만() {
-			Persona before = personaMapper.findActive().orElseThrow();
-			Persona p = Persona.builder().name("차분").systemPrompt("차분하게 답해.").build();
-			personaMapper.insert(p);
-
-			personaMapper.deactivateAll();
-			personaMapper.activate(p.getId());
-
-			assertThat(personaMapper.findActive().orElseThrow().getId()).isEqualTo(p.getId());
-			assertThat(personaMapper.findById(before.getId()).orElseThrow().isActive()).isFalse();
-			assertThat(personaMapper.findAll()).extracting(Persona::isActive).containsOnlyOnce(true);
-		}
-
-		@Test
-		void 활성_페르소나는_삭제되지_않는다() {
-			Persona active = personaMapper.findActive().orElseThrow();
-			Persona p = Persona.builder().name("임시").systemPrompt("x").build();
-			personaMapper.insert(p);
-
-			assertThat(personaMapper.deleteById(active.getId())).isZero();
-			assertThat(personaMapper.deleteById(p.getId())).isEqualTo(1);
-			assertThat(personaMapper.findById(p.getId())).isEmpty();
-		}
-
-		@Test
-		void update_는_이름과_프롬프트만_바꾼다() {
-			Persona p = Persona.builder().name("a").systemPrompt("a").build();
-			personaMapper.insert(p);
-			p.setName("b");
-			p.setSystemPrompt("b-prompt");
-			p.setActive(true); // update 에서 무시되어야 함
-
-			personaMapper.update(p);
-
-			Persona found = personaMapper.findById(p.getId()).orElseThrow();
-			assertThat(found.getName()).isEqualTo("b");
-			assertThat(found.getSystemPrompt()).isEqualTo("b-prompt");
-			assertThat(found.isActive()).isFalse();
-		}
-	}
 }

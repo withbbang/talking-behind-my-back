@@ -125,10 +125,23 @@
 - impact: `SecurityConfig` entrypoint, `auth/AuthController.refresh`, API.md#공통
 - date: 2026-09-14
 
+### D-017 어드민 페르소나 폐지 — 시스템 프롬프트는 방 단위, 개설자가 프리셋 선택 + 자유 편집
+- decision: `personas` 테이블·`/admin/personas` API·US-22/US-40 을 폐기한다. AI 시스템 프롬프트는 방마다 `aiPersonality` 프리셋(RATIONAL/EMOTIONAL, 코드 상수 문구)을 기본으로 하고, 개설자가 `aiPrompt`(자유 텍스트, 1~2,000자)로 덮어쓸 수 있다. 유효 프롬프트 = `aiPrompt` 있으면 그것, 없으면 프리셋 문구. 프리셋을 다시 고르면 `aiPrompt` 는 초기화된다(언제든 재선택 가능). 앱 공통 기본 페르소나 층은 없다.
+- rationale: 9/15 2인 채팅방 요건으로 방 단위 성격(`AiPersonality`)이 생기면서 어드민 페르소나와 층이 겹쳤다. 말투를 정하는 주체는 방 개설자가 자연스럽고, 관리자가 전역 프롬프트를 바꿔 모든 방 대화 톤이 한꺼번에 바뀌는 것은 원하지 않는다.
+- alternatives: (a) 두 층 유지(어드민 공통 + 방 성격) — 겹침, 관리자 편집 화면 비용. (c) 프리셋 문구를 DB 로 옮겨 관리자 편집 — 기각, 개설자 편집으로 충분.
+- impact: `V3__room_ai_prompt.sql`(`chat_rooms.ai_prompt` 추가, `personas` DROP), `persona/*` 삭제, `PATCH /rooms/{id}` `aiPrompt`, Room 응답 `aiPrompt`/`effectiveAiPrompt`, T-007 컨텍스트 = 유효 프롬프트 + 가중 지시 + 최근 N, API.md#rooms/#admin, SCHEMA.md #4/#6, PLAN.md US-22/40·M4, T-008 UI(프롬프트 편집 textarea). → T-019
+- date: 2026-09-16 (개발자 대행 기록, 사용자 결정)
+
+### D-018 D-008 보완 — AI 응답은 방 단위 서버 잡, 클라이언트 이탈과 무관하게 완주·저장
+- decision: `POST /rooms/{id}/messages` 는 202 로 즉시 끝나고 AI 응답은 방당 직렬 큐의 서버 잡이 만든다. 결과는 `GET /rooms/{id}/events` SSE(방 단위 브로드캐스트)로 흘리며, 구독자가 0명이어도 잡은 완주하고 ASSISTANT 메시지를 저장한다. 취소 없음. 미저장은 OmniRoute 오류·타임아웃뿐(`error` 이벤트, 부분 응답 폐기). 대기 중 방이 `HUMAN` 으로 바뀌면 잡 시작 시 재확인해 건너뛴다(이미 스트리밍 중인 잡은 완주). 풀 포화 시 503 `AI_BUSY`.
+- rationale: 2인 방에서는 한쪽이 나가도 상대는 답을 봐야 한다. 응답이 특정 HTTP 연결에 묶이지 않으므로 "중단 시 부분 저장" 질문 자체가 사라진다. SSE 구현은 `SseEmitter`(Homepage X21 선례, webmvc 스택) — CONVENTIONS.md#백엔드.
+- impact: `message/{RoomEventBus, RoomAiExecutor, MessageService}`, `llm/OmniRouteClient`, API.md#messages, CONVENTIONS.md SSE 규칙. → T-007
+- date: 2026-09-16 (개발자 대행 기록, 사용자 결정)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)
 - ~~프로젝트/서비스 이름~~ → D-011 확정
 - ~~같은 이메일 다른 공급자 정책~~ → D-015 확정
 - STT 녹음 길이·일일 호출 상한 (D-007 open)
-- 스트림 중단 시 부분 응답 처리 (D-008 open)
+- ~~스트림 중단 시 부분 응답 처리 (D-008 open)~~ → D-018 확정

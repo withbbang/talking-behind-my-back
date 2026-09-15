@@ -80,3 +80,17 @@
 - 범위 외: `mode`/`member` SSE 브로드캐스트(T-007), web 화면(T-008/T-018).
 - 결과: QA_REPORT.md#T-017 PASS (2026-09-15, 사용자 지시로 개발자 대행 기록)
 - date: 2026-09-15
+
+### [개발자 → QA] T-019 어드민 페르소나 폐지 + 방 AI 프롬프트 편집 (api) 검증 요청 [처리됨 2026-09-16]
+- 요청/이슈: `cd infra && docker compose -f docker-compose.dev.yml up -d mysql` 후 `cd apps/api && ./gradlew test` 통과 확인(166 케이스, T-019 신규 9, Persona 4 삭제). Flyway V3 가 기존 로컬 DB 의 `personas` 를 DROP 한다.
+  수동(선택): 개설자 쿠키로 `PATCH /api/rooms/{id}` `{"aiPrompt":" 반말로 짧게 "}` 200 → `aiPrompt` "반말로 짧게", `effectiveAiPrompt` 동일 → `{"aiPersonality":"EMOTIONAL"}` 200 → `aiPrompt` null, `effectiveAiPrompt` 감성 프리셋 문구.
+- 근거 파일: DECISIONS.md#D-017, API.md#rooms(변경 이력 2026-09-16), SCHEMA.md #4/#6, `apps/api/src/main/resources/db/migration/V3__room_ai_prompt.sql`,
+  `apps/api/src/main/java/com/example/chat/chatroom/{ChatRoom,RoomUpdate,RoomResponse,ChatRoomService}.java`, `apps/api/src/test/java/com/example/chat/{MapperTest,chatroom/ChatRoomServiceTest,chatroom/ChatRoomControllerIntegrationTest}.java`
+- 확인 포인트:
+  (1) `aiPrompt` 는 개설자만(참여자 403), 조회는 멤버 전원(`effectiveAiPrompt` 목록·상세 둘 다).
+  (2) `""`/공백 → null 초기화, 2,001자 → 400 `details.aiPrompt`, 필드 없음 → 변경 없음. `{}` 는 여전히 400.
+  (3) `aiPersonality` 재선택 시 `aiPrompt` null. 둘 다 한 요청이면 커스텀이 남는다.
+  (4) `persona/*`·`PersonaMapper.xml`·`ErrorCode.PERSONA_*` 삭제, `/admin/personas` API.md 에서 폐기 표시.
+- 범위 외: T-007 컨텍스트 조립(`effectiveAiPrompt()` 사용), web 편집 UI(T-008).
+- 결과: QA_REPORT.md#T-019 PASS (2026-09-16, 사용자 지시로 개발자 대행 기록)
+- date: 2026-09-16

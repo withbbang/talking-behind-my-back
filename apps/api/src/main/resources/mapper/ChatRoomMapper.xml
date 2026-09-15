@@ -8,6 +8,7 @@
     <result property="title"         column="title"/>
     <result property="inviteCode"    column="invite_code"/>
     <result property="aiPersonality" column="ai_personality"/>
+    <result property="aiPrompt"      column="ai_prompt"/>
     <result property="mode"          column="mode"/>
     <result property="status"        column="status"/>
     <result property="messageCount"  column="message_count"/>
@@ -19,7 +20,7 @@
 
   <!-- 모든 select 는 chat_rooms r 별칭을 전제로 한다 -->
   <sql id="columns">
-    r.id, r.owner_id, r.title, r.invite_code, r.ai_personality, r.mode, r.status,
+    r.id, r.owner_id, r.title, r.invite_code, r.ai_personality, r.ai_prompt, r.mode, r.status,
     r.message_count, r.last_message_at, r.created_at, r.updated_at,
     (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id AND m.left_at IS NULL) AS member_count
   </sql>
@@ -89,6 +90,10 @@
 
   <update id="updateAiPersonality">
     UPDATE chat_rooms SET ai_personality = #{aiPersonality} WHERE id = #{id}
+  </update>
+
+  <update id="updateAiPrompt">
+    UPDATE chat_rooms SET ai_prompt = #{aiPrompt, jdbcType=VARCHAR} WHERE id = #{id}
   </update>
 
   <update id="updateInviteCode">

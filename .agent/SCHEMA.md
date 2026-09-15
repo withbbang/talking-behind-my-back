@@ -1,8 +1,8 @@
 # SCHEMA — DB 스키마
 
 > **Write: 개발자 | Read: 전원**
-> TL;DR: MySQL 8.4, utf8mb4. 테이블 8개. V1(T-003) = 초기 7개. **V2(T-006) = 2인 채팅방 요건** — `chat_rooms` 소유/초대/성격/모드/상태,
-> `room_members` 신설, `messages.sender_user_id/mode`. Flyway `V{n}__*.sql`만 DDL 을 소유한다(D-009).
+> TL;DR: MySQL 8.4, utf8mb4. 테이블 7개. V1(T-003) = 초기 7개. **V2(T-006) = 2인 채팅방 요건** — `chat_rooms` 소유/초대/성격/모드/상태,
+> `room_members` 신설, `messages.sender_user_id/mode`. **V3(T-019, D-017) = `chat_rooms.ai_prompt` 추가 + `personas` DROP.** Flyway `V{n}__*.sql`만 DDL 을 소유한다(D-009).
 
 ## 공통 규칙
 - 이름: 테이블·컬럼 snake_case, 테이블은 복수형.
@@ -60,7 +60,8 @@
 | owner_id | BIGINT UNSIGNED | FK users, NOT NULL | 개설자. V1 `user_id` 에서 이름 변경 |
 | title | VARCHAR(100) | NOT NULL | 생성 시 "새 대화", 첫 메시지 30자 자동, 수정 가능 |
 | invite_code | VARCHAR(16) | NOT NULL, UNIQUE | 8자 base32(`0/O/1/I` 제외). 개설자가 재발급 가능 |
-| ai_personality | VARCHAR(20) | NOT NULL DEFAULT 'RATIONAL' | RATIONAL / EMOTIONAL. 개설자만 변경 |
+| ai_personality | VARCHAR(20) | NOT NULL DEFAULT 'RATIONAL' | RATIONAL / EMOTIONAL 프리셋. 개설자만 변경, 언제든 재선택 |
+| ai_prompt | TEXT | NULL | 개설자가 직접 쓴 시스템 프롬프트(1~2,000자). NULL 이면 프리셋 문구 사용. 프리셋 재선택 시 NULL 로 초기화 (V3, D-017) |
 | mode | VARCHAR(20) | NOT NULL DEFAULT 'AI' | AI(유저↔AI) / HUMAN(유저끼리, AI 휴면). 혼자면 항상 AI |
 | status | VARCHAR(20) | NOT NULL DEFAULT 'ACTIVE' | ACTIVE / ORPHANED(개설자 이탈, 주인 없는 방) |
 | message_count | INT UNSIGNED | NOT NULL DEFAULT 0 | 역정규화. 메시지 저장 시 +1 |
@@ -108,16 +109,8 @@
 - V2 백필: 기존 USER 행은 `sender_user_id = 방 owner_id`, `mode='AI'`(V1 은 1인 방). ASSISTANT 는 둘 다 NULL 유지.
 - 오디오 관련 컬럼 없음 — 원본을 저장하지 않는다(D-007).
 
-## 6. personas — 페르소나(시스템 프롬프트)
-| 컬럼 | 타입 | 제약 | 설명 |
-|---|---|---|---|
-| id | BIGINT UNSIGNED | PK | |
-| name | VARCHAR(50) | NOT NULL | |
-| system_prompt | TEXT | NOT NULL | |
-| is_active | TINYINT(1) | NOT NULL DEFAULT 0 | 활성은 정확히 1개(앱 레벨 보장 + 활성화 시 트랜잭션) |
-| created_at, updated_at | DATETIME(3) | NOT NULL | |
-
-- 초기 데이터: `V1__init.sql`에서 기본 페르소나 1개 INSERT(is_active=1).
+## 6. ~~personas~~ — V3 에서 DROP (D-017)
+- 어드민 페르소나 폐지. 시스템 프롬프트는 `chat_rooms.ai_personality`(프리셋) + `chat_rooms.ai_prompt`(개설자 편집)로 방 단위. V1 시드 행은 V3 에서 테이블과 함께 사라진다(운영 데이터 없음).
 
 ## 7. daily_usage — 일별 사용량 집계 (어드민 stats·상한용)
 | 컬럼 | 타입 | 제약 | 설명 |
@@ -142,11 +135,10 @@ users 1 ─ N chat_rooms(owner) 1 ─ N messages
 users N ─ N chat_rooms  (room_members, 방당 활성 ≤ 2)
 users 1 ─ N messages(sender_user_id)
 users 1 ─ N daily_usage
-personas (독립, 활성 1개)
 ```
 
 ## 미결
 - 이메일 중복 시 계정 연결 정책 (D-003 보완)
 - `messages.content` 길이 상한(4,000자 요청 기준이면 TEXT로 충분, 응답은 MEDIUMTEXT 유지)
-- ~~방 개수 상한(사용자당)~~ → 50개로 확정(2026-09-15, D-017~ 기록 대기)
+- ~~방 개수 상한(사용자당)~~ → 50개로 확정(2026-09-15)
 - 방별 AI 장기 메모리(`ai_memory` 요약) — 백로그. 컨텍스트 윈도우 밖 과거 학습이 필요해지면 도입

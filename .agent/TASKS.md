@@ -221,19 +221,39 @@
   `GlobalExceptionHandlerTest` 1. 전체 161 통과(2026-09-15 로컬).
 - qa: PASS (QA_REPORT.md 2026-09-15, 개발자 대행) — 실서버 19 스텝 수동 검증 포함. 백로그: Spring 예외 리졸버 WARN 에 잘못된 enum 값 노출(프레임워크 로그).
 
+## T-019 어드민 페르소나 폐지 + 방 AI 프롬프트 편집 (api)
+- status: DONE
+- owner: 개발자
+- milestone: M2
+- spec: D-017, API.md#rooms, SCHEMA.md #4/#6
+- blocked_by: T-017
+- acceptance:
+  - `V3__room_ai_prompt.sql`: `chat_rooms.ai_prompt TEXT NULL` 추가, `personas` DROP. `persona/*`·`PersonaMapper.xml`·`ErrorCode.PERSONA_*` 삭제.
+  - `PATCH /rooms/{id}` `aiPrompt`: 개설자만(참여자 403), trim 후 1~2,000자(초과 400 `details.aiPrompt`), `""`/공백 = null 초기화, 필드 없음 = 변경 없음. `aiPersonality` 변경 시 `aiPrompt` null. 둘 다 오면 프리셋 → 커스텀 순. ORPHANED 410 유지.
+  - Room 응답(목록·상세) `aiPrompt` + `effectiveAiPrompt`(= `aiPrompt` ?? 프리셋 문구). `ChatRoom.effectiveAiPrompt()`.
+  - 테스트: `ChatRoomServiceTest` Update(aiPrompt 설정/초기화/길이/권한/프리셋 재선택 시 초기화/동시 전송), 통합 PATCH 2, `MapperTest` ai_prompt round-trip. `ChatApplicationTests` V3 적용.
+- note: 착수 2026-09-16. 사용자 결정(D-017): 프리셋 유지 + 커스텀 덮어쓰기, 프리셋 언제든 재선택. web 편집 UI 는 T-008.
+  구현 메모: `RoomUpdate.normalizedAiPrompt()`(trim, 빈 문자열 → null). 매퍼 `updateAiPrompt` 는 `jdbcType=VARCHAR` 로 null 바인딩.
+  프리셋 재선택 초기화는 서비스에서 `updateAiPersonality` 직후 `updateAiPrompt(null)` — 같은 요청에 `aiPrompt` 가 있으면 그 뒤에 덮어쓴다.
+  `ErrorCode.PERSONA_*` 삭제. 로컬 DB 는 Flyway V3 가 `personas` 를 DROP 한다(운영 미배포).
+- test: 9 케이스 신규 — `ChatRoomServiceTest` Update 6, `ChatRoomControllerIntegrationTest` PATCH 2, `MapperTest` Rooms 1(ai_prompt round-trip). `MapperTest.Personas` 4 삭제. 전체 166 통과(2026-09-16 로컬).
+- qa: PASS (QA_REPORT.md 2026-09-16, 개발자 대행) — 실서버 14 스텝 수동 검증 포함.
+
 ## T-007 방 이벤트 SSE + 직렬 큐 + 4:1 컨텍스트 + OmniRoute 클라이언트 (api)
 - status: TODO
 - owner: 개발자
 - milestone: M2
-- spec: API.md#messages, D-006, D-008(보완: 직렬 큐)
-- blocked_by: T-017
+- spec: API.md#messages, D-006, D-018(D-008 보완: 방 단위 서버 잡 + 직렬 큐), D-017
+- blocked_by: T-019
 - acceptance:
   - `llm/OmniRouteClient` — `omniRouteWebClient`(WebClientConfig) 로 `/chat/completions` `stream=true`, MockWebServer 로 델타 파싱 테스트.
   - `GET /rooms/{id}/events` SSE 구독(멤버만). in-memory `RoomEventBus`(방→emitter 목록, 인스턴스 1대). 이벤트 `message`/`delta`/`done`/`error`/`mode`/`member`. SseEmitter vs Flux 결정 → CONVENTIONS.md.
   - `POST /rooms/{id}/messages` → USER 저장(`sender_user_id`, `mode`) → `touchOnNewMessage` → `message` 브로드캐스트 → 202. HUMAN 모드면 여기서 끝.
   - AI 모드: 방당 직렬 큐(`RoomAiExecutor`, 공용 스레드풀 + 방별 순차). 같은 유저 대기 요청 있으면 409 `ROOM_BUSY`. 두 번째 응답 컨텍스트는 첫 답변 포함.
-  - 컨텍스트: 활성 페르소나 + `AiPersonality` 문구 + "개설자 80% / 참여자 20% 가중" 지시 + `findRecentByRoomId(N)` 뒤집기, 각 USER 메시지에 `[개설자 닉]`/`[참여자 닉]` 라벨. HUMAN 모드 대화 포함. 순서·라벨 테스트.
-  - 스트림 중 DB 트랜잭션 열어두지 않기. 중단 정책(D-008 open) 확정해 to-ceo. `daily_usage` upsert.
+  - 컨텍스트: `ChatRoom.effectiveAiPrompt()`(D-017) + "개설자 80% / 참여자 20% 가중" 지시 + `findRecentByRoomId(N)` 뒤집기, 각 USER 메시지에 `[개설자 닉]`/`[참여자 닉]` 라벨. HUMAN 모드 대화 포함. 순서·라벨 테스트.
+  - 스트림 중 DB 트랜잭션 열어두지 않기. 중단 정책은 D-018 로 확정(취소 없음, 완주·저장). `daily_usage` upsert(발신자 귀속: 전송 시 message_count, done 시 토큰). 풀 포화 503 `AI_BUSY`(ErrorCode·API.md 추가). 대기 중 HUMAN 전환 시 잡 skip.
+  - `GET /rooms/{id}/messages?cursor&size`(API.md#messages) 컨트롤러 포함 — 매퍼 `findByRoomId` 재사용, `id` 커서.
+  - 제목 자동: 방 `title == "새 대화"` 이고 첫 USER 메시지면 앞 30자(`ChatRoom.autoTitle`).
   - 이 태스크에서 SSE/큐 형식 확정 후 API.md#messages 초안 → 확정.
 
 ## T-008 채팅 셸 + 방 생성 + 모드/성격 + 스트리밍 UI (web)
@@ -244,7 +264,7 @@
 - blocked_by: T-005, T-007
 - acceptance:
   - `app/(chat)/layout.tsx` 사이드바 + 메인. 방 목록(역할·ORPHANED 표시)/선택/제목 수정/나가기. draft 방 폐기 → "+ 새 방" 버튼이 `POST /rooms`.
-  - 방 헤더: 멤버 표시, 모드 토글(2명일 때만 활성), AI 성격 선택(개설자만), 초대 버튼(개설자만 → T-018 공유 시트).
+  - 방 헤더: 멤버 표시, 모드 토글(2명일 때만 활성), AI 성격 선택(개설자만, 프리셋 2개 + 프롬프트 편집 textarea ≤2,000자·초기화 버튼, `effectiveAiPrompt` 표시 — T-019/D-017), 초대 버튼(개설자만 → T-018 공유 시트).
   - `app/lib/sse.ts` EventSource 래퍼 + 이벤트 리듀서 단위 테스트(`message`/`delta`/`done`/`error`/`mode`/`member`, 재연결).
   - 전송 중 본인 입력 비활성(상대는 가능), 409 토스트, 상단 도달 시 이전 페이지.
 
@@ -294,8 +314,8 @@
 - spec: API.md#admin, DESIGN.md#어드민
 - blocked_by: T-008
 - acceptance:
-  - `ROLE_ADMIN` 아니면 403. persona CRUD + activate(활성 1개 보장 트랜잭션), users 목록/상태, stats, rooms/messages 조회.
-  - 정지 회원 메시지 전송 403. `(admin)` 4개 페이지 렌더 테스트.
+  - `ROLE_ADMIN` 아니면 403. users 목록/상태, stats, rooms/messages 조회. (persona CRUD 는 D-017 로 폐기)
+  - 정지 회원 메시지 전송 403. `(admin)` 3개 페이지(users/rooms/stats) 렌더 테스트.
 
 ## M5 배포 · PWA
 

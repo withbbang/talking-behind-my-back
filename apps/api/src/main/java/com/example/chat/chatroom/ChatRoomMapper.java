@@ -45,6 +45,9 @@ public interface ChatRoomMapper {
 
 	int updateAiPersonality(@Param("id") Long id, @Param("aiPersonality") AiPersonality aiPersonality);
 
+	/** 커스텀 프롬프트. null 이면 초기화(프리셋으로 복귀) (T-019). */
+	int updateAiPrompt(@Param("id") Long id, @Param("aiPrompt") String aiPrompt);
+
 	/** 초대 코드 재발급. UNIQUE 충돌은 DuplicateKeyException. */
 	int updateInviteCode(@Param("id") Long id, @Param("code") String code);
 

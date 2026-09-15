@@ -24,7 +24,7 @@
 |---|---|---|
 | 400 | `VALIDATION_FAILED`, `AUDIO_TOO_LONG`, `TEXT_TOO_LONG`, `MODE_NOT_ALLOWED`, `SELF_INVITE` | 입력 검증 실패 (`details`에 필드별 메시지), 혼자인 방 HUMAN 전환, 본인 방 코드로 입장 |
 | 401 | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `TOKEN_REUSED` | 인증 없음/만료/refresh 재사용 감지 |
-| 403 | `FORBIDDEN`, `USER_SUSPENDED` | 권한 없음(참여자가 `aiPersonality` 변경 등), 정지 회원 |
+| 403 | `FORBIDDEN`, `USER_SUSPENDED` | 권한 없음(참여자가 `title`/`aiPersonality`/`aiPrompt` 변경 등), 정지 회원 |
 | 404 | `ROOM_NOT_FOUND`, `MESSAGE_NOT_FOUND`, `INVITE_NOT_FOUND` | 멤버 아닌 방도 404로 통일. 초대 코드 없음 |
 | 409 | `ROOM_BUSY`, `ROOM_FULL`, `ROOM_LIMIT_EXCEEDED` | 같은 유저 대기 요청 존재, 방 정원(2명) 초과, 활성 방 50개 초과 |
 | 410 | `ROOM_ORPHANED` | 개설자가 이탈한 방에 입장 시도 |
@@ -58,7 +58,7 @@
 | GET | `/rooms?cursor&size` | 내가 활성 멤버인 방 목록(개설+참여, ORPHANED 포함), `lastMessageAt` 내림차순 |
 | POST | `/rooms` | 방 생성. body 없음 또는 `{ "title"?: string }`. 201 Room. 개설자 OWNER 멤버십 + 초대 코드 발급. 활성 방 50개 초과 409 `ROOM_LIMIT_EXCEEDED` |
 | GET | `/rooms/{id}` | 방 상세 + 멤버. 멤버 아니면 404. ORPHANED 도 200(`status` 로 구분) |
-| PATCH | `/rooms/{id}` | `{ "title"?, "mode"?, "aiPersonality"? }` 부분 갱신. 200 Room. `title`·`aiPersonality` 는 **개설자만**(참여자 403). ORPHANED 방은 410 |
+| PATCH | `/rooms/{id}` | `{ "title"?, "mode"?, "aiPersonality"?, "aiPrompt"? }` 부분 갱신. 200 Room. `title`·`aiPersonality`·`aiPrompt` 는 **개설자만**(참여자 403). ORPHANED 방은 410 |
 | DELETE | `/rooms/{id}` | **나가기**. 204. 개설자 → 방 `ORPHANED`(참여자 멤버십은 유지). 참여자 → 멤버십 종료, 방 `mode=AI` 복귀. ORPHANED 방에서 참여자 호출 = "이용할 수 없는 방" 확인 처리 |
 | POST | `/rooms/{id}/invite/regenerate` | 초대 코드 재발급(개설자만, 구 코드 즉시 무효). 200 `{ inviteCode, inviteUrl }` |
 | GET | `/rooms/join/{code}` | 입장 전 미리보기 `{ roomId, title, ownerNickname, memberCount }`. 이미 멤버면 그대로 200 |
@@ -66,8 +66,10 @@
 
 - PATCH 규칙: `title` 1~100자(공백만 → 400 `VALIDATION_FAILED`, `details.title`), **개설자만**(참여자 403 `FORBIDDEN`, 2026-09-15 결정).
   `mode` = `AI` \| `HUMAN`, 멤버 누구나 — 혼자인 방에서 `HUMAN` 은 400 `MODE_NOT_ALLOWED`.
-  `aiPersonality` = `RATIONAL` \| `EMOTIONAL`, **개설자만**(참여자 403 `FORBIDDEN`), 대화 전후 언제든. 시스템 프롬프트 문구는 서버 enum 상수(어드민 편집 없음).
-  **T-017 확정(2026-09-15)**: 세 필드 전부 없는 body(`{}`) → 400 `VALIDATION_FAILED`. 잘못된 enum 값/JSON 파싱 실패 → 400 `VALIDATION_FAILED`.
+  `aiPersonality` = `RATIONAL` \| `EMOTIONAL` 프리셋, **개설자만**(참여자 403 `FORBIDDEN`), 대화 전후 언제든 재선택. 프리셋 문구는 서버 enum 상수. **프리셋을 고르면 `aiPrompt` 는 null 로 초기화**(T-019, D-017).
+  `aiPrompt` = 개설자가 직접 쓰는 시스템 프롬프트(T-019). **개설자만**. trim 후 1~2,000자, 초과 400 `VALIDATION_FAILED`(`details.aiPrompt`). `""`(빈 문자열/공백) 은 **초기화**(프리셋으로 복귀), JSON 에서 필드를 빼면 변경 없음.
+  `aiPersonality` 와 `aiPrompt` 를 한 요청에 함께 보내면 프리셋 변경 → `aiPrompt` 적용 순서(결과는 커스텀).
+  **T-017 확정(2026-09-15)**: 네 필드 전부 없는 body(`{}`) → 400 `VALIDATION_FAILED`. 잘못된 enum 값/JSON 파싱 실패 → 400 `VALIDATION_FAILED`.
   한 요청은 전부-아니면-전무 — 판정 순서 404 멤버 → 400 검증 → **410 `ROOM_ORPHANED`(개설자 이탈 방은 어떤 PATCH 도 불가)** → 403 권한 → 400 `MODE_NOT_ALLOWED`.
   `mode` 판정은 방 행 잠금(`FOR UPDATE`) 뒤 활성 멤버 수로 — 참여자 나가기와 동시 실행돼도 혼자인 방이 `HUMAN` 으로 남지 않는다.
 - 입장 실패: 코드 없음 404 `INVITE_NOT_FOUND`, 정원(2명) 초과 409 `ROOM_FULL`, 개설자 이탈 방 410 `ROOM_ORPHANED`, 본인 방 400 `SELF_INVITE`, 활성 방 50개 초과 409 `ROOM_LIMIT_EXCEEDED`.
@@ -82,12 +84,14 @@ Room:
 ```json
 {
   "id": 10, "title": "오늘 뭐 먹지", "role": "OWNER", "status": "ACTIVE", "mode": "AI", "aiPersonality": "RATIONAL",
+  "aiPrompt": null, "effectiveAiPrompt": "너는 논리적이고 차분한 대화 상대다. ...",
   "inviteCode": "K7Q2M9XW", "inviteUrl": "https://.../join/K7Q2M9XW",
   "members": [ { "userId": 1, "nickname": "영선", "role": "OWNER" }, { "userId": 2, "nickname": "철수", "role": "PARTICIPANT" } ],
   "messageCount": 12, "lastMessageAt": "2026-09-13T12:00:00Z", "createdAt": "..."
 }
 ```
 - `role` = 요청자의 역할 `OWNER` \| `PARTICIPANT`. `inviteCode`/`inviteUrl` 은 **개설자에게만** 내려간다(참여자는 `null`).
+- `aiPrompt` = 개설자가 쓴 커스텀 프롬프트(없으면 `null`), `effectiveAiPrompt` = 실제 AI 에 적용되는 문구(`aiPrompt` ?? 프리셋 문구). 멤버 전원에게 내려간다(편집은 개설자만). 목록 항목도 동일.
 - 목록(`GET /rooms`) 항목은 `members: null`, `memberCount` 만 채운다(상세는 둘 다). 나머지 필드는 Room 과 동일.
 - `POST /rooms` body 의 `title` 은 trim 후 비면 "새 대화", 100자 초과 400.
 
@@ -160,11 +164,8 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 | PATCH | `/admin/users/{id}` | `{ "status": "ACTIVE" \| "SUSPENDED" }` |
 | GET | `/admin/rooms?userId&cursor&size` | 방 목록 |
 | GET | `/admin/rooms/{id}/messages?cursor&size` | 메시지 조회 |
-| GET | `/admin/personas` | 페르소나 목록 |
-| POST | `/admin/personas` | `{ name, systemPrompt }` |
-| PUT | `/admin/personas/{id}` | `{ name, systemPrompt }` |
-| POST | `/admin/personas/{id}/activate` | 활성화 (기존 활성 해제). 활성은 항상 정확히 1개. |
-| DELETE | `/admin/personas/{id}` | 활성 페르소나는 삭제 불가 409 |
+
+- ~~`/admin/personas` 5개~~ → D-017(2026-09-16) 폐기. 시스템 프롬프트는 방 단위(`PATCH /rooms/{id}` `aiPersonality`/`aiPrompt`).
 
 ## 변경 이력
 - 2026-09-13 초안 (T-000)
@@ -172,3 +173,4 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 - 2026-09-15 T-006 착수: **2인 채팅방 요건** 반영 — rooms 전면 개정(멤버십·초대·나가기·mode·aiPersonality), 커서 불투명 문자열, 에러코드 6개 추가, messages 에 `senderUserId`/`mode`, POST messages 202 + `/rooms/{id}/events` 초안. **API 변경 — T-007/T-008 acceptance 재작성(TASKS.md), PLAN.md M2 갱신 필요(기획자).**
 - 2026-09-15 T-006 구현: PATCH `title` 은 개설자만(참여자 403), 잘못된 커서 400, 목록 항목 `members: null`. **API 변경(권한) — T-008 acceptance 에 반영 필요.**
 - 2026-09-15 T-017 구현: PATCH `mode`/`aiPersonality` 활성화, 빈 body·잘못된 enum 400, ORPHANED 방 PATCH 410, 참여자 나가기 시 `mode=AI` 복귀. **API 변경 — T-008/T-018 acceptance 에 반영 필요.**
+- 2026-09-16 T-019(D-017): 어드민 페르소나 폐기 — `/admin/personas` 삭제, `PATCH /rooms/{id}` 에 `aiPrompt`, Room 에 `aiPrompt`/`effectiveAiPrompt`. 프리셋 재선택 시 `aiPrompt` 초기화. **API 변경 — T-008(성격/프롬프트 편집 UI)·T-011(어드민 persona 화면 제거) acceptance 반영 필요.**

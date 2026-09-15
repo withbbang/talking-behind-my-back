@@ -105,7 +105,11 @@ public class ChatRoomService {
 		}
 		if (update.title() != null) rooms.updateTitle(roomId, update.title().trim());
 		if (update.mode() != null) rooms.updateMode(roomId, update.mode());
-		if (update.aiPersonality() != null) rooms.updateAiPersonality(roomId, update.aiPersonality());
+		if (update.aiPersonality() != null) {
+			rooms.updateAiPersonality(roomId, update.aiPersonality());
+			rooms.updateAiPrompt(roomId, null);   // 프리셋 재선택 = 커스텀 프롬프트 초기화 (D-017)
+		}
+		if (update.aiPrompt() != null) rooms.updateAiPrompt(roomId, update.normalizedAiPrompt());
 		return detail(rooms.findById(roomId).orElseThrow(), me.getRole());
 	}
 

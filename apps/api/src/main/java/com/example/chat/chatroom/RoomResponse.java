@@ -6,6 +6,7 @@ import java.util.List;
 
 /**
  * Room JSON (API.md#rooms). role 은 요청자의 역할. inviteCode/inviteUrl 은 OWNER 에게만(참여자 null).
+ * aiPrompt(커스텀, null 가능)/effectiveAiPrompt(실제 적용 문구)는 멤버 전원에게(T-019).
  * 목록 항목은 members 를 채우지 않는다(null) — memberCount 만.
  */
 public record RoomResponse(
@@ -15,6 +16,8 @@ public record RoomResponse(
 	RoomStatus status,
 	RoomMode mode,
 	AiPersonality aiPersonality,
+	String aiPrompt,
+	String effectiveAiPrompt,
 	String inviteCode,
 	String inviteUrl,
 	List<Member> members,
@@ -36,6 +39,7 @@ public record RoomResponse(
 		boolean owner = myRole == RoomMember.Role.OWNER;
 		return new RoomResponse(
 			room.getId(), room.getTitle(), myRole, room.getStatus(), room.getMode(), room.getAiPersonality(),
+			room.getAiPrompt(), room.effectiveAiPrompt(),
 			owner ? room.getInviteCode() : null,
 			owner ? baseUrl + "/join/" + room.getInviteCode() : null,
 			members == null ? null : members.stream().map(Member::of).toList(),

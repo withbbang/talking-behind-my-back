@@ -187,3 +187,19 @@
   - (블록 아님, 백로그) Spring `ExceptionHandlerExceptionResolver` 의 WARN 이 Jackson 메시지를 그대로 남겨 잘못된 enum 값(예: `"FOO"`)이 로그에 찍힌다. 우리 핸들러 응답·로그는 깨끗함. 필요 시 해당 로거 레벨 조정 또는 `warnLogCategory` 비활성화 — CONVENTIONS "본문 로그 금지" 관점에서 T-007 착수 전 CEO 판단.
   - (후속 T-007) `mode` 변경·멤버 이탈 SSE 브로드캐스트. (후속 T-008/T-018) web 토글·나가기 UI.
 - date: 2026-09-15
+
+### T-019 어드민 페르소나 폐지 + 방 AI 프롬프트 편집 (api)
+- verdict: PASS (사용자 지시로 개발자 대행 기록, 2026-09-16)
+- tests: 존재 / `./gradlew test` 166 passed, 0 failed (신규 9: `ChatRoomServiceTest` Update 6, `ChatRoomControllerIntegrationTest` PATCH 2, `MapperTest` Rooms 1; `MapperTest.Personas` 4 삭제) / 에이전트 실행(로컬 compose MySQL). RED(컴파일 실패) → GREEN 확인.
+- checked:
+  - Flyway V3 로컬 적용: `flyway_schema_history` 1/2/3 success, `personas` 테이블 없음, `chat_rooms.ai_prompt TEXT NULL` 존재.
+  - acceptance 커버리지: `aiPrompt` 개설자만(참여자 403), trim 저장, `""`/공백 → null 초기화, 2,001자 400 `details.aiPrompt`, 필드 없음 = 변경 없음, `{}` 400 유지 / `aiPersonality` 재선택 시 `aiPrompt` null, 둘 다 한 요청이면 커스텀 / `effectiveAiPrompt` 목록·상세 멤버 전원 / ORPHANED 410.
+  - API.md 계약 일치: Room JSON `aiPrompt`/`effectiveAiPrompt` 필드명, PATCH 규칙 문단, 변경 이력, `/admin/personas` 폐기 표시. `ErrorCode.PERSONA_*` 삭제 ↔ API.md 에러 표에 해당 코드 없음.
+  - **실서버 수동(bootRun, secret 파일 제외 기본 설정 + HS256 직접 서명 쿠키, DB 직접 삽입 유저 2명, 14 스텝)**: 미인증 401 / 생성 201 `RATIONAL`·`aiPrompt null`·`effectiveAiPrompt` 프리셋 문구 / 손님 입장 200 / 개설자 `"  반말로 짧게  "` → 200 trim / 참여자 403 / 참여자 상세·목록에 `effectiveAiPrompt` 노출·`inviteCode null` /
+    2,001자 400 `details.aiPrompt` / `EMOTIONAL` 재선택 → `aiPrompt null`·감성 문구 / `{RATIONAL, "둘 다"}` → 커스텀 유지 / `""` → null·DB `ai_prompt IS NULL` / `{}` 400 / 개설자 나가기 204 → 참여자 PATCH 410. 검증 후 QA 데이터 삭제(잔여 0).
+  - 보안: 서버 로그 ERROR 0, 토큰(`eyJ`) 0, WARN 4 는 전부 4xx 해석 로그(T-017 백로그와 동일 유형, 본문 값 없음). 시크릿 없음 ✓.
+- issues:
+  - (블록 아님) `@Size` 메시지가 한글 로케일 기본 문구("크기가 0에서 2000 사이여야 합니다") — 프론트는 `details` 키만 쓰므로 영향 없음. 필요 시 T-008 에서 문구 통일.
+  - (후속 T-007) `effectiveAiPrompt()` 컨텍스트 조립. (후속 T-008) 프롬프트 편집 UI. (후속 T-011) 어드민 persona 화면 제거 반영.
+- date: 2026-09-16
+
