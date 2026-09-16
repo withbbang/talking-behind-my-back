@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ROOMS_KEY } from '@/features/rooms/useRooms';
+import { ROOMS_KEY, roomKey } from '@/features/rooms/useRooms';
 import type { Page, RoomMode } from '@/features/rooms/types';
 import { apiFetch } from '@/lib/api';
 import { appendMessage, flattenMessages, removeMessage, replaceMessageId, type MessagesData } from './cache';
@@ -49,6 +49,8 @@ export function useSendMessage(roomId: number, ctx: { meId: number; mode: RoomMo
       if (ctx.mode === 'AI') store.getState().rekey(roomId, tempId, messageId);
       else store.getState().remove(roomId, tempId);
       void client.invalidateQueries({ queryKey: ROOMS_KEY, exact: true });
+      // 첫 메시지면 서버가 방 제목을 자동 생성한다(API.md autoTitle) — 헤더/시트가 읽는 상세 쿼리도 갱신.
+      void client.invalidateQueries({ queryKey: roomKey(roomId), exact: true });
     },
     onError: (_e, _vars, mctx) => {
       if (!mctx) return;

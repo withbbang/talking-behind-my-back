@@ -9,6 +9,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
 });
 
 import { ApiError, apiFetch } from '@/lib/api';
+import { roomKey } from '@/features/rooms/useRooms';
 import { messagesKey, useMessages, useSendMessage } from './useMessages';
 import { useStreamStore } from './streamStore';
 import { flattenMessages, type MessagesData } from './cache';
@@ -45,6 +46,7 @@ describe('useSendMessage (POST 202 + 낙관적 렌더 + 내 잡 잠금)', () => 
     let resolve!: (v: { messageId: number }) => void;
     apiFetchMock.mockReturnValueOnce(new Promise((r) => (resolve = r)));
     client.setQueryData(messagesKey(10), { pages: [{ items: [userMsg(2)], nextCursor: null }], pageParams: [undefined] });
+    client.setQueryData(roomKey(10), { title: '새 대화' });
 
     const { result } = renderHook(() => useSendMessage(10, { meId: 7, mode: 'AI' }), { wrapper });
     let p: Promise<unknown>;
@@ -66,6 +68,8 @@ describe('useSendMessage (POST 202 + 낙관적 렌더 + 내 잡 잠금)', () => 
     const after = flattenMessages(client.getQueryData<MessagesData>(messagesKey(10)));
     expect(after.map((m) => m.id)).toEqual([2, 101]);
     expect(useStreamStore.getState().rooms[10]?.streams[101]).toMatchObject({ senderUserId: 7, status: 'waiting' });
+    // 서버가 첫 메시지로 방 제목을 자동 생성할 수 있다(API.md autoTitle) — 상세 쿼리도 함께 갱신돼야 헤더가 낡지 않는다.
+    expect(client.getQueryState(roomKey(10))?.isInvalidated).toBe(true);
   });
 
   it('HUMAN 모드면 202 후 스트림 대기 없음(잠금 해제)', async () => {

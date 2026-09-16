@@ -23,6 +23,8 @@ export function useRoomEvents(roomId: number) {
         case 'message':
           client.setQueryData<MessagesData>(messagesKey(roomId), (old) => appendMessage(old, event.data));
           void client.invalidateQueries({ queryKey: ROOMS_KEY, exact: true });
+          // 첫 메시지면 서버가 방 제목을 자동 생성한다(API.md autoTitle) — 헤더/시트가 읽는 상세 쿼리도 갱신.
+          void client.invalidateQueries({ queryKey: roomKey(roomId), exact: true });
           break;
         case 'done':
           client.setQueryData<MessagesData>(messagesKey(roomId), (old) => appendMessage(old, event.data.message));

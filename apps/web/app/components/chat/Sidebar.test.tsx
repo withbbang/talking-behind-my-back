@@ -88,7 +88,8 @@ describe('Sidebar (DESIGN.md#2)', () => {
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/1', { method: 'PATCH', body: { title: '새 제목' } }));
   });
 
-  it('나가기 → DELETE → / 로 replace', async () => {
+  it('지금 보고 있는 방을 나가기 → DELETE → / 로 replace', async () => {
+    pathname = '/rooms/1';
     mockApi([roomItem(1)]);
     renderSidebar();
     await screen.findByRole('link', { name: /방 1/ });
@@ -97,5 +98,17 @@ describe('Sidebar (DESIGN.md#2)', () => {
     fireEvent.click(screen.getByRole('button', { name: '나갈래' }));
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/1', { method: 'DELETE' }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
+  });
+
+  it('보고 있지 않은 다른 방을 목록에서 나가기 → DELETE 만, 이동하지 않는다', async () => {
+    pathname = '/rooms/2';
+    mockApi([roomItem(1), roomItem(2)]);
+    renderSidebar();
+    await screen.findByRole('link', { name: /방 1/ });
+    fireEvent.click(screen.getAllByRole('button', { name: '방 메뉴' })[0]);
+    fireEvent.click(screen.getByRole('menuitem', { name: '나가기' }));
+    fireEvent.click(screen.getByRole('button', { name: '나갈래' }));
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/1', { method: 'DELETE' }));
+    expect(replace).not.toHaveBeenCalled();
   });
 });

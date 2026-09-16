@@ -9,7 +9,8 @@ vi.mock('@/lib/api', async (importOriginal) => {
 });
 const push = vi.fn();
 const replace = vi.fn();
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }));
+let pathname = '/';
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }), usePathname: () => pathname }));
 
 import { apiFetch } from '@/lib/api';
 import { ROOMS_KEY, roomKey, useCreateRoom, useLeaveRoom, usePatchRoom, useRoom, useRooms } from './useRooms';
@@ -50,6 +51,7 @@ beforeEach(() => {
   apiFetchMock.mockReset();
   push.mockReset();
   replace.mockReset();
+  pathname = '/';
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 
@@ -115,7 +117,8 @@ describe('usePatchRoom', () => {
 });
 
 describe('useLeaveRoom', () => {
-  it('DELETE → 상세 캐시 제거 + 목록 무효화 + / 로 replace', async () => {
+  it('지금 보고 있는 방을 나가면 DELETE → 상세 캐시 제거 + 목록 무효화 + / 로 replace', async () => {
+    pathname = '/rooms/10';
     client.setQueryData(roomKey(10), room(10));
     client.setQueryData(ROOMS_KEY, { pages: [{ items: [item(10)], nextCursor: null }], pageParams: [undefined] });
     apiFetchMock.mockResolvedValueOnce(undefined);
@@ -127,5 +130,17 @@ describe('useLeaveRoom', () => {
     expect(client.getQueryData(roomKey(10))).toBeUndefined();
     expect(client.getQueryState(ROOMS_KEY)?.isInvalidated).toBe(true);
     expect(replace).toHaveBeenCalledWith('/');
+  });
+
+  it('사이드바에서 다른(지금 보고 있지 않은) 방을 나가면 이동하지 않는다', async () => {
+    pathname = '/rooms/999';
+    client.setQueryData(ROOMS_KEY, { pages: [{ items: [item(10)], nextCursor: null }], pageParams: [undefined] });
+    apiFetchMock.mockResolvedValueOnce(undefined);
+
+    const { result } = renderHook(() => useLeaveRoom(10), { wrapper });
+    await act(() => result.current.mutateAsync());
+
+    expect(client.getQueryState(ROOMS_KEY)?.isInvalidated).toBe(true);
+    expect(replace).not.toHaveBeenCalled();
   });
 });

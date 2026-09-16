@@ -46,13 +46,15 @@ describe('useRoomEvents (SSE → React Query 캐시 + 스트림 스토어)', () 
     expect(stop).toHaveBeenCalled();
   });
 
-  it('message → 메시지 캐시 추가 + 방 목록 무효화, 스트림 대기', () => {
+  it('message → 메시지 캐시 추가 + 방 목록·상세 무효화, 스트림 대기', () => {
     client.setQueryData(ROOMS_KEY, { pages: [], pageParams: [] });
     renderHook(() => useRoomEvents(10), { wrapper });
     fire({ type: 'message', data: userMsg(101, { senderUserId: 2 }) });
     expect(flattenMessages(client.getQueryData<MessagesData>(messagesKey(10))).map((m) => m.id)).toEqual([101]);
     expect(useStreamStore.getState().rooms[10]?.streams[101]).toMatchObject({ status: 'waiting', senderUserId: 2 });
     expect(client.getQueryState(ROOMS_KEY)?.isInvalidated).toBe(true);
+    // 첫 메시지면 서버가 방 제목을 자동 생성한다(API.md autoTitle) — 상세도 함께 무효화해야 헤더/시트가 낡지 않는다.
+    expect(client.getQueryState(roomKey(10))?.isInvalidated).toBe(true);
   });
 
   it('delta 누적 → done 이면 ASSISTANT 저장 + 스트림 제거', () => {

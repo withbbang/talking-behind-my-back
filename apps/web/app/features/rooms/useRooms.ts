@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import type { Page, Room, RoomListItem, RoomPatch } from './types';
 
@@ -54,16 +54,21 @@ export function usePatchRoom(id: number) {
   });
 }
 
-/** 나가기. 개설자면 방이 ORPHANED, 참여자면 멤버십 종료(API.md). 성공 후 / 로 — 최신 방 또는 빈 상태. */
+/**
+ * 나가기. 개설자면 방이 ORPHANED, 참여자면 멤버십 종료(API.md).
+ * 지금 보고 있는 방을 나갔을 때만 / 로 이동한다(최신 방 또는 빈 상태) — 사이드바 목록에서 다른(안 보고 있는) 방을
+ * 정리할 때 보던 화면이 갑자기 바뀌면 안 된다.
+ */
 export function useLeaveRoom(id: number) {
   const client = useQueryClient();
   const router = useRouter();
+  const pathname = usePathname();
   return useMutation({
     mutationFn: () => apiFetch<void>(`/rooms/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       client.removeQueries({ queryKey: roomKey(id) });
       void client.invalidateQueries({ queryKey: ROOMS_KEY, exact: true });
-      router.replace('/');
+      if (pathname === `/rooms/${id}`) router.replace('/');
     },
   });
 }
