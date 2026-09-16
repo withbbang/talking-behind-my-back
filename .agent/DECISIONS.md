@@ -151,6 +151,19 @@
 - impact: API.md#messages 확정, CONVENTIONS.md SSE 규칙, `application.yml` executor/logging, T-007.
 - date: 2026-09-16 (개발자 대행 기록, 사용자 결정)
 
+### D-020 T-008 착수 확정 — draft 방 폐기(D-010 대체), `/` 동작, 토스트 스펙, 아이콘 라이브러리
+- decision:
+  - D-010(첫 방 draft) 폐기. 사이드바 "+ 새 방" 이 즉시 `POST /rooms` → `/rooms/{id}` 이동. 빈 방이 DB 에 남을 수 있음을 감수(제목은 첫 메시지로 자동).
+  - `/`(로그인 직후): 활성 방이 있으면 최신 방(`lastMessageAt` 내림차순 첫 항목)으로 `router.replace`, 없으면 셸 안 빈 상태(하트 아바타 + "아직 방이 없네? 하나 파자." + "+ 새 방").
+  - 토스트는 DESIGN.md 스펙으로 통일: 필(9999)·그림자 없음·닫기 X 없음·3초, 안내 `surface`/`on-surface`, 오류 `danger-bg`/`danger`. 로그인 화면 토스트도 같이 바뀐다.
+  - 아이콘은 `@phosphor-icons/react` 단일 패밀리, weight `bold`(2px 선), 24px, `currentColor`. 손그림 SVG 는 말풍선 꼬리만.
+  - 시간 표기: 목록 상대시간(방금/n분 전/n시간 전/어제/`M.D`), 말풍선 `HH:mm`, 날짜 칩 `M월 D일 요일`. 표시는 KST.
+  - 다크/라이트 수동 테마 선택은 v1 이후 별도 작업 → T-020.
+- rationale: DESIGN.md 2026-09-16 개정이 D-010 과 모순이었고 `/` 동작·시간 표기·아이콘 소스가 미정이었다. 채팅 앱은 열면 바로 대화가 이어지는 게 자연스러워 최신 방 자동 이동. 토스트는 기존 코드가 스펙과 달랐다.
+- alternatives: `/` 를 항상 빈 메인으로 두고 방은 사이드바에서 선택 — 모바일에서 탭 하나 더 필요, 기각. 아이콘 손그림 — 6개뿐이지만 M3 이후 늘어나 일관성 관리 비용, 기각.
+- impact: `app/(chat)/*`, `components/ui/Toast` 리팩터, `package.json`(+phosphor), DESIGN.md 미결에 아이콘 라이브러리 반영 요청(to-designer). → T-008, T-020
+- date: 2026-09-16 (개발자 대행 기록, 사용자 결정)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

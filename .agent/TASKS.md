@@ -266,7 +266,7 @@
   후속: T-008 `lib/sse.ts` 는 `replyTo` 로 델타 매칭, 재연결 시 `GET messages` 보충. 수평 확장 시 RoomEventBus → Redis.
 
 ## T-008 채팅 셸 + 방 생성 + 모드/성격 + 스트리밍 UI (web)
-- status: TODO
+- status: IN_PROGRESS
 - owner: 개발자
 - milestone: M2
 - spec: DESIGN.md#2~3 #6, BRAND.md, API.md#rooms #messages
@@ -276,6 +276,10 @@
   - 방 헤더: 멤버 표시, 모드 토글(2명일 때만 활성), AI 성격 선택(개설자만, 프리셋 2개 + 프롬프트 편집 textarea ≤2,000자·초기화 버튼, `effectiveAiPrompt` 표시 — T-019/D-017), 초대 버튼(개설자만 → T-018 공유 시트).
   - `app/lib/sse.ts` EventSource 래퍼 + 이벤트 리듀서 단위 테스트(`message`/`delta`/`done`/`error`/`mode`/`member`, 재연결).
   - 전송 중 본인 입력 비활성(상대는 가능), 409 토스트, 상단 도달 시 이전 페이지.
+
+- note: 착수 2026-09-16. 사용자 결정 D-020(draft 폐기, `/` 최신 방 이동, 토스트 스펙 통일, phosphor 아이콘, 시간 표기). 커밋 4개 계획:
+  (1) ui 프리미티브 + `(chat)` 셸·사이드바 + rooms 훅 (2) 방 헤더 시트 + 모드 토글 + AiPromptEditor (3) `lib/sse.ts` + MessageList + StreamingBubble (4) Composer + 에러 매핑 + 빈 상태.
+  테마 수동 선택은 T-020 으로 분리.
 
 ## T-018 초대 입장 페이지 + QR/링크 공유 + 주인 없는 방 모달 (web)
 - status: TODO
@@ -288,6 +292,18 @@
   - 공유 시트: 코드 표시·복사, URL 복사, QR(클라이언트 라이브러리, 번들 크기 확인), 코드 재발급.
   - ORPHANED 방 진입 시 "이용할 수 없는 채팅방입니다." 모달 → 확인 → `DELETE /rooms/{id}` → 목록에서 제거.
   - 컴포넌트 테스트: 미리보기 상태별 렌더, 모달 확인 호출, 공유 시트 복사.
+
+## T-020 테마 수동 선택(라이트/다크/시스템) (web)
+- status: TODO
+- owner: 개발자
+- milestone: M2
+- spec: DESIGN.md#원칙(v1 은 시스템 따라감 — 개정 필요), BRAND.md#2, D-020
+- blocked_by: T-008
+- acceptance:
+  - 사이드바 하단 프로필 영역에 테마 선택(시스템/라이트/다크). 선택은 `localStorage` 에 저장, 첫 페인트 전 `<html data-theme>` 적용(깜빡임 없음).
+  - `globals.css` 토큰이 `prefers-color-scheme` 외에 `[data-theme]` 로도 반전. `themeColor` 메타 동기화.
+  - 단위 테스트: 저장/복원/시스템 추종 전환.
+- note: 사용자 요청 2026-09-16(T-008 착수 대화). DESIGN.md "수동 토글 없음" 문구 개정은 to-designer 로 요청.
 
 ## M3 음성
 
