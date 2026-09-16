@@ -292,7 +292,8 @@
 - qa: PASS (QA_REPORT.md 2026-09-16, 사용자 지시로 QA 대행 기록 + 실브라우저 검증)
 
 ## T-021 메시지에 발신 당시 닉네임 보존 (api + web)
-- status: REVIEW
+- status: DONE
+- qa: PASS (QA_REPORT.md 2026-09-16, 사용자 지시로 QA 대행 — 실서버 curl + 내장 브라우저 2계정 실측)
 - owner: 개발자
 - milestone: M2
 - spec: API.md#messages, QA_REPORT.md#T-008

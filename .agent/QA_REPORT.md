@@ -36,6 +36,21 @@
 
 <!-- QA가 검증 결과를 아래에 계속 추가 -->
 
+### T-021 메시지에 발신 당시 닉네임 보존 (api + web)
+- verdict: PASS (사용자 지시로 개발자 QA 대행, 2026-09-16)
+- tests: 존재 / api `./gradlew test` 244 passed(신규 `MessageControllerIntegrationTest.History.나간_멤버의_메시지도_senderNickname_유지_ASSISTANT_는_null`) / web `npm test` 223 passed(40 파일, 신규 `MessageList.test` 2: senderNickname 우선·null 폴백), `npm run lint` 0 error(기존 경고 1), `typecheck`·`build` 통과. 에이전트 실행(로컬).
+- checked:
+  - acceptance 커버리지: (1) 나간 멤버 과거 메시지 실명 유지 — 통합 테스트 + 실브라우저. (2) API 계약 선갱신(API.md#messages `senderNickname`, D-023) → 코드. (3) web `buildRows` 우선순위 senderNickname → `room.members` → "나간 사람"(단위 2건, 기존 "모르는 발신자" 케이스 유지).
+  - 계약 일치: `GET /rooms/{id}/messages` items 에 `senderNickname`(USER 닉 / ASSISTANT null), SSE `message` 이벤트 data 에도 동일 필드 — 둘 다 실서버 응답으로 확인. `Room.members` 는 여전히 활성 멤버만(나간 뒤 OWNER 1명) — 변경 없음 확인.
+  - **실서버·실브라우저(로컬 compose nginx :3000 + `./gradlew bootRun` + 기존 `npm run dev`)**: T-008 QA 와 같은 방식으로 로컬 JWT_SECRET(코드 공개 기본값) 서명 테스트 계정 2개 `QA영선`(id 4421)/`QA영희`(id 4422) 를 DB 에 직접 생성(소셜 계정 없음, 실제 회원 자격증명 미사용).
+    - API(curl): A 방 생성(5332) → B 초대코드 입장 → HUMAN 모드 → B 메시지 2 + A 1 → B 나가기 204 → A 의 `GET messages`: B 메시지 `senderUserId 4422 / senderNickname "QA영희"` 유지, `GET /rooms/5332` members 는 A 만. A 가 구독한 SSE 에서 `message` 이벤트 data 에 `"senderNickname":"QA영희"` 확인, 이어서 `member LEFT` · `mode AI` 이벤트.
+    - 브라우저(내장, A 세션): `/rooms/5332` 새로 열기 → B 가 나간 뒤에도 B 말풍선 이름 "QA영희"(이전 T-008 에선 "나간 사람"). 페이지 열어 둔 채 B 재입장 → 전송 → 나가기(curl) → "QA영희 등장!" → 새 말풍선 "QA영희" → "QA영희 퇴장" + "AI 다시 귀 열었다" 뒤에도 **새로고침 없이** 모든 B 말풍선 이름 유지. 콘솔 오류는 이전 세션(만료 쿠키, 방 4987) 잔여 401 뿐, T-021 요청은 전부 200.
+  - 뒷정리: A 나가기로 방 5332 ORPHANED(물리 삭제 없음, SCHEMA 규칙). 브라우저 쿠키 제거, 임시 토큰 파일 삭제, bootRun 종료(검증 전 상태로).
+- issues:
+  - (블록 아님, 참고) 이전 세션 잔여 로그에서 access 만료 후 `GET /rooms/{id}/events` 가 401 로 ~20회 연속 재시도(EventSource 자동 재연결) 뒤 refresh 실패 → `/login` 이동. 401 시 재연결 중단·refresh 선행은 T-021 범위 밖, 세션 만료 UX 다룰 때 함께.
+  - (의도) 닉네임을 바꾸면 과거 메시지도 새 닉으로 보인다(D-023, LLM 컨텍스트와 동일 기준).
+- date: 2026-09-16
+
 ### T-023 같은 두 사람은 활성 방 1개만 — 입장 거절 (api + web) / T-024 빈 방 상태가 시스템 라인을 가림 (web)
 - verdict: PASS (사용자 참여 세션, 개발자 대행 기록, 2026-09-16) — T-023 실브라우저는 미수행(아래)
 - tests: 존재 / api `./gradlew test` 243 passed(T-023 신규 서비스 3 + 통합 jsonPath 1) / web `npm test` 221 passed(T-023 `joinErrorMessage` +1, T-024 `RoomView` +1), lint 0 error(기존 경고 1), typecheck 통과. 에이전트 실행(로컬).
