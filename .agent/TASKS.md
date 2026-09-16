@@ -378,7 +378,8 @@
 - note: T-018 Playwright QA(2026-09-16)에서 발견. DESIGN.md#3 빈 방 문구 개정(디자이너 대행, 사용자 결정).
 
 ## T-020 테마 수동 선택(라이트/다크/시스템) (web)
-- status: REVIEW
+- status: DONE
+- qa: PASS (QA_REPORT.md 2026-09-17, 단위 240 + 실브라우저 데스크톱·모바일 드로어)
 - owner: 개발자
 - milestone: M2
 - spec: DESIGN.md#원칙·#2 사이드바, BRAND.md#2, D-020, D-024

@@ -298,3 +298,16 @@
   - (블록 아님, 환경) macOS 로컬에서 netty `MacOSDnsServerAddressStreamProvider` 미탑재 ERROR 1줄(첫 WebClient 호출). NAS(linux) 컨테이너에는 해당 없음. 거슬리면 `netty-resolver-dns-native-macos` 테스트 의존성.
   - (후속 T-008) `lib/sse.ts`: `replyTo` 로 델타 매칭, `: connected`/`: ping` 무시, 재연결 시 `GET messages` 보충. (후속 T-011) admin stats 는 `daily_usage` 조회.
 - date: 2026-09-16
+
+### T-020 테마 수동 선택(시스템/라이트/다크) (web)
+- verdict: PASS (사용자 QA 판정 2026-09-17, 개발자 대행 기록)
+- tests: 존재 / web `npm test` 240 passed(42 파일, 신규 `lib/theme.test.tsx` 13 · `ThemePicker.test.tsx` 3 · `Sidebar.test.tsx` +1), `npm run lint` 0 error(기존 `api.ts` 경고 1), `typecheck`·`build` 통과. 에이전트 실행(로컬).
+- checked:
+  - acceptance 커버리지: (1) 사이드바 하단 프로필 영역 테마 선택 3칸 — 단위 + 실브라우저. (2) `localStorage` 저장(system 은 키 삭제) + 첫 페인트 전 `<html data-theme>`(`next/script beforeInteractive` 인라인) — 단위(스크립트 문자열 실행) + 실브라우저 새로고침. (3) `globals.css` `[data-theme]` 반전 + `theme-color` 메타 동기화 — 실브라우저 computed 값. (4) 단위: 저장/복원/시스템 추종 전환/OS 변경 리스너/storage 이벤트/저장 불가 환경.
+  - D-024 일치: A안(프로필 줄 아래 글자 필, 보조 라벨 없음, 우측 정렬), 고정 용어 `시스템 | 라이트 | 다크`, `aria-label` "테마 선택". DESIGN.md #원칙·§2, BRAND.md #2·#5 개정 반영.
+  - **실브라우저(2026-09-17, 내장 브라우저 구글 계정 `상남자`, OS 다크, compose nginx :3000 + `./gradlew bootRun` + `npm run dev`)**: 데스크톱 1134 — 필이 로그아웃 줄 아래 우측(사이드바 280 안, 높이 32, 활성 칸 600). 다크 탭 → 즉시 반전(`--bg #170611`, `--surface #ff3d7f`), 저장 `dark`, 메타 1개 `#170611`. 새로고침·방 재진입 유지. 시스템 탭 → 키 삭제, OS 다크 따라감(속성 없음). 라이트 강제(OS 다크) → 라이트 토큰. 방향키 이동 + 포커스 링 accent 2px. 초대 시트 QR 카드 다크에서도 `#fff4f8` 바탕 + 어두운 모듈(D-021 E3). 모바일 375 드로어(폭 300) 안 같은 위치, 하단 잘림 없음, 드로어에서 라이트 탭 → 반전. 콘솔 오류 없음(api 꺼진 동안의 502 잔여 제외).
+  - 개발 중 잡은 결함 2건(커밋 전 수정): hydration 전 인라인 스크립트가 `theme-color` 메타를 바꾸면 React 19 가 메타를 하나 더 꽂음 → 스크립트는 `data-theme` 만, 메타는 마운트 후 `ThemeSync`. `'use client'` 모듈 상수를 layout 에서 import 하면 클라이언트 참조 → `lib/themeInit.ts` 분리. TASKS 교훈 기록.
+- issues:
+  - (미검증) OS 라이트 + 다크 강제 첫 페인트 깜빡임(검증 환경이 다크), iOS 홈화면 PWA 상태바 색, 다른 탭 동기화(단위 테스트만).
+  - (범위 외, 기존 동작) PillToggle 방향키로 값은 바뀌지만 DOM 포커스가 원래 칸에 남는다 — 모드 토글도 동일. 별도 T 후보.
+- date: 2026-09-17
