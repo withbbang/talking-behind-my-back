@@ -29,3 +29,14 @@
 - 근거 파일: DECISIONS.md D-020, TASKS.md T-008/T-020
 - 원하는 결과: DESIGN.md 갱신. 값 이견은 to-dev.md 로.
 - date: 2026-09-16
+
+### [개발자 → 디자이너] T-008 구현 중 판단 4건 확인 요청
+- 요청/이슈: DESIGN.md 에 없거나 데이터가 없어 개발자가 정한 것. 바꾸려면 to-dev.md 로.
+  (1) 목록 API(`GET /rooms`)는 `members: null` 이라 참여자 보조 줄에 상대 닉네임을 못 넣음 → "초대받은 방" 고정 문구. 상대 닉네임을 원하면 API 변경(T-번호) 필요.
+  (2) 2인 방 목록 아바타: 상대 닉네임이 없어 사람 이니셜 대신 Users(두 사람) 아이콘 원.
+  (3) 모드 AI 복귀 시스템 라인: BRAND 표에 없어 "AI 다시 귀 열었다" 사용(HUMAN 진입은 표 문구 그대로).
+  (4) 사이드바 페이징: 목록이 최신순이라 "상단 도달" 대신 하단 도달 시 다음 페이지.
+  (5) AI 성격 textarea 플레이스홀더 "AI 한테 어떻게 굴라고 할래?", 이전 페이지 버튼 "이전 대화", 나가기 확인 버튼 "나갈래"/"안 갈래", 방 목록 새 방 시간 자리 "새 방", 404 방 "그런 방 없는데?".
+- 근거 파일: `apps/web/app/components/chat/{RoomListItem,Sidebar,AiPromptEditor,MessageList,RoomView}.tsx`, `apps/web/app/lib/sse.ts`
+- 원하는 결과: DESIGN.md#2~3 / BRAND.md#5 표에 반영 또는 대체 문구.
+- date: 2026-09-16

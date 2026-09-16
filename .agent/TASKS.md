@@ -268,7 +268,7 @@
   후속: T-008 `lib/sse.ts` 는 `replyTo` 로 델타 매칭, 재연결 시 `GET messages` 보충. 수평 확장 시 RoomEventBus → Redis.
 
 ## T-008 채팅 셸 + 방 생성 + 모드/성격 + 스트리밍 UI (web)
-- status: IN_PROGRESS
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
 - spec: DESIGN.md#2~3 #6, BRAND.md, API.md#rooms #messages
@@ -279,9 +279,11 @@
   - `app/lib/sse.ts` EventSource 래퍼 + 이벤트 리듀서 단위 테스트(`message`/`delta`/`done`/`error`/`mode`/`member`, 재연결).
   - 전송 중 본인 입력 비활성(상대는 가능), 409 토스트, 상단 도달 시 이전 페이지.
 
-- note: 착수 2026-09-16. 사용자 결정 D-020(draft 폐기, `/` 최신 방 이동, 토스트 스펙 통일, phosphor 아이콘, 시간 표기). 커밋 4개 계획:
-  (1) ui 프리미티브 + `(chat)` 셸·사이드바 + rooms 훅 (2) 방 헤더 시트 + 모드 토글 + AiPromptEditor (3) `lib/sse.ts` + MessageList + StreamingBubble (4) Composer + 에러 매핑 + 빈 상태.
-  테마 수동 선택은 T-020 으로 분리.
+- test: web 33 파일 166 케이스(`npm test`). 신규: lib/{time,sse}, components/ui 7종, components/chat 8종, features/rooms 5훅, features/messages(cache·streamStore·useMessages·useSendMessage·useRoomEvents·sendErrorMessage), (chat)/RootRedirect. `npm run lint`(0 error) · `typecheck` · `build` 통과.
+- note: 착수 2026-09-16, 커밋 4개(a7990c1 → fa9d996 → e99757c → 9465b38). 사용자 결정 D-020(draft 폐기, `/` 최신 방 이동, 토스트 스펙 통일, phosphor 아이콘, 시간 표기). 테마 수동 선택은 T-020.
+  구현 중 판단(디자이너 확인 요청 to-designer): 목록 API 에 members 가 없어 참여자 보조 줄은 "초대받은 방", 2인 방 목록 아바타는 Users 아이콘, mode AI 복귀 시스템 라인 "AI 다시 귀 열었다", 사이드바 다음 페이지는 하단 도달.
+  ORPHANED 방은 입력창 잠금까지만(확인 모달 + DELETE 는 T-018). 초대 시트 진입(RoomHeaderSheet onInvite)은 T-018 연결.
+  실 브라우저 검증 미실시(로컬 api·nginx 미기동) — QA 시 nginx 경유 SSE 델타 순서·키보드 시 입력창 고정 확인 필요.
 
 ## T-018 초대 입장 페이지 + QR/링크 공유 + 주인 없는 방 모달 (web)
 - status: TODO

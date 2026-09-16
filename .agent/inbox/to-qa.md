@@ -115,3 +115,24 @@
 - 범위 외: web(T-008/T-018), STT/TTS(T-009), admin stats(daily_usage 조회, T-011), 수평 확장(Redis).
 - 결과: QA_REPORT.md#T-007 PASS (2026-09-16, 사용자 지시로 개발자 대행 기록). 실서버 검증 중 발견 2건(시큐리티 ASYNC/ERROR 디스패치, `: connected`) 수정 후 217 통과.
 - date: 2026-09-16
+
+### [개발자 → QA] T-008 채팅 셸 + 방 생성 + 모드/성격 + 스트리밍 UI (web) 검증 요청
+- 요청/이슈: `cd apps/web && npm test && npm run lint && npm run typecheck && npm run build` 통과 확인(33 파일 166 케이스, lint 경고 1건은 기존 `api.ts` `_retry`).
+  수동(compose dev + api + `npm run dev`, 브라우저 `http://localhost:3000`): 로그인 → `/` 가 최신 방으로 이동(방 없으면 빈 상태 + "+ 새 방") → 새 방 → 메시지 전송 → 점 3개 → 델타 → 완료 말풍선. 두 계정으로 2인 방(T-016 join 은 curl/API 로) 후 모드 토글·시스템 라인·상대 말풍선.
+- 근거 파일: DECISIONS.md#D-020, DESIGN.md#2~3, BRAND.md#5, API.md#rooms/#messages,
+  `apps/web/app/(chat)/{layout,page,RootRedirect}.tsx`, `apps/web/app/(chat)/rooms/[id]/page.tsx`,
+  `apps/web/app/components/ui/{PillToggle,Badge,Avatar,Sheet,ConfirmDialog,Skeleton,Input,Toast}.tsx`,
+  `apps/web/app/components/chat/{ChatShell,Sidebar,RoomListItem,RoomHeaderSheet,AiPromptEditor,MessageList,MessageBubble,RoomView,Composer}.tsx`,
+  `apps/web/app/features/rooms/{types,useRooms}.ts`, `apps/web/app/features/messages/{types,cache,streamStore,useMessages,useRoomEvents,sendErrorMessage}.ts`, `apps/web/app/lib/{sse,time}.ts`
+- 확인 포인트:
+  (1) 셸: 모바일 390 상단 바 56 + 햄버거 드로어(경로 바뀌면 닫힘), 데스크톱 ≥1024 사이드바 280 고정. 제목 탭 → 방 헤더 시트(모바일 바텀/데스크톱 중앙 360).
+  (2) 사이드바: "+ 새 방" → `POST /rooms` → 이동. 항목 `주인`/`닫힘` 배지·상대 시간(방금/n분 전/n시간 전/어제/M.D)·활성 표시. … 메뉴 제목 수정(개설자만, Enter/Escape)·나가기 ConfirmDialog(개설자/참여자 문구 다름) → `DELETE` → `/`.
+  (3) 방 헤더: 혼자면 모드 토글 비활성 + "둘이 되면 켜져", 2명이면 `PATCH mode` 즉시, 실패 시 토스트 + 되돌림. AI 성격: 개설자만 프리셋·직접 쓰기(2,000자 카운터, blur 저장, 되돌리기 → `aiPrompt ""`), 참여자는 읽기 전용 + `effectiveAiPrompt`.
+  (4) 메시지: 나/상대/AI 3종 구분, 연속 발신자 아바타·닉네임 생략, 날짜 칩(KST), VOICE 마이크, 시스템 라인(mode/member). 상단 "이전 대화"/IO 로 과거 페이지, 스크롤 위치 유지.
+  (5) 스트리밍: `message` → 점 3개(reduced-motion 시 정적) → `delta` 누적 + ▍ → `done` 저장. `error` → "삐끗했다. 다시 해볼까?" + "다시"(같은 content 재전송). `replyTo` 별 분리(2인 동시 잡).
+  (6) 입력창: 내 잡 대기 중 잠금("답 쓰는 중… 잠깐만"), 상대는 가능. 409 → "아직 답 쓰는 중. 좀만 기다려", 503 → "지금 너무 바빠…", 낙관 말풍선 롤백. ORPHANED 방은 "주인이 도망간 방이야" 잠금.
+  (7) 토스트: 필·그림자 없음·3초, 오류 danger-bg/danger. 로그인 화면 오류 토스트도 같은 스펙.
+  (8) 접근성: 아이콘 버튼 aria-label, 스트리밍 `aria-live=polite`, 필 토글 radiogroup·방향키, 포커스 링 accent, 모달 Escape.
+  (9) nginx 경유 SSE: 델타가 버퍼링 없이 순서대로, 재연결 시 놓친 메시지 보충(`GET messages` 무효화).
+- 범위 외: 초대 공유 시트·`/join`·ORPHANED 확인 모달(T-018), 보이스(T-010), 테마 수동 선택(T-020), PWA 서비스워커(T-014).
+- date: 2026-09-16
