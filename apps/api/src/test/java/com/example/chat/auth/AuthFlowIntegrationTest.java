@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.chat.auth.oauth2.CookieOAuth2AuthorizationRequestRepository;
+import com.example.chat.auth.oauth2.NextPath;
 import com.example.chat.auth.oauth2.OAuth2UserInfo;
 import com.example.chat.user.User;
 import com.example.chat.user.UserMapper;
@@ -21,6 +23,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -42,6 +47,7 @@ class AuthFlowIntegrationTest {
 	@Autowired JwtProvider jwtProvider;
 	@Autowired JwtProperties jwtProperties;
 	@Autowired UserMapper userMapper;
+	@Autowired CookieOAuth2AuthorizationRequestRepository authorizationRequests;
 
 	private User user;
 
@@ -213,6 +219,29 @@ class AuthFlowIntegrationTest {
 			assertThat(result.getResponse().getRedirectedUrl()).startsWith("https://kauth.kakao.com/oauth/authorize");
 			assertThat(result.getResponse().getRedirectedUrl()).contains("redirect_uri=");
 			assertThat(result.getRequest().getSession(false)).isNull();
+		}
+
+		@Test
+		void next_는_서명_쿠키의_attribute_로_저장되고_불량이면_빠진다() throws Exception {
+			assertThat(savedNext("/join/K7Q2M9XW")).isEqualTo("/join/K7Q2M9XW");
+			assertThat(savedNext("https://evil.example")).isNull();
+			assertThat(savedNext(null)).isNull();
+		}
+
+		/** 시작 요청을 실제 필터 체인으로 보내고, 내려온 서명 쿠키를 저장소로 다시 읽어 next attribute 를 꺼낸다. */
+		private String savedNext(String next) throws Exception {
+			var req = get("/oauth2/authorization/kakao");
+			if (next != null) req = req.param(NextPath.PARAM, next);
+			MvcResult result = mvc.perform(req).andExpect(status().is3xxRedirection()).andReturn();
+			Cookie c = result.getResponse().getCookie(CookieOAuth2AuthorizationRequestRepository.COOKIE_NAME);
+			String state = java.net.URLDecoder.decode(
+				result.getResponse().getRedirectedUrl().replaceAll(".*[?&]state=([^&]+).*", "$1"), "UTF-8");
+			MockHttpServletRequest load = new MockHttpServletRequest();
+			load.setCookies(new Cookie(c.getName(), c.getValue()));
+			load.setParameter(OAuth2ParameterNames.STATE, state);
+			OAuth2AuthorizationRequest saved = authorizationRequests.loadAuthorizationRequest(load);
+			assertThat(saved).isNotNull();
+			return saved.getAttribute(NextPath.ATTRIBUTE);
 		}
 
 		@Test

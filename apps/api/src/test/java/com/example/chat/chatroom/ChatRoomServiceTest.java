@@ -446,15 +446,27 @@ class ChatRoomServiceTest {
 			assertThat(p.title()).isEqualTo("점심");
 			assertThat(p.ownerNickname()).isEqualTo("주인");
 			assertThat(p.memberCount()).isEqualTo(1);
+			assertThat(p.alreadyMember()).isFalse();
 		}
 
 		@Test
-		void 이미_멤버면_그대로_200() {
+		void 이미_멤버면_그대로_200_alreadyMember_true() {
 			RoomResponse r = service.create(owner.getId(), null);
 			service.join(guest.getId(), r.inviteCode());
 			service.create(other.getId(), null); // 손님의 방과 무관한 방
 
-			assertThat(service.preview(guest.getId(), r.inviteCode()).memberCount()).isEqualTo(2);
+			JoinPreviewResponse p = service.preview(guest.getId(), r.inviteCode());
+			assertThat(p.memberCount()).isEqualTo(2);
+			assertThat(p.alreadyMember()).isTrue();
+		}
+
+		@Test
+		void 나갔다가_다시_보면_alreadyMember_false() {
+			RoomResponse r = service.create(owner.getId(), null);
+			service.join(guest.getId(), r.inviteCode());
+			service.leave(guest.getId(), r.id());
+
+			assertThat(service.preview(guest.getId(), r.inviteCode()).alreadyMember()).isFalse();
 		}
 
 		@Test

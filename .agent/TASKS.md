@@ -302,7 +302,7 @@
 - note: T-008 QA(2026-09-16) 중 실브라우저에서 발견. 서버 LLM 컨텍스트는 이미 나간 멤버 라벨을 유지하는데(D-019) 화면 표시만 어긋나 있었다.
 
 ## T-022 OAuth 로그인 `next` 복귀 + 미리보기 `alreadyMember` (api)
-- status: IN_PROGRESS
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
 - spec: API.md#auth #rooms, D-021
@@ -312,7 +312,11 @@
   - 불량 `next` 는 무시하고 `/`: 절대 URL(`http://…`), `//evil`, `\`, 개행, `/` 로 안 시작, 200자 초과.
   - `GET /rooms/join/{code}` 응답에 `alreadyMember: boolean`(활성 멤버면 true). 기존 필드 불변.
   - 테스트: `NextPath` 정제 단위, resolver 가 attribute 를 싣는지, 성공 핸들러 redirect(정상/없음/불량), 미리보기 `alreadyMember` 서비스+MockMvc.
+- test: 신규 `NextPathTest` 3(파라미터화 13건 포함), `NextPathAuthorizationRequestResolverTest` 4, `OAuth2HandlersTest` +2,
+  `AuthFlowIntegrationTest.OAuth2Entry` +1(실제 필터 체인 → 서명 쿠키 attribute), `ChatRoomServiceTest.Preview` +1·수정 2, 통합 jsonPath +1. 전체 240 통과(2026-09-16 로컬).
 - note: T-018 착수 협의(2026-09-16)에서 분리. web 쿠키 방식 기각 사유는 D-021.
+  구현 메모: `NextPath.sanitize`(상대경로 정규식, ≤200자) → `NextPathAuthorizationRequestResolver` 가 attribute 로 → `CookieOAuth2AuthorizationRequestRepository` 가 attributes 를 서명 쿠키로 왕복 →
+  `OAuth2SuccessHandler` 가 콜백 요청 쿠키에서 `loadAuthorizationRequest` 로 다시 읽는다(필터의 remove 는 응답 헤더만 쓰므로 요청 쿠키는 남아 있음).
 
 ## T-018 초대 입장 페이지 + QR/링크 공유 + 주인 없는 방 모달 (web)
 - status: TODO

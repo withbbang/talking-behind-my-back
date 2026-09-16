@@ -171,9 +171,10 @@ public class ChatRoomService {
 	public JoinPreviewResponse preview(Long userId, String code) {
 		ChatRoom room = rooms.findByInviteCode(code).orElseThrow(() -> new BusinessException(ErrorCode.INVITE_NOT_FOUND));
 		List<RoomMember> active = members.findActiveByRoomId(room.getId());
-		checkJoinable(room, userId, active.size(), active.stream().anyMatch(m -> m.getUserId().equals(userId)));
+		boolean alreadyMember = active.stream().anyMatch(m -> m.getUserId().equals(userId));
+		checkJoinable(room, userId, active.size(), alreadyMember);
 		String ownerNickname = active.stream().filter(RoomMember::isOwner).map(RoomMember::getNickname).findFirst().orElse(null);
-		return new JoinPreviewResponse(room.getId(), room.getTitle(), ownerNickname, active.size());
+		return new JoinPreviewResponse(room.getId(), room.getTitle(), ownerNickname, active.size(), alreadyMember);
 	}
 
 	/**

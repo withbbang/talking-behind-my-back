@@ -7,6 +7,7 @@ import com.example.chat.auth.JwtAuthFilter;
 import com.example.chat.auth.JwtProvider;
 import com.example.chat.auth.RefreshTokenService;
 import com.example.chat.auth.oauth2.CookieOAuth2AuthorizationRequestRepository;
+import com.example.chat.auth.oauth2.NextPathAuthorizationRequestResolver;
 import com.example.chat.auth.oauth2.OAuth2FailureHandler;
 import com.example.chat.auth.oauth2.OAuth2SuccessHandler;
 import com.example.chat.auth.oauth2.SocialOAuth2UserService;
@@ -70,7 +71,8 @@ public class SecurityConfig {
 			.oauth2Login(oauth2 -> oauth2
 				.authorizationEndpoint(a -> a
 					.authorizationRequestRepository(authorizationRequestRepository)
-					.authorizationRequestResolver(lenientResolver(clientRegistrationRepository)))
+					.authorizationRequestResolver(
+						new NextPathAuthorizationRequestResolver(lenientResolver(clientRegistrationRepository))))
 				.userInfoEndpoint(u -> u.userService(new SocialOAuth2UserService()))
 				.successHandler(successHandler)
 				.failureHandler(failureHandler))
@@ -138,8 +140,10 @@ public class SecurityConfig {
 
 	@Bean
 	public OAuth2SuccessHandler oauth2SuccessHandler(AuthService authService, RefreshTokenService refreshTokenService,
-		JwtProvider jwtProvider, AuthCookies cookies, @Value("${app.base-url}") String baseUrl) {
-		return new OAuth2SuccessHandler(authService, refreshTokenService, jwtProvider, cookies, baseUrl);
+		JwtProvider jwtProvider, AuthCookies cookies, @Value("${app.base-url}") String baseUrl,
+		CookieOAuth2AuthorizationRequestRepository authorizationRequestRepository) {
+		return new OAuth2SuccessHandler(authService, refreshTokenService, jwtProvider, cookies, baseUrl,
+			authorizationRequestRepository);
 	}
 
 	@Bean

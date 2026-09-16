@@ -405,7 +405,8 @@ class ChatRoomControllerIntegrationTest {
 				.andExpect(jsonPath("$.roomId").value(room.get("id").asLong()))
 				.andExpect(jsonPath("$.title").value("점심"))
 				.andExpect(jsonPath("$.ownerNickname").value("주인"))
-				.andExpect(jsonPath("$.memberCount").value(1));
+				.andExpect(jsonPath("$.memberCount").value(1))
+				.andExpect(jsonPath("$.alreadyMember").value(false));
 			mvc.perform(post("/rooms/join/" + code).cookie(access(guest)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.id").value(room.get("id").asLong()))
