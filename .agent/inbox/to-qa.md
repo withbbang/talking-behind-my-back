@@ -116,7 +116,7 @@
 - 결과: QA_REPORT.md#T-007 PASS (2026-09-16, 사용자 지시로 개발자 대행 기록). 실서버 검증 중 발견 2건(시큐리티 ASYNC/ERROR 디스패치, `: connected`) 수정 후 217 통과.
 - date: 2026-09-16
 
-### [개발자 → QA] T-008 채팅 셸 + 방 생성 + 모드/성격 + 스트리밍 UI (web) 검증 요청
+### [개발자 → QA] T-008 채팅 셸 + 방 생성 + 모드/성격 + 스트리밍 UI (web) 검증 요청 [처리됨 2026-09-16, QA_REPORT.md#T-008]
 - 요청/이슈: `cd apps/web && npm test && npm run lint && npm run typecheck && npm run build` 통과 확인(33 파일 166 케이스, lint 경고 1건은 기존 `api.ts` `_retry`).
   수동(compose dev + api + `npm run dev`, 브라우저 `http://localhost:3000`): 로그인 → `/` 가 최신 방으로 이동(방 없으면 빈 상태 + "+ 새 방") → 새 방 → 메시지 전송 → 점 3개 → 델타 → 완료 말풍선. 두 계정으로 2인 방(T-016 join 은 curl/API 로) 후 모드 토글·시스템 라인·상대 말풍선.
 - 근거 파일: DECISIONS.md#D-020, DESIGN.md#2~3, BRAND.md#5, API.md#rooms/#messages,

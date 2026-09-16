@@ -36,6 +36,33 @@
 
 <!-- QA가 검증 결과를 아래에 계속 추가 -->
 
+### T-008 채팅 셸 + 방 생성 + 모드/성격 + 스트리밍 UI (web)
+- verdict: PASS (사용자 지시로 QA 대행 기록, 2026-09-16) — 실브라우저 검증 중 결함 2건 발견 → 같은 태스크에서 수정·재검증 후 PASS
+- tests: 존재 / `npm test` 168 passed, 0 failed(신규 2 — 아래 결함 재현 테스트 포함) / `npm run lint` 0 error(경고 1건은 T-008 이전부터 있던 `api.ts` `_retry`, 무관) / `npm run typecheck` 통과 / `npm run build` 통과. 에이전트 실행(로컬).
+- checked:
+  - acceptance 커버리지: `(chat)/layout.tsx` 사이드바+메인, 방 목록 역할·ORPHANED 표시, "+ 새 방" 즉시 `POST /rooms`(draft 폐기) / 방 헤더 멤버·모드 토글(2명일 때만)·AI 성격(개설자만, 프리셋+프롬프트 편집 2,000자·초기화, `effectiveAiPrompt` 상시 표시)·초대 버튼(개설자만, onInvite 훅만 — T-018 연결 예정) / `lib/sse.ts` 6종 이벤트 리듀서+재연결 / 전송 중 본인 입력 비활성(상대는 가능)·409 토스트·상단 도달 이전 페이지.
+  - API.md 계약 일치: rooms/messages 필드명·에러 코드(409/503/410/400) 그대로 사용, 커서 불투명 문자열 처리, Room `members: null`(목록)/배열(상세) 분기.
+  - **실브라우저(Chromium, 로컬 compose nginx+MySQL+OmniRoute + `./gradlew bootRun` + `npm run dev`, `http://localhost:3000`)**: 모바일(436×863)·데스크톱(1280×860) 두 뷰포트로 직접 조작.
+    - 로그인 화면 세션이 이미 브라우저에 있어 그대로 확인(실제 OAuth 로그인은 사람 자격증명이 필요해 에이전트가 수행하지 않음 — CLAUDE.md 안전 규칙). 추가 시나리오는 로컬 JWT_SECRET(코드 공개값, 시크릿 아님)으로 서명한 테스트 계정 2개(`영선`/`영희`, `local` 소셜 provider 없이 DB 직접 생성)로 진행 — 실제 회원(상남자, id 95)의 로그인·비밀번호는 전혀 사용하지 않았고, 그 계정에 남긴 테스트 흔적(빈 테스트 방 1개)은 검증 후 원상 삭제.
+    - `/` 최신 방 자동 이동(D-020) 확인, 방 0개 계정은 빈 상태(하트 64 + "아직 방이 없네? 하나 파자." + "+ 새 방") 확인.
+    - "+ 새 방" → 즉시 이동 → 빈 방 상태("오늘은 누가 그랬어?") → 전송 → 낙관적 말풍선 → (OmniRoute 에 `chat-default` 모델 미등록으로 502/400) `error` 이벤트 → "삐끗했다. 다시 해볼까?" + "다시" 재전송 확인. **AI 실제 응답 스트리밍(delta 누적)은 로컬 OmniRoute 대시보드에 모델을 등록해야 가능 — 이번 환경엔 없어 범위 외(T-007 QA 에서 fake 서버로 이미 검증됨), `error` 경로는 실제로 확인함.**
+    - 초대 코드로 두 번째 계정 입장(API 직접 호출, T-018 이 아직 없어 초대 시트 UI로는 못 함) → 소유자 브라우저에 "영희 등장!" 시스템 라인·상대 말풍선(닉네임+아바타)·사이드바 아바타가 2인 아이콘으로 실시간 전환 확인(SSE `member` 라이브 반영).
+    - 방 헤더 시트(데스크톱 360 다이얼로그) 열기 → 모드 `유저끼리` 전환 → 시스템 라인 "이제 유저끼리 얘기 중 (AI는 귀 막음)" + 입력 placeholder "AI 몰래 얘기하기" 즉시 반영 → HUMAN 모드 전송 시 AI 잡 없음(에러 말풍선 안 생김) 확인.
+    - AI 성격 `공감형` 전환 → effectiveAiPrompt 문구 즉시 갱신 → "직접 쓰기" 입력·blur 저장 → 상단 요약 갱신 → "프리셋으로 되돌리기" → 프리셋 문구 복귀, 전 구간 새로고침 없이 실시간 확인.
+    - 참여자(영희) API 로 나가기 → "영희 퇴장" + "AI 다시 귀 열었다" 시스템 라인, 입력 placeholder AI 모드로 복귀 확인. 단 **직전 메시지의 발신자 표시가 "영희" → "나간 사람" 으로 소급 변경됨을 발견(아래 issues)**.
+    - 사이드바 "..." 메뉴: 제목 수정(Enter 저장), 나가기 ConfirmDialog(개설자/참여자 문구 분기, "안 갈래" 취소 동작) 확인.
+    - 반응형: 436px 는 햄버거+드로어(경로 이동 시 자동 닫힘), 1280px 는 고정 사이드바+햄버거 자리 invisible, aside 는 `display:none`(JS 로 재확인) — Tailwind lg 분기 정상.
+  - **발견·수정 1 (버그)**: 첫 메시지로 서버가 방 제목을 자동 생성(`autoTitle`)해도 상단 바/헤더 시트 제목이 갱신되지 않음 — `useSendMessage.onSuccess` 와 `useRoomEvents` 의 `message` 이벤트가 방 목록(`ROOMS_KEY`)만 무효화하고 방 상세(`roomKey(id)`, 헤더가 실제로 읽는 쿼리)는 무효화하지 않았다. 실브라우저에서 "새 대화" 로 고정된 헤더로 재현 → `app/features/messages/useMessages.test.tsx`/`useRoomEvents.test.tsx` 에 RED 단언 추가 → 두 지점에 `invalidateQueries({ queryKey: roomKey(roomId) })` 추가 → GREEN. 재확인: 새 방에서 첫 메시지 전송 시 새로고침 없이 헤더 제목이 즉시 바뀜.
+  - **발견·수정 2 (버그)**: 사이드바 목록에서 **지금 보고 있지 않은** 다른 방을 나가면 `useLeaveRoom` 이 무조건 `router.replace('/')` 를 호출해 현재 보던 방에서 강제로 튕겨나감(`/` → `RootRedirect` 가 남은 방 중 최신으로 다시 이동하므로 최종 화면은 우연히 같아 보일 수 있어 서버 로그로 재확인: `GET /` 뒤 `GET /rooms/{다른id}` 두 번 왕복). `app/features/rooms/useRooms.test.tsx`/`Sidebar.test.tsx` 에 "보고 있지 않은 방" RED 케이스 추가 → `usePathname()` 으로 지금 보는 방을 나갈 때만 이동하도록 수정 → GREEN.
+  - 접근성: 아이콘 버튼 aria-label(메뉴/닫기/방 메뉴/메시지 전송), 스트리밍 영역 `role=status aria-live=polite`, 필 토글 `radiogroup`+방향키, 모달/시트 `aria-modal`+Escape, 포커스 링 확인(키보드 탭 이동 육안 확인).
+  - 보안: 로컬 JWT 서명에 쓴 `local-dev-only-secret-...` 은 이미 `application.yml` 기본값으로 공개된 로컬 전용 값(운영 비밀 아님) — CONVENTIONS 시크릿 규칙 위반 아님. 실제 회원 자격증명·비밀번호는 어디에도 입력하지 않음.
+- issues:
+  - (블록 아님, 후속 필요 → **T-021**) 멤버가 방을 나가면 그 사람이 보낸 과거 메시지의 발신자 표시가 "나간 사람" 으로 바뀐다. 원인은 API 계약 자체의 공백: `Message` 에 발신자 닉네임이 없고 `Room.members` 는 활성 멤버만 내려주므로, 프론트가 현재 멤버 목록으로만 과거 발신자 이름을 복원한다. 반면 서버 LLM 컨텍스트는 나간 멤버 라벨도 유지한다(API.md, D-019) — 화면과 AI 가 보는 정보가 어긋난다. "뒷담화" 앱 특성상 누가 무슨 말을 했는지가 핵심이라 사용자 체감 영향이 있음. API 변경(예: `Message.senderNickname` 추가, 또는 나간 멤버 포함 멤버 스냅샷 엔드포인트)이 필요해 T-008 범위를 넘음 → 별도 T-021 로 등록.
+  - (블록 아님, 환경 제약) 로컬 OmniRoute 에 모델이 등록돼 있지 않아 실제 AI 델타 스트리밍(성공 경로)은 이번 실브라우저 세션에서 못 봤다. `error` 이벤트 처리(가장 흔한 실패 경로)는 확인했고, 성공 경로 파서·리듀서는 `lib/sse.test.ts`(단위)와 T-007 QA(fake 서버로 실서버 확인)에서 이미 검증됨.
+  - (블록 아님, 디자이너 확인 대기) to-designer.md 에 남긴 5건(초대받은 방 문구, 2인 아이콘, "AI 다시 귀 열었다", 하단 페이징, 잡카피 5개) — 임의 문구라 디자이너 확정 전까지 바뀔 수 있음.
+- date: 2026-09-16
+
+
 ### T-000 레포 스캐폴드 + CI/CD 뼈대 + .agent 워크플로
 - verdict: PASS
 - tests: 없음(설정/문서 작업, 정당). compose·workflow YAML 문법 검증 통과(에이전트 실행).

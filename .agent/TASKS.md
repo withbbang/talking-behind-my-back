@@ -268,7 +268,7 @@
   후속: T-008 `lib/sse.ts` 는 `replyTo` 로 델타 매칭, 재연결 시 `GET messages` 보충. 수평 확장 시 RoomEventBus → Redis.
 
 ## T-008 채팅 셸 + 방 생성 + 모드/성격 + 스트리밍 UI (web)
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M2
 - spec: DESIGN.md#2~3 #6, BRAND.md, API.md#rooms #messages
@@ -279,11 +279,27 @@
   - `app/lib/sse.ts` EventSource 래퍼 + 이벤트 리듀서 단위 테스트(`message`/`delta`/`done`/`error`/`mode`/`member`, 재연결).
   - 전송 중 본인 입력 비활성(상대는 가능), 409 토스트, 상단 도달 시 이전 페이지.
 
-- test: web 33 파일 166 케이스(`npm test`). 신규: lib/{time,sse}, components/ui 7종, components/chat 8종, features/rooms 5훅, features/messages(cache·streamStore·useMessages·useSendMessage·useRoomEvents·sendErrorMessage), (chat)/RootRedirect. `npm run lint`(0 error) · `typecheck` · `build` 통과.
+- test: web 33 파일 168 케이스(`npm test`, QA 중 결함 수정으로 166→168). 신규: lib/{time,sse}, components/ui 7종, components/chat 8종, features/rooms 5훅, features/messages(cache·streamStore·useMessages·useSendMessage·useRoomEvents·sendErrorMessage), (chat)/RootRedirect. `npm run lint`(0 error) · `typecheck` · `build` 통과.
 - note: 착수 2026-09-16, 커밋 4개(a7990c1 → fa9d996 → e99757c → 9465b38). 사용자 결정 D-020(draft 폐기, `/` 최신 방 이동, 토스트 스펙 통일, phosphor 아이콘, 시간 표기). 테마 수동 선택은 T-020.
   구현 중 판단(디자이너 확인 요청 to-designer): 목록 API 에 members 가 없어 참여자 보조 줄은 "초대받은 방", 2인 방 목록 아바타는 Users 아이콘, mode AI 복귀 시스템 라인 "AI 다시 귀 열었다", 사이드바 다음 페이지는 하단 도달.
   ORPHANED 방은 입력창 잠금까지만(확인 모달 + DELETE 는 T-018). 초대 시트 진입(RoomHeaderSheet onInvite)은 T-018 연결.
-  실 브라우저 검증 미실시(로컬 api·nginx 미기동) — QA 시 nginx 경유 SSE 델타 순서·키보드 시 입력창 고정 확인 필요.
+  실브라우저 검증 완료(QA_REPORT.md 2026-09-16): 로컬 compose+bootRun+`npm run dev` 로 로그인 세션·2인 방 SSE 라이브 반영·모드/성격 편집·나가기까지 확인.
+  검증 중 결함 2건 발견 즉시 수정(TDD RED→GREEN): (1) 첫 메시지 자동 제목이 헤더에 반영 안 됨 — 방 상세 쿼리 무효화 누락 → `useSendMessage`/`useRoomEvents` 수정.
+  (2) 사이드바에서 다른 방을 나가면 보고 있던 방에서 강제 이동 → `useLeaveRoom` 이 지금 보는 방일 때만 이동하도록 수정. 테스트 166 → 168.
+  나간 멤버의 과거 메시지가 "나간 사람" 으로 표시되는 API 계약 공백 발견 → T-021 참조.
+- qa: PASS (QA_REPORT.md 2026-09-16, 사용자 지시로 QA 대행 기록 + 실브라우저 검증)
+
+## T-021 메시지에 발신 당시 닉네임 보존 (api + web)
+- status: TODO
+- owner: 개발자
+- milestone: M2
+- spec: API.md#messages, QA_REPORT.md#T-008
+- blocked_by: T-008
+- acceptance:
+  - 멤버가 방을 나간 뒤에도 그 사람이 보낸 과거 메시지의 발신자 표시가 실명(닉네임)으로 유지된다(현재는 "나간 사람"으로 소급 표시됨).
+  - API 계약 변경(먼저 API.md, 그다음 코드): 예) `Message` 응답에 발신 당시 닉네임을 싣거나, 방 상세가 나간 멤버를 포함한 스냅샷을 함께 내려준다. 방식은 착수 전 제안 → 선택.
+  - web `MessageList`/`RoomHeaderSheet` 가 이 값을 우선 사용하도록 갱신, 현재 멤버 목록으로 되돌아가는 폴백은 유지.
+- note: T-008 QA(2026-09-16) 중 실브라우저에서 발견. 서버 LLM 컨텍스트는 이미 나간 멤버 라벨을 유지하는데(D-019) 화면 표시만 어긋나 있었다.
 
 ## T-018 초대 입장 페이지 + QR/링크 공유 + 주인 없는 방 모달 (web)
 - status: TODO
