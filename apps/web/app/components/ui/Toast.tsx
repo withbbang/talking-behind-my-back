@@ -1,21 +1,24 @@
 'use client';
 
 import { useEffect } from 'react';
+import { create } from 'zustand';
+
+export type ToastTone = 'info' | 'error';
 
 /**
- * 토스트 (DESIGN.md 컴포넌트 목록 Toast). 상단 중앙 고정, duration 뒤 자동 닫힘, 닫기 버튼.
- * 표시 여부는 부모 상태가 가진다(message === null 이면 렌더 없음) — T-008 에서 zustand 스토어로 승격 가능.
+ * 토스트 (DESIGN.md 공통 컴포넌트, D-020). 상단 중앙 필, 그림자·닫기 버튼 없음, 3초.
+ * 안내 = surface/on-surface, 오류 = danger-bg/danger (bg 위에 얹어 불투명하게).
  */
 export function Toast({
   message,
   onClose,
-  duration = 5000,
-  tone = 'error',
+  duration = 3000,
+  tone = 'info',
 }: {
   message: string | null;
   onClose: () => void;
   duration?: number;
-  tone?: 'error' | 'info';
+  tone?: ToastTone;
 }) {
   useEffect(() => {
     if (message === null) return;
@@ -25,23 +28,33 @@ export function Toast({
 
   if (message === null) return null;
 
-  const toneClass = tone === 'error' ? 'bg-danger text-bg' : 'bg-surface text-on-surface';
+  const toneClass = tone === 'error' ? 'bg-danger-bg text-danger' : 'bg-surface text-on-surface';
   return (
     <div className="pointer-events-none fixed inset-x-0 top-[calc(0.75rem+env(safe-area-inset-top))] z-50 flex justify-center px-4">
-      <div
-        role="alert"
-        className={`bubble-in pointer-events-auto flex w-full max-w-[420px] items-start gap-3 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg ${toneClass}`}
-      >
-        <p className="flex-1 break-keep">{message}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="닫기"
-          className="-m-1 rounded-lg p-1 leading-none outline-offset-2 focus-visible:outline-2 focus-visible:outline-current"
-        >
-          ×
-        </button>
+      <div className="bubble-in rounded-full bg-bg">
+        <p role="alert" className={`rounded-full px-4 py-2.5 text-sm font-medium break-keep ${toneClass}`}>
+          {message}
+        </p>
       </div>
     </div>
   );
+}
+
+type ToastState = {
+  toast: { message: string; tone: ToastTone; key: number } | null;
+  show: (message: string, tone?: ToastTone) => void;
+  clear: () => void;
+};
+
+/** 앱 전역 토스트. 연속 show 는 마지막 것으로 교체된다(key 로 타이머 리셋). */
+export const useToastStore = create<ToastState>((set) => ({
+  toast: null,
+  show: (message, tone = 'info') => set({ toast: { message, tone, key: Date.now() + Math.random() } }),
+  clear: () => set({ toast: null }),
+}));
+
+export function ToastHost() {
+  const toast = useToastStore((s) => s.toast);
+  const clear = useToastStore((s) => s.clear);
+  return <Toast key={toast?.key} message={toast?.message ?? null} tone={toast?.tone} onClose={clear} />;
 }

@@ -51,8 +51,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
-  /* 모바일 키보드/safe-area 대응은 (chat) 레이아웃에서 100dvh 로 처리 (DESIGN.md#원칙) */
-  padding-bottom: env(safe-area-inset-bottom);
+  /* safe-area 는 각 화면이 직접 처리한다 — 로그인 pb, (chat) 셸은 h-dvh + 하단 요소 padding (DESIGN.md#원칙) */
 }
 
 /* 로그인 말풍선 1회 등장. 시스템이 모션 줄이기면 즉시 표시. */

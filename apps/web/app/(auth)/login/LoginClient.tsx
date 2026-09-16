@@ -36,7 +36,7 @@ export function LoginClient({ error }: { error: string | null }) {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col justify-between px-5 pt-24 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
-      <Toast message={toast} onClose={closeToast} />
+      <Toast message={toast} tone="error" onClose={closeToast} />
 
       <header className="px-1">
         <h1 className="text-center text-[clamp(3rem,15vw,4.5rem)] leading-none font-extrabold tracking-[-0.05em] break-keep">

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { ToastHost } from '@/components/ui/Toast';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
@@ -23,7 +24,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className="antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <ToastHost />
+        </Providers>
       </body>
     </html>
   );
