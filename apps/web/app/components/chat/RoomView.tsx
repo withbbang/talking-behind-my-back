@@ -64,7 +64,8 @@ export function RoomView({ roomId }: { roomId: number }) {
     return <Centered>{notFound ? '그런 방 없는데?' : '삐끗했다. 다시 해볼까?'}</Centered>;
   }
 
-  const empty = messages.messages.length === 0 && Object.keys(stream.streams).length === 0;
+  // 빈 방 = 메시지·스트림·시스템 라인 전부 0 (DESIGN.md#3, T-024). "영희 등장!" 만 있어도 목록으로.
+  const empty = messages.messages.length === 0 && Object.keys(stream.streams).length === 0 && stream.notices.length === 0;
   const orphaned = room.data.status === 'ORPHANED';
   const lock: ComposerLock = orphaned ? 'orphaned' : myPending ? 'pending' : null;
 

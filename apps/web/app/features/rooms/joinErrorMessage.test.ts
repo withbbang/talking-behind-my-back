@@ -10,6 +10,7 @@ describe('joinErrorMessage (DESIGN.md#5 실패 표)', () => {
     [new ApiError(410, 'ROOM_ORPHANED', 'x'), '주인이 도망간 방이야'],
     [new ApiError(400, 'SELF_INVITE', 'x'), '이거 네 방이잖아'],
     [new ApiError(409, 'ROOM_LIMIT_EXCEEDED', 'x'), '방이 50개 넘었어. 하나 정리하고 와'],
+    [new ApiError(409, 'PAIR_ROOM_EXISTS', 'x'), '걔랑은 이미 방 있잖아'], // D-022, T-023
   ])('%s → %s', (err, expected) => {
     expect(joinErrorMessage(err)).toBe(expected);
   });

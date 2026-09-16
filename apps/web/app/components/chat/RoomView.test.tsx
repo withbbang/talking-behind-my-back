@@ -54,6 +54,14 @@ describe('RoomView (DESIGN.md#3)', () => {
     expect(screen.getByRole('img', { name: 'AI' })).toHaveStyle({ width: '64px' });
   });
 
+  it('메시지 0 이라도 시스템 라인이 있으면 빈 상태 대신 라인을 보인다 (T-024)', async () => {
+    mockApi(roomDetail(10, { messageCount: 0, memberCount: 2 }));
+    useStreamStore.setState({ rooms: { 10: { streams: {}, notices: [{ id: 'n1', text: '영희 등장!', createdAt: '2026-09-16T00:00:00Z' }] } } });
+    renderIt();
+    expect(await screen.findByText('영희 등장!')).toBeInTheDocument();
+    expect(screen.queryByText('오늘은 누가 그랬어?')).toBeNull();
+  });
+
   it('404 면 "그런 방 없는데?" 안내', async () => {
     mockApi(new ApiError(404, 'ROOM_NOT_FOUND', '채팅방을 찾을 수 없습니다.'));
     renderIt();

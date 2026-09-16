@@ -10,6 +10,7 @@ const JOIN_ERROR_COPY: Record<string, string> = {
   ROOM_ORPHANED: '주인이 도망간 방이야',
   SELF_INVITE: '이거 네 방이잖아',
   ROOM_LIMIT_EXCEEDED: '방이 50개 넘었어. 하나 정리하고 와',
+  PAIR_ROOM_EXISTS: '걔랑은 이미 방 있잖아',
 };
 
 export function joinErrorMessage(err: unknown): string | null {
