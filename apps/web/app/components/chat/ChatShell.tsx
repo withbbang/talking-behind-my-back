@@ -4,11 +4,12 @@ import { useParams, usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { List, X } from '@phosphor-icons/react';
 import { useRoom } from '@/features/rooms/useRooms';
+import { RoomHeaderSheet } from './RoomHeaderSheet';
 import { Sidebar } from './Sidebar';
 
 /**
  * 채팅 셸 (DESIGN.md#2). 모바일: 상단 바 56 + 햄버거 드로어(300, ink 40% 딤). 데스크톱(≥1024): 사이드바 280 고정.
- * 상단 바 제목은 현재 방 제목(방 밖이면 앱 이름). 제목 탭 → 방 헤더 시트는 커밋 2.
+ * 상단 바 제목은 현재 방 제목(방 밖이면 앱 이름). 방 안에서 제목 탭 → 방 헤더 시트.
  */
 export function ChatShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -19,6 +20,7 @@ export function ChatShell({ children }: { children: ReactNode }) {
   const [openPath, setOpenPath] = useState<string | null>(null);
   const open = openPath === pathname;
   const setOpen = (v: boolean) => setOpenPath(v ? pathname : null);
+  const [headerOpen, setHeaderOpen] = useState(false);
 
   const title = roomId === null ? '뒷담 친구' : (room.data?.title ?? '…');
 
@@ -38,11 +40,25 @@ export function ChatShell({ children }: { children: ReactNode }) {
           >
             <List size={24} weight="bold" />
           </button>
-          <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold">{title}</h1>
+          <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold">
+            {room.data ? (
+              <button
+                type="button"
+                onClick={() => setHeaderOpen(true)}
+                className="max-w-full truncate rounded-lg px-2 py-1 outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                {title}
+              </button>
+            ) : (
+              title
+            )}
+          </h1>
           <span className="size-11" aria-hidden="true" />
         </header>
         <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </div>
+
+      {room.data && <RoomHeaderSheet room={room.data} open={headerOpen} onClose={() => setHeaderOpen(false)} />}
 
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">

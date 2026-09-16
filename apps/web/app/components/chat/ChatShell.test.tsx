@@ -79,6 +79,15 @@ describe('ChatShell (DESIGN.md#2 채팅 셸)', () => {
     expect(apiFetchMock).toHaveBeenCalledWith('/rooms/10');
   });
 
+  it('방 안에서 제목 탭 → 방 헤더 시트', async () => {
+    params = { id: '10' };
+    pathname = '/rooms/10';
+    apiFetchMock.mockResolvedValue(roomDetail(10, { title: '오늘 뭐 먹지' }));
+    renderShell();
+    fireEvent.click(await screen.findByRole('button', { name: '오늘 뭐 먹지' }));
+    expect(screen.getByRole('dialog', { name: '방 정보' })).toBeInTheDocument();
+  });
+
   it('방 밖이면 제목 자리에 앱 이름', () => {
     renderShell();
     expect(screen.getByRole('heading', { name: '뒷담 친구' })).toBeInTheDocument();
