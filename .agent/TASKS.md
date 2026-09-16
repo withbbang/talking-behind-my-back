@@ -40,8 +40,10 @@
   `OncePerRequestFilter` 인증 필터는 그걸 건너뛰어 익명 → 끊길 때마다 "response already committed" ERROR 스택(T-007 QA). 구독 직후 `: connected` 주석으로 헤더를 바로 커밋할 것.
 - **vitest `beforeEach(() => mock.mockReset())` 처럼 화살표가 mock 을 반환하면 vitest 가 그 반환값을 cleanup 훅으로 호출한다** → 인자 없는 유령 호출. 항상 중괄호 블록으로.
 - **React Query 5 `mutateAsync` 거절은 훅의 `onError` 정리보다 먼저 전달될 수 있다.** 실패 후 캐시 상태 단언은 `waitFor`.
-- **Spring Security 7 OAuth2 클래스는 Homepage/Admin 에 참고코드가 없다.** `javap -cp <jar>` 로 시그니처 확인 후 사용.
+- **Spring Security 7 OAuth2 클래스는 Homepage/Admin 에 참고코드가 없다.** `javap -cp <jar>` 로 시그니처 확인 후 사용(`~/.gradle` 에서 찾을 때 `-javadoc`/`-sources` jar 제외).
   `InvalidClientRegistrationIdException` 은 package-private(IllegalArgumentException 하위).
+- **MyBatis XML 안 SQL 의 `<>` 는 XML 파싱 오류.** `!=` 로. `bootRun` 중 `gradlew test` 를 돌리면 devtools 가 재시작하는데 그때 리소스가 깨져 있으면 앱이 죽은 채 남는다 — 고친 뒤 bootRun 재기동.
+- **RTL `getByText` 는 한 `<p>` 안에서 `<br/>` 로 나뉜 줄을 못 잡는다.** 여러 줄 카피는 줄마다 `<span className="block">`.
 
 ---
 
@@ -341,17 +343,32 @@
   `JoinClient` 소개문 조사(이/가)는 `lib/josa.iGa`(받침 판정, 비한글은 병기). `uqr` 0.1.3 추가(의존성 0).
 
 ## T-023 같은 두 사람은 활성 방 1개만 — 입장 거절 (api + web)
-- status: BLOCKED
+- status: DONE
+- qa: PASS (QA_REPORT.md 2026-09-16, 테스트 기준 — 실브라우저 2계정 시나리오는 다음 세션)
 - owner: 개발자
 - milestone: M2
 - spec: D-022, API.md#rooms
-- blocked_by: T-016, T-018, D-022 세부 확정(to-ceo)
+- blocked_by: T-016, T-018
 - acceptance:
   - `GET/POST /rooms/join/{code}`: 입장자와 방 개설자가 이미 다른 ACTIVE 방에서 같은 쌍이면 409 `PAIR_ROOM_EXISTS`(코드명은 D-022 확정값). 같은 방 재입장은 200.
   - 판정 순서 404 → 410 → 400 SELF → 이미 멤버 200 → 409 PAIR → 409 FULL → 409 LIMIT. 미리보기도 PAIR 까지.
   - API.md 입장 실패 표 갱신(먼저), `ErrorCode` 추가, `RoomMemberMapper` 쌍 조회 쿼리(MyBatis XML), 서비스 단위 + MockMvc 통합 테스트.
   - web: `joinErrorMessage` 에 코드 한 줄 + BRAND.md#5 문구, `JoinClient` 테스트 1건.
-- note: 2026-09-16 T-018 착수 대화에서 사용자 요건. 세부(방향·ORPHANED 포함·코드명·문구)는 D-022 제안값 — CEO 확정 후 IN_PROGRESS.
+- test: api `ChatRoomServiceTest.Join` +3, `ChatRoomControllerIntegrationTest` jsonPath +1(243 통과) / web `joinErrorMessage` +1(221 통과). 2026-09-16 로컬.
+- note: 2026-09-16 T-018 착수 대화에서 사용자 요건, 같은 날 세부 4건 제안값 그대로 확정(D-022). 구현: `RoomMemberMapper.countActiveRoomsShared`(쌍·ACTIVE·현재 방 제외) → `checkJoinable` 에 `pairExists` 인자.
+
+## T-024 빈 방 상태가 시스템 라인을 가림 (web)
+- status: DONE
+- qa: PASS (QA_REPORT.md 2026-09-16, 단위 테스트)
+- owner: 개발자
+- milestone: M2
+- spec: DESIGN.md#3 빈 방, QA_REPORT.md#T-018 issues
+- blocked_by: T-018
+- acceptance:
+  - 메시지 0개라도 시스템 라인(`notices`: 등장/퇴장/모드)이 있으면 빈 상태 대신 목록(시스템 라인)을 보여준다.
+  - `RoomView` 테스트: 메시지 0 + notice 1 → "오늘은 누가 그랬어?" 없음, 라인 표시.
+- test: `RoomView.test.tsx` +1. 수정은 `RoomView.tsx` `empty` 판정 한 줄(`stream.notices.length === 0` 추가).
+- note: T-018 Playwright QA(2026-09-16)에서 발견. DESIGN.md#3 빈 방 문구 개정(디자이너 대행, 사용자 결정).
 
 ## T-020 테마 수동 선택(라이트/다크/시스템) (web)
 - status: TODO

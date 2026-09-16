@@ -36,6 +36,17 @@
 
 <!-- QA가 검증 결과를 아래에 계속 추가 -->
 
+### T-023 같은 두 사람은 활성 방 1개만 — 입장 거절 (api + web) / T-024 빈 방 상태가 시스템 라인을 가림 (web)
+- verdict: PASS (사용자 참여 세션, 개발자 대행 기록, 2026-09-16) — T-023 실브라우저는 미수행(아래)
+- tests: 존재 / api `./gradlew test` 243 passed(T-023 신규 서비스 3 + 통합 jsonPath 1) / web `npm test` 221 passed(T-023 `joinErrorMessage` +1, T-024 `RoomView` +1), lint 0 error(기존 경고 1), typecheck 통과. 에이전트 실행(로컬).
+- checked:
+  - T-023 acceptance: `RoomMemberMapper.countActiveRoomsShared`(두 사람 모두 활성 멤버인 ACTIVE 방, 현재 방 제외) → `checkJoinable` 순서 410 → 400 SELF → 이미 멤버 200 → **409 PAIR** → 409 FULL. 서비스 테스트로 (1) 두 번째 방 입장·미리보기 409 + 같은 방 재입장 200, (2) 쌍 기준(참여자가 만든 방에 개설자 입장도 409), (3) ORPHANED 제외 + PAIR 가 FULL 보다 우선 확인. `ErrorCode.PAIR_ROOM_EXISTS`, API.md 표·판정 순서, web 문구 "걔랑은 이미 방 있잖아"(BRAND/DESIGN 표) 일치.
+  - T-024: `RoomView` 빈 방 판정에 `stream.notices` 포함. 메시지 0 + "영희 등장!" notice → 라인 표시, 빈 상태 문구 없음(단위). DESIGN.md#3 빈 방 문구 개정.
+- issues:
+  - (미검증) T-023 실브라우저 — 검증 도중 내장 브라우저(계정 A) 세션이 만료돼 2계정 시나리오를 못 돌림. 서비스·통합 테스트가 판정 순서까지 커버. 실측은 다음 2계정 세션에서: A 방 X 에 B 입장 → A 방 Y 링크를 B 가 열면 "걔랑은 이미 방 있잖아".
+  - (참고) `mapper/*.xml` 안 `<>` 는 XML 파싱 오류 — `!=` 사용. bootRun 중 `gradlew test` 를 돌리면 devtools 가 재시작하는데 그때 리소스가 깨져 있으면 앱이 죽은 채 남는다(재기동 필요) → TASKS 교훈.
+- date: 2026-09-16
+
 ### T-022 OAuth `next` 복귀 + `alreadyMember` (api) / T-018 초대 입장 페이지 + QR/링크 공유 + 주인 없는 방 모달 (web)
 - verdict: PASS (사용자 참여 Playwright QA, 개발자 대행 기록, 2026-09-16) — 미검증 항목은 issues 에 명시
 - tests: 존재 / api `./gradlew test` 240 passed / web `npm test` 219 passed(40 파일), `npm run lint` 0 error(기존 경고 1), `typecheck`·`build` 통과. 에이전트 실행(로컬).
@@ -50,7 +61,8 @@
     - ORPHANED 모달 경로 2/3 실브라우저 확인: (1) B 가 방 안에 있을 때 A 나가기(사이드바 … → "나가면 이 방은 끝이야. 진짜 갈래?" → 나갈래) → B 화면에 SSE 로 즉시 모달(제목·본문·버튼 1개, 입력 잠김 "주인이 도망간 방이야", 토스트 없음) → "알았어" → `/rooms/4318`(남은 방) + 목록에서 4320 제거. (2) B 가 다른 방에 있을 때 A 나가기 → B 목록에서 그 방 탭 → 상세 GET 이 ORPHANED → 같은 모달 → 알았어 → 목록 제거. 스크린샷 `qa-04-orphaned-modal-390.png`.
     - 개설자 화면엔 모달 없음(A 는 나가기 후 `/` → 3664).
 - issues:
-  - (미검증, 환경) 네이버·카카오 `next` 왕복 — 구글만 실측. 메커니즘은 provider 무관(state attribute)이라 통합 테스트로 대체. 휴대폰 QR 스캔·모바일 share 시트·다크 모드 QR 육안 — 미수행(행렬·고정 색상은 코드로 확인). 전송 410 경로 — 실브라우저는 SSE 가 먼저 오므로 재현 불가, 단위 테스트로 커버. 정원 초과(3번째 계정)·50개 초과 — 계정 부족.
+  - (미검증, 환경) 네이버·카카오 `next` 왕복 — 구글만 실측. 메커니즘은 provider 무관(state attribute)이라 통합 테스트로 대체. 휴대폰 QR 스캔·모바일 share 시트 — 미수행. 정원 초과(3번째 계정)·50개 초과 — 계정 부족.
+  - **추가 검증(같은 날, Playwright)**: (a) 다크 모드 초대 시트 — 카드 `rgb(255,244,248)` 고정 / 본문 `rgb(23,6,17)`, 스크린샷 `qa-06-invite-sheet-dark.png`. (b) **둥근 모듈 QR 을 렌더 PNG(232×232) 그대로 `jsQR` 로 디코드 → `http://localhost:3000/join/{code}` 복원 성공** — 휴대폰 스캔 대체 근거. (c) 전송 410 경로 — Playwright `page.route` 로 상세 응답 role 을 PARTICIPANT 로, POST messages 를 410 으로 가로채 재현: 토스트 없음(`[role=alert]` 는 Next 라우트 어나운서 빈 DIV 뿐), 낙관 말풍선 제거, 입력 잠김 "주인이 도망간 방이야", 모달 표시. `qa-05-410-modal.png`.
   - (블록 아님, T-008 기존 동작) 메시지 0개인 방은 빈 상태 "오늘은 누가 그랬어?" 가 시스템 라인("빵선이 등장!")보다 우선해 등장 라인이 안 보인다. 메시지가 있으면 정상. 빈 방 판정에 시스템 라인을 포함할지는 디자이너 판단 → to-designer 백로그.
   - (블록 아님, 설계상) 내가 안 들어가 있는 방의 목록 `닫힘` 배지는 목록 재조회 전까지 갱신되지 않는다(그 방 SSE 미구독). 탭하면 상세 GET 으로 모달이 뜨므로 사용자 결과는 동일(D-021 단일 트리거).
   - (참고) QA 도중 4317 방이 ORPHANED 된 것은 계정 전환 과정에서 사용자가 A 로 나간 것으로 추정 — 앱 결함 아님.

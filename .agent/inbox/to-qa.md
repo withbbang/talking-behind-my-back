@@ -157,3 +157,8 @@
   (8) 접근성: 시트 dialog 라벨 "친구 데려오기", 복사 버튼 aria-label "코드 복사", QR `role=img` "초대 QR", 모달 포커스 "알았어".
 - 범위 외: 쌍당 방 1개 규칙(미등록, 별도 T), 보이스(T-010), 테마 수동 선택(T-020), PWA(T-013/T-014).
 - date: 2026-09-16
+
+### [개발자 → QA] T-023 쌍당 방 1개 입장 거절 (api+web) / T-024 빈 방 vs 시스템 라인 (web) 검증 요청 [처리됨 2026-09-16, QA_REPORT.md#T-023/T-024]
+- 요청/이슈: api 243 · web 221 통과 확인. 실브라우저(2계정): A 방 X 에 B 입장 후 A 가 방 Y 를 만들어 링크를 B 가 열면 "걔랑은 이미 방 있잖아" + 내 방으로. B 가 X 를 나가면 Y 입장 가능. 빈 방에 친구가 들어오면 "등장!" 라인이 보이는지.
+- 근거 파일: D-022, API.md#rooms, `apps/api/.../ChatRoomService.checkJoinable`, `mapper/RoomMemberMapper.xml`, `apps/web/app/features/rooms/joinErrorMessage.ts`, `apps/web/app/components/chat/RoomView.tsx`
+- date: 2026-09-16

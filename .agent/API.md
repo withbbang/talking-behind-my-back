@@ -27,6 +27,7 @@
 | 403 | `FORBIDDEN`, `USER_SUSPENDED` | 권한 없음(참여자가 `title`/`aiPersonality`/`aiPrompt` 변경 등), 정지 회원 |
 | 404 | `ROOM_NOT_FOUND`, `MESSAGE_NOT_FOUND`, `INVITE_NOT_FOUND` | 멤버 아닌 방도 404로 통일. 초대 코드 없음 |
 | 409 | `ROOM_BUSY`, `ROOM_FULL`, `ROOM_LIMIT_EXCEEDED` | 같은 유저의 AI 잡 진행·대기 중, 방 정원(2명) 초과, 활성 방 50개 초과 |
+| 409 | `PAIR_ROOM_EXISTS` | 같은 두 사람이 이미 함께 있는 활성 방이 있음(D-022) |
 | 410 | `ROOM_ORPHANED` | 개설자가 이탈한 방에 입장 시도 |
 | 413 | `PAYLOAD_TOO_LARGE` | nginx `client_max_body_size` 초과 |
 | 502 | `LLM_UPSTREAM_ERROR`, `SPEECH_UPSTREAM_ERROR` | 외부 API 실패 |
@@ -73,8 +74,9 @@
   **T-017 확정(2026-09-15)**: 네 필드 전부 없는 body(`{}`) → 400 `VALIDATION_FAILED`. 잘못된 enum 값/JSON 파싱 실패 → 400 `VALIDATION_FAILED`.
   한 요청은 전부-아니면-전무 — 판정 순서 404 멤버 → 400 검증 → **410 `ROOM_ORPHANED`(개설자 이탈 방은 어떤 PATCH 도 불가)** → 403 권한 → 400 `MODE_NOT_ALLOWED`.
   `mode` 판정은 방 행 잠금(`FOR UPDATE`) 뒤 활성 멤버 수로 — 참여자 나가기와 동시 실행돼도 혼자인 방이 `HUMAN` 으로 남지 않는다.
-- 입장 실패: 코드 없음 404 `INVITE_NOT_FOUND`, 정원(2명) 초과 409 `ROOM_FULL`, 개설자 이탈 방 410 `ROOM_ORPHANED`, 본인 방 400 `SELF_INVITE`, 활성 방 50개 초과 409 `ROOM_LIMIT_EXCEEDED`.
-  **판정 순서(T-016, 2026-09-15)**: 404 → 410 → 400 SELF → 이미 활성 멤버면 200 통과 → 409 FULL → 409 LIMIT(POST 만, 실제 입장 직전).
+- 입장 실패: 코드 없음 404 `INVITE_NOT_FOUND`, 정원(2명) 초과 409 `ROOM_FULL`, 개설자 이탈 방 410 `ROOM_ORPHANED`, 본인 방 400 `SELF_INVITE`, 활성 방 50개 초과 409 `ROOM_LIMIT_EXCEEDED`,
+  **같은 두 사람이 이미 함께 있는 ACTIVE 방이 있으면 409 `PAIR_ROOM_EXISTS`**(D-022, T-023 — 쌍 기준, ORPHANED 방 제외, 같은 방 재입장은 200).
+  **판정 순서(T-016 → T-023 개정, 2026-09-16)**: 404 → 410 → 400 SELF → 이미 활성 멤버면 200 통과 → **409 PAIR** → 409 FULL → 409 LIMIT(POST 만, 실제 입장 직전).
   개설자는 항상 활성 멤버라 SELF 를 "이미 멤버" 보다 먼저 본다. `GET /rooms/join/{code}` 미리보기도 LIMIT 을 뺀 같은 검증을 잠금 없이 수행한다(프론트가 버튼 전에 안내).
   코드 비교는 DB collation(대소문자 무시) 기준.
 - 초대 URL = `APP_BASE_URL/join/{code}`. QR 은 프론트가 이 URL 로 생성(별도 API 없음).
@@ -185,5 +187,6 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 - 2026-09-15 T-006 구현: PATCH `title` 은 개설자만(참여자 403), 잘못된 커서 400, 목록 항목 `members: null`. **API 변경(권한) — T-008 acceptance 에 반영 필요.**
 - 2026-09-15 T-017 구현: PATCH `mode`/`aiPersonality` 활성화, 빈 body·잘못된 enum 400, ORPHANED 방 PATCH 410, 참여자 나가기 시 `mode=AI` 복귀. **API 변경 — T-008/T-018 acceptance 에 반영 필요.**
 - 2026-09-16 T-019(D-017): 어드민 페르소나 폐기 — `/admin/personas` 삭제, `PATCH /rooms/{id}` 에 `aiPrompt`, Room 에 `aiPrompt`/`effectiveAiPrompt`. 프리셋 재선택 시 `aiPrompt` 초기화. **API 변경 — T-008(성격/프롬프트 편집 UI)·T-011(어드민 persona 화면 제거) acceptance 반영 필요.**
+- 2026-09-16 T-023(D-022): 입장 409 `PAIR_ROOM_EXISTS` 추가, 판정 순서에 PAIR(FULL 앞). **API 변경 — web `joinErrorMessage` 한 줄, 같은 커밋.**
 - 2026-09-16 T-022(D-021): `GET /oauth2/authorization/{provider}?next=` 추가, 콜백 성공 시 `APP_BASE_URL{next}`. `GET /rooms/join/{code}` 에 `alreadyMember`. **API 변경 — T-018 acceptance 반영됨.**
 - 2026-09-16 T-007 구현: **messages 확정** — POST 202 `{messageId}`, `/rooms/{id}/events` 이벤트 6종 + `: ping`, `delta`/`done`/`error` 에 `replyTo`, 503 `AI_BUSY` 추가, 비멤버 404·ORPHANED 410. `mode`/`member` 이벤트는 rooms PATCH/leave/join 에서 발행. **API 변경 — T-008 `lib/sse.ts` 리듀서·acceptance 에 반영 필요.**
