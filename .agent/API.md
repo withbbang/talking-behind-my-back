@@ -37,8 +37,8 @@
 
 | Method | Path | 설명 |
 |---|---|---|
-| GET | `/oauth2/authorization/{provider}` | 로그인 시작. `provider` = `google` \| `naver` \| `kakao`. 브라우저 redirect. |
-| GET | `/login/oauth2/code/{provider}` | 콜백(Spring 기본). 성공 시 쿠키 세팅 후 `APP_BASE_URL/`로 302. 실패 시 `APP_BASE_URL/login?error=<code>`. |
+| GET | `/oauth2/authorization/{provider}?next=` | 로그인 시작. `provider` = `google` \| `naver` \| `kakao`. 브라우저 redirect. `next`(선택) = 로그인 후 돌아갈 **상대경로**(`/` 시작, 200자 이내, `//`·`\`·개행 불가). 불량이면 무시. |
+| GET | `/login/oauth2/code/{provider}` | 콜백(Spring 기본). 성공 시 쿠키 세팅 후 `APP_BASE_URL{next}`(없으면 `/`)로 302. 실패 시 `APP_BASE_URL/login?error=<code>`. |
 | GET | `/auth/me` | 현재 사용자. 401이면 프론트는 refresh 시도. 정지 회원도 200(`status: SUSPENDED`) — 그 외 모든 API는 403 `USER_SUSPENDED`. |
 | POST | `/auth/refresh` | refresh 쿠키로 access/refresh 재발급(회전). 204 + 새 쿠키 2개. 실패 401(`UNAUTHENTICATED`/`TOKEN_EXPIRED`/`TOKEN_REUSED`) + 쿠키 2개 삭제. |
 | POST | `/auth/logout` | 쿠키 삭제 + refresh family revoke. 204. 인증 불필요(access 만료 후에도 호출 가능). |
@@ -62,7 +62,7 @@
 | PATCH | `/rooms/{id}` | `{ "title"?, "mode"?, "aiPersonality"?, "aiPrompt"? }` 부분 갱신. 200 Room. `title`·`aiPersonality`·`aiPrompt` 는 **개설자만**(참여자 403). ORPHANED 방은 410 |
 | DELETE | `/rooms/{id}` | **나가기**. 204. 개설자 → 방 `ORPHANED`(참여자 멤버십은 유지). 참여자 → 멤버십 종료, 방 `mode=AI` 복귀. ORPHANED 방에서 참여자 호출 = "이용할 수 없는 방" 확인 처리 |
 | POST | `/rooms/{id}/invite/regenerate` | 초대 코드 재발급(개설자만, 구 코드 즉시 무효). 200 `{ inviteCode, inviteUrl }` |
-| GET | `/rooms/join/{code}` | 입장 전 미리보기 `{ roomId, title, ownerNickname, memberCount }`. 이미 멤버면 그대로 200 |
+| GET | `/rooms/join/{code}` | 입장 전 미리보기 `{ roomId, title, ownerNickname, memberCount, alreadyMember }`. 이미 활성 멤버면 200 + `alreadyMember: true` |
 | POST | `/rooms/join/{code}` | 입장. 200 Room. 재입장 허용 |
 
 - PATCH 규칙: `title` 1~100자(공백만 → 400 `VALIDATION_FAILED`, `details.title`), **개설자만**(참여자 403 `FORBIDDEN`, 2026-09-15 결정).
@@ -185,4 +185,5 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 - 2026-09-15 T-006 구현: PATCH `title` 은 개설자만(참여자 403), 잘못된 커서 400, 목록 항목 `members: null`. **API 변경(권한) — T-008 acceptance 에 반영 필요.**
 - 2026-09-15 T-017 구현: PATCH `mode`/`aiPersonality` 활성화, 빈 body·잘못된 enum 400, ORPHANED 방 PATCH 410, 참여자 나가기 시 `mode=AI` 복귀. **API 변경 — T-008/T-018 acceptance 에 반영 필요.**
 - 2026-09-16 T-019(D-017): 어드민 페르소나 폐기 — `/admin/personas` 삭제, `PATCH /rooms/{id}` 에 `aiPrompt`, Room 에 `aiPrompt`/`effectiveAiPrompt`. 프리셋 재선택 시 `aiPrompt` 초기화. **API 변경 — T-008(성격/프롬프트 편집 UI)·T-011(어드민 persona 화면 제거) acceptance 반영 필요.**
+- 2026-09-16 T-022(D-021): `GET /oauth2/authorization/{provider}?next=` 추가, 콜백 성공 시 `APP_BASE_URL{next}`. `GET /rooms/join/{code}` 에 `alreadyMember`. **API 변경 — T-018 acceptance 반영됨.**
 - 2026-09-16 T-007 구현: **messages 확정** — POST 202 `{messageId}`, `/rooms/{id}/events` 이벤트 6종 + `: ping`, `delta`/`done`/`error` 에 `replyTo`, 503 `AI_BUSY` 추가, 비멤버 404·ORPHANED 410. `mode`/`member` 이벤트는 rooms PATCH/leave/join 에서 발행. **API 변경 — T-008 `lib/sse.ts` 리듀서·acceptance 에 반영 필요.**

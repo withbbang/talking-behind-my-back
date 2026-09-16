@@ -164,6 +164,18 @@
 - impact: `app/(chat)/*`, `components/ui/Toast` 리팩터, `package.json`(+phosphor), DESIGN.md 미결에 아이콘 라이브러리 반영 요청(to-designer). → T-008, T-020
 - date: 2026-09-16 (개발자 대행 기록, 사용자 결정)
 
+### D-021 T-018 착수 확정 — 로그인 `next` 는 OAuth state 로, 미리보기 `alreadyMember`, QR 은 `uqr` 자체 렌더, ORPHANED 모달 단일 트리거, 입장 화면 디테일
+- decision:
+  - **로그인 복귀 경로는 api 가 책임진다.** `GET /oauth2/authorization/{provider}?next=<상대경로>` → authorization request attribute 로 보관(서명 쿠키 저장소가 이미 attributes 를 직렬화) → 콜백 성공 시 `APP_BASE_URL{next}` 로 302. 허용은 `/` 로 시작하는 상대경로만(`//`, `\`, 개행, 200자 초과 거부). 없거나 불량이면 `/`. web `proxy.ts` 는 미인증 보호 경로를 `/login?next=<경로>` 로 보내고, 로그인 화면은 그 값을 소셜 버튼 href 에 그대로 붙인다. → T-022(api)
+  - **미리보기 응답에 `alreadyMember: boolean`** 추가(`GET /rooms/join/{code}`). 프론트가 "들어갈래 / 다시 들어가기" 를 판정하는 유일한 근거. → T-022(api)
+  - **QR 은 `uqr`(MIT, 의존성 0)로 행렬만 받고 SVG 는 직접 그린다** — 모듈을 `rx` 둥근 사각형으로(DESIGN "귀여움" 규칙). 로고 삽입 없음(스캔 신뢰성). 오류정정 M.
+  - **ORPHANED 모달 트리거는 캐시 `room.status` 하나로 모은다.** 목록 탭(상세 GET) · SSE `member` · 전송 410 모두 캐시 status 를 `ORPHANED` 로 만들고, `RoomView` 가 `status === 'ORPHANED' && role === 'PARTICIPANT'` 이면 모달. 확인 → 기존 `useLeaveRoom`(DELETE → 목록 갱신 → `/`). `sendErrorMessage` 의 410 토스트는 제거(모달이 대신).
+  - 입장·초대 화면 디테일(DESIGN.md §4·§5 반영): (E1) 초대장 말풍선 꼬리 발치에 개설자 이니셜 아바타 28px — 개설자가 말 거는 장면. 소개문 자리 "{닉}이(가) 부른 방 / 들어와서 같이 씹자". (E2) 코드 4+4 표시 "K7Q2 M9XW", 복사는 8자 연속. (E3) QR 카드는 모드 무관 라이트 토큰 고정(`--qr-bg`/`--qr-ink` 를 globals.css 상수로) — 스캐너 호환, T-020 `[data-theme]` 와 충돌 없음. (E4) "공유하기" 보조 버튼은 `navigator.share` 있을 때만 렌더.
+- rationale: DESIGN/TASKS 는 `/login?next=` 까지만 적고 소셜 왕복에서 `next` 가 어떻게 살아남는지 비어 있었다. web 쿠키 방식은 iOS 홈화면 앱↔Safari 저장소 분리 때문에 PWA 에서 깨지고, 만료·잔존 쿠키 엣지가 생긴다. state 방식은 콜백을 완료하는 브라우저가 어디든 서버가 목적지를 안다. `alreadyMember` 는 web 이 `GET /rooms/{id}` 를 한 번 더 치는 것보다 한 필드가 싸다. ORPHANED 트리거 3갈래를 따로 구현하면 모달 중복·정리 누락 경로가 생긴다.
+- alternatives: `next` 를 web 쿠키(`next_path`, 10분)로 — PWA 저장소 분리로 기각. `qrcode.react` — 9KB gz, 각진 기본 QR 커스텀 불가, 기각. 미리보기 후 `GET /rooms/{id}` 로 멤버 판정 — 요청 1회 추가, 기각. 항상 "들어갈래" — DESIGN §5 문구와 불일치, 기각.
+- impact: api `auth/oauth2/{OAuth2SuccessHandler, NextPathAuthorizationRequestResolver, NextPath}`, `SecurityConfig`, `JoinPreviewResponse`, API.md#auth/#rooms; web `proxy.ts`, `(auth)/login`, `(auth)/join/[code]`, `components/chat/{InviteSheet,OrphanedDialog}`, `components/ui/QrCode`, `features/rooms/useInvite`, `globals.css`, `package.json`(+uqr); DESIGN.md §4·§5·미결, BRAND.md §5 표. → T-022, T-018
+- date: 2026-09-16 (개발자 대행 기록, 사용자 결정)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

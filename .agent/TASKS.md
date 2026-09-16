@@ -301,17 +301,31 @@
   - web `MessageList`/`RoomHeaderSheet` 가 이 값을 우선 사용하도록 갱신, 현재 멤버 목록으로 되돌아가는 폴백은 유지.
 - note: T-008 QA(2026-09-16) 중 실브라우저에서 발견. 서버 LLM 컨텍스트는 이미 나간 멤버 라벨을 유지하는데(D-019) 화면 표시만 어긋나 있었다.
 
+## T-022 OAuth 로그인 `next` 복귀 + 미리보기 `alreadyMember` (api)
+- status: IN_PROGRESS
+- owner: 개발자
+- milestone: M2
+- spec: API.md#auth #rooms, D-021
+- blocked_by: T-016
+- acceptance:
+  - `GET /oauth2/authorization/{provider}?next=/join/K7Q2M9XW` → authorization request attribute `next` 로 보관(서명 쿠키 저장소 경유) → 콜백 성공 시 `APP_BASE_URL/join/K7Q2M9XW` 로 302. `next` 없으면 `/`.
+  - 불량 `next` 는 무시하고 `/`: 절대 URL(`http://…`), `//evil`, `\`, 개행, `/` 로 안 시작, 200자 초과.
+  - `GET /rooms/join/{code}` 응답에 `alreadyMember: boolean`(활성 멤버면 true). 기존 필드 불변.
+  - 테스트: `NextPath` 정제 단위, resolver 가 attribute 를 싣는지, 성공 핸들러 redirect(정상/없음/불량), 미리보기 `alreadyMember` 서비스+MockMvc.
+- note: T-018 착수 협의(2026-09-16)에서 분리. web 쿠키 방식 기각 사유는 D-021.
+
 ## T-018 초대 입장 페이지 + QR/링크 공유 + 주인 없는 방 모달 (web)
 - status: TODO
 - owner: 개발자
 - milestone: M2
-- spec: API.md#rooms, DESIGN.md#4~6
-- blocked_by: T-008, T-016, T-017
+- spec: API.md#rooms #auth, DESIGN.md#4~6, D-021
+- blocked_by: T-008, T-016, T-017, T-022
 - acceptance:
-  - `/join/{code}`: 미로그인 → `/login?next=/join/{code}` 왕복 후 복귀. 미리보기 → 입장 버튼 → `router.replace('/rooms/{id}')`. 404/409/410/400 별 안내.
-  - 공유 시트: 코드 표시·복사, URL 복사, QR(클라이언트 라이브러리, 번들 크기 확인), 코드 재발급.
-  - ORPHANED 방 진입 시 "이용할 수 없는 채팅방입니다." 모달 → 확인 → `DELETE /rooms/{id}` → 목록에서 제거.
-  - 컴포넌트 테스트: 미리보기 상태별 렌더, 모달 확인 호출, 공유 시트 복사.
+  - `proxy.ts`: 미인증 보호 경로 → `/login?next=<원경로>`(`/login` 자체·`/` 는 next 없음). 로그인 화면은 `next` 를 소셜 버튼 href `?next=` 로 전달, silent refresh 성공 시에도 `next` 로 이동. 불량 `next`(상대경로 아님)는 버림.
+  - `/join/{code}`: 미리보기(`alreadyMember` 로 "들어갈래"/"다시 들어가기") → 입장 → `router.replace('/rooms/{id}')`. 404/409×2/410/400 별 안내(BRAND 표) + 보조 버튼 "내 방으로". 네트워크·기타 오류는 "삐끗했다. 다시 해볼까?" + 다시.
+  - 공유 시트(개설자, 방 헤더 시트 "초대" 에서 진입): 코드 4+4 표시·복사(8자), 링크 복사, QR(`uqr` 행렬 → 둥근 모듈 SVG, 라이트 토큰 고정 카드), `navigator.share` 있으면 "공유하기", 코드 재발급(확인 모달 → `POST invite/regenerate` → 시트 갱신).
+  - ORPHANED 모달: 캐시 `room.status` 단일 트리거(D-021). 참여자에게만. "알았어" → `DELETE /rooms/{id}` → 목록에서 제거 → `/`. 전송 410 은 캐시 status 갱신(토스트 제거).
+  - 테스트: `proxy`(next 부여/불량 무시), `LoginClient`(next 전달), `JoinClient` 상태별 렌더·입장·오류, `InviteSheet` 복사·공유 조건부·재발급, `QrCode` 행렬→rect, `OrphanedDialog`+`RoomView` 트리거·확인 호출.
 
 ## T-020 테마 수동 선택(라이트/다크/시스템) (web)
 - status: TODO
