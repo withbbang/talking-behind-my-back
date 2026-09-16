@@ -438,6 +438,11 @@ class ChatRoomControllerIntegrationTest {
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.code").value("ROOM_FULL"));
 
+			String second = createRoom(owner, null).get("inviteCode").asText();
+			mvc.perform(get("/rooms/join/" + second).cookie(access(guest)))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("PAIR_ROOM_EXISTS"));
+
 			mvc.perform(delete("/rooms/" + createRoomId(code)).cookie(access(owner))).andExpect(status().isNoContent());
 			mvc.perform(get("/rooms/join/" + code).cookie(access(newUser("남2"))))
 				.andExpect(status().isGone())

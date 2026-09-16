@@ -47,6 +47,16 @@
     SELECT COUNT(*) FROM room_members m WHERE m.user_id = #{userId} AND m.left_at IS NULL
   </select>
 
+  <select id="countActiveRoomsShared" resultType="int">
+    SELECT COUNT(*)
+    FROM room_members a
+    JOIN room_members b ON b.room_id = a.room_id
+    JOIN chat_rooms r ON r.id = a.room_id
+    WHERE a.user_id = #{userId} AND a.left_at IS NULL
+      AND b.user_id = #{otherUserId} AND b.left_at IS NULL
+      AND r.status = 'ACTIVE' AND r.id != #{excludeRoomId}
+  </select>
+
   <select id="countActiveByRoomId" resultType="int">
     SELECT COUNT(*) FROM room_members m WHERE m.room_id = #{roomId} AND m.left_at IS NULL
   </select>

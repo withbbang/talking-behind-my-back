@@ -24,6 +24,10 @@ public interface RoomMemberMapper {
 	/** 활성 방 상한(50) 판정용 — 개설 + 참여 합산 */
 	int countActiveByUserId(@Param("userId") Long userId);
 
+	/** 쌍 유일 규칙(D-022, T-023): 두 사람이 모두 활성 멤버인 ACTIVE 방 수(excludeRoomId 제외). 0 이면 입장 가능. */
+	int countActiveRoomsShared(@Param("userId") Long userId, @Param("otherUserId") Long otherUserId,
+		@Param("excludeRoomId") Long excludeRoomId);
+
 	/** 정원(2명) 판정용 활성 멤버 수 */
 	int countActiveByRoomId(@Param("roomId") Long roomId);
 

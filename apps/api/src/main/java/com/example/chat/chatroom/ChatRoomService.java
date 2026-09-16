@@ -172,7 +172,7 @@ public class ChatRoomService {
 		ChatRoom room = rooms.findByInviteCode(code).orElseThrow(() -> new BusinessException(ErrorCode.INVITE_NOT_FOUND));
 		List<RoomMember> active = members.findActiveByRoomId(room.getId());
 		boolean alreadyMember = active.stream().anyMatch(m -> m.getUserId().equals(userId));
-		checkJoinable(room, userId, active.size(), alreadyMember);
+		checkJoinable(room, userId, active.size(), alreadyMember, pairExists(room, userId));
 		String ownerNickname = active.stream().filter(RoomMember::isOwner).map(RoomMember::getNickname).findFirst().orElse(null);
 		return new JoinPreviewResponse(room.getId(), room.getTitle(), ownerNickname, active.size(), alreadyMember);
 	}
@@ -185,7 +185,7 @@ public class ChatRoomService {
 	public RoomResponse join(Long userId, String code) {
 		ChatRoom room = rooms.findByInviteCodeForUpdate(code).orElseThrow(() -> new BusinessException(ErrorCode.INVITE_NOT_FOUND));
 		boolean alreadyMember = members.findActive(room.getId(), userId).isPresent();
-		if (!checkJoinable(room, userId, members.countActiveByRoomId(room.getId()), alreadyMember)) {
+		if (!checkJoinable(room, userId, members.countActiveByRoomId(room.getId()), alreadyMember, pairExists(room, userId))) {
 			if (members.countActiveByUserId(userId) >= MAX_ACTIVE_ROOMS) {
 				throw new BusinessException(ErrorCode.ROOM_LIMIT_EXCEEDED);
 			}
@@ -198,15 +198,21 @@ public class ChatRoomService {
 	}
 
 	/**
-	 * 입장 가능 판정 순서(2026-09-15 결정): 410 ORPHANED → 400 SELF → 이미 멤버(true 반환, 통과) → 409 FULL.
+	 * 입장 가능 판정 순서(2026-09-15 결정, T-023 개정): 410 ORPHANED → 400 SELF → 이미 멤버(true 반환, 통과) → 409 PAIR → 409 FULL.
 	 * 활성 방 상한(409 LIMIT)은 실제 입장 직전에만 본다. @return 이미 활성 멤버인지
 	 */
-	private static boolean checkJoinable(ChatRoom room, Long userId, int activeCount, boolean alreadyMember) {
+	private static boolean checkJoinable(ChatRoom room, Long userId, int activeCount, boolean alreadyMember, boolean pairExists) {
 		if (room.isOrphaned()) throw new BusinessException(ErrorCode.ROOM_ORPHANED);
 		if (room.getOwnerId().equals(userId)) throw new BusinessException(ErrorCode.SELF_INVITE);
 		if (alreadyMember) return true;
+		if (pairExists) throw new BusinessException(ErrorCode.PAIR_ROOM_EXISTS);
 		if (activeCount >= MAX_MEMBERS) throw new BusinessException(ErrorCode.ROOM_FULL);
 		return false;
+	}
+
+	/** 쌍 유일 규칙(D-022): 입장자와 개설자가 이미 함께 있는 다른 ACTIVE 방이 있는가. 쌍 기준(역할 무관), ORPHANED 제외. */
+	private boolean pairExists(ChatRoom room, Long userId) {
+		return members.countActiveRoomsShared(userId, room.getOwnerId(), room.getId()) > 0;
 	}
 
 	/**

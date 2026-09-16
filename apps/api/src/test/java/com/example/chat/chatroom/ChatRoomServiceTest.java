@@ -563,6 +563,43 @@ class ChatRoomServiceTest {
 		}
 
 		@Test
+		void 같은_두_사람이_이미_함께_있는_방이_있으면_PAIR_ROOM_EXISTS_미리보기도_같음() {
+			RoomResponse first = service.create(owner.getId(), null);
+			service.join(guest.getId(), first.inviteCode());
+			RoomResponse second = service.create(owner.getId(), null);
+
+			assertError(() -> service.join(guest.getId(), second.inviteCode()), ErrorCode.PAIR_ROOM_EXISTS);
+			assertError(() -> service.preview(guest.getId(), second.inviteCode()), ErrorCode.PAIR_ROOM_EXISTS);
+			// 같은 방 재입장은 그 방이 곧 유일한 방 — 200
+			assertThat(service.join(guest.getId(), first.inviteCode()).id()).isEqualTo(first.id());
+			assertThat(service.preview(guest.getId(), first.inviteCode()).alreadyMember()).isTrue();
+		}
+
+		@Test
+		void 쌍_기준_참여자가_만든_방에_개설자가_들어가려_해도_PAIR_ROOM_EXISTS() {
+			RoomResponse first = service.create(owner.getId(), null);
+			service.join(guest.getId(), first.inviteCode());
+			RoomResponse guestRoom = service.create(guest.getId(), null);
+
+			assertError(() -> service.join(owner.getId(), guestRoom.inviteCode()), ErrorCode.PAIR_ROOM_EXISTS);
+		}
+
+		@Test
+		void ORPHANED_방은_쌍에_안_센다_그리고_PAIR_는_FULL_보다_먼저() {
+			RoomResponse first = service.create(owner.getId(), null);
+			service.join(guest.getId(), first.inviteCode());
+			RoomResponse second = service.create(owner.getId(), null);
+			join(second.id(), other.getId()); // second 는 정원 참
+			assertError(() -> service.join(guest.getId(), second.inviteCode()), ErrorCode.PAIR_ROOM_EXISTS);
+
+			service.leave(owner.getId(), first.id()); // first ORPHANED → 쌍 해소
+			assertError(() -> service.join(guest.getId(), second.inviteCode()), ErrorCode.ROOM_FULL);
+
+			RoomResponse third = service.create(owner.getId(), null);
+			assertThat(service.join(guest.getId(), third.inviteCode()).role()).hasToString("PARTICIPANT");
+		}
+
+		@Test
 		void 입장자_활성_방_50개면_ROOM_LIMIT_EXCEEDED() {
 			for (int i = 0; i < ChatRoomService.MAX_ACTIVE_ROOMS; i++) service.create(guest.getId(), "r" + i);
 			RoomResponse r = service.create(owner.getId(), null);

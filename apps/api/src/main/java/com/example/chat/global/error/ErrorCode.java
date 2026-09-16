@@ -33,6 +33,7 @@ public enum ErrorCode {
 	ROOM_BUSY(HttpStatus.CONFLICT, "답변이 끝난 뒤 보내주세요."),
 	ROOM_FULL(HttpStatus.CONFLICT, "채팅방 정원이 찼습니다."),
 	ROOM_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "채팅방은 최대 50개까지 만들거나 참여할 수 있습니다."),
+	PAIR_ROOM_EXISTS(HttpStatus.CONFLICT, "이 사람과 이미 함께 있는 채팅방이 있습니다."),
 	// 410
 	ROOM_ORPHANED(HttpStatus.GONE, "개설자가 나간 채팅방입니다."),
 	// 413
