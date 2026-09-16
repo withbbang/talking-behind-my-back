@@ -40,7 +40,7 @@ export function useSendMessage(roomId: number, ctx: { meId: number; mode: RoomMo
       apiFetch<{ messageId: number }>(`/rooms/${roomId}/messages`, { method: 'POST', body: { content, inputType } }),
     onMutate: ({ content, inputType = 'TEXT' }) => {
       const tempId = -Date.now();
-      const temp: Message = { id: tempId, role: 'USER', senderUserId: ctx.meId, content, inputType, mode: ctx.mode, createdAt: new Date().toISOString() };
+      const temp: Message = { id: tempId, role: 'USER', senderUserId: ctx.meId, senderNickname: null, content, inputType, mode: ctx.mode, createdAt: new Date().toISOString() };
       client.setQueryData<MessagesData>(key, (old) => appendMessage(old, temp));
       if (ctx.mode === 'AI') store.getState().markSending(roomId, tempId, ctx.meId);
       return { tempId };

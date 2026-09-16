@@ -121,13 +121,13 @@ POST 판정 순서: 400 검증(바인딩) → 401 → 404(비멤버·나간 멤�
 `GET /rooms/{id}/events` 이벤트 (T-007 확정, D-019):
 ```
 event: message                      # USER 메시지 저장 직후 (양쪽 멤버 모두 받음 — 낙관적 렌더 치환용)
-data: {"id":101,"role":"USER","senderUserId":7,"content":"안녕","inputType":"TEXT","mode":"AI","createdAt":"..."}
+data: {"id":101,"role":"USER","senderUserId":7,"senderNickname":"영선","content":"안녕","inputType":"TEXT","mode":"AI","createdAt":"..."}
 
 event: delta                        # AI 응답 조각. replyTo = 트리거 USER 메시지 id
 data: {"replyTo":101,"text":"안녕하"}
 
 event: done                         # AI 응답 저장 완료. message 는 ASSISTANT Message
-data: {"replyTo":101,"message":{"id":102,"role":"ASSISTANT","senderUserId":null,"content":"안녕하세요!","inputType":null,"mode":null,"createdAt":"..."},"promptTokens":320,"completionTokens":18}
+data: {"replyTo":101,"message":{"id":102,"role":"ASSISTANT","senderUserId":null,"senderNickname":null,"content":"안녕하세요!","inputType":null,"mode":null,"createdAt":"..."},"promptTokens":320,"completionTokens":18}
 
 event: error                        # OmniRoute 실패/타임아웃/빈 응답 — ASSISTANT 미저장, 부분 델타 폐기
 data: {"replyTo":101,"code":"LLM_UPSTREAM_ERROR","message":"AI 응답에 실패했습니다."}
@@ -149,9 +149,10 @@ data: {"action":"JOINED","userId":8,"nickname":"영희","role":"PARTICIPANT","ro
 
 Message:
 ```json
-{ "id": 102, "role": "ASSISTANT", "senderUserId": null, "content": "안녕하세요!", "inputType": null, "mode": null, "createdAt": "..." }
+{ "id": 102, "role": "ASSISTANT", "senderUserId": null, "senderNickname": null, "content": "안녕하세요!", "inputType": null, "mode": null, "createdAt": "..." }
 ```
-`role` = `USER` \| `ASSISTANT`. `inputType`·`senderUserId`·`mode` 는 USER 메시지에만(ASSISTANT 는 null). `mode` = 발신 당시 방 모드.
+`role` = `USER` \| `ASSISTANT`. `inputType`·`senderUserId`·`senderNickname`·`mode` 는 USER 메시지에만(ASSISTANT 는 null). `mode` = 발신 당시 방 모드.
+- `senderNickname` = 조회 시점 발신자의 `users.nickname`(T-021, D-023). 방을 나간 멤버·탈퇴 유저도 users 행이 있으면 채워진다. 행이 없으면 null — 프론트는 현재 `Room.members` 폴백 후 "나간 사람".
 
 ## speech
 

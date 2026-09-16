@@ -27,7 +27,8 @@ type Row =
 const LEFT_MEMBER = '나간 사람';
 
 export function buildRows(messages: Message[], notices: StreamState['notices'], meId: number, members: RoomMember[]): Row[] {
-  const nameOf = (id: number | null) => members.find((m) => m.userId === id)?.nickname ?? LEFT_MEMBER;
+  // 발신자 이름 우선순위: 메시지의 senderNickname(나간 멤버도 유지, T-021) → 현재 멤버 목록 → "나간 사람"
+  const nameOf = (m: Message) => m.senderNickname ?? members.find((x) => x.userId === m.senderUserId)?.nickname ?? LEFT_MEMBER;
   const merged: ({ at: string } & ({ t: 'm'; m: Message } | { t: 'n'; n: StreamState['notices'][number] }))[] = [
     ...messages.map((m) => ({ at: m.createdAt, t: 'm' as const, m })),
     ...notices.map((n) => ({ at: n.createdAt, t: 'n' as const, n })),
@@ -50,7 +51,7 @@ export function buildRows(messages: Message[], notices: StreamState['notices'], 
     const m = item.m;
     const sender = m.role === 'ASSISTANT' ? 'ai' : `u${m.senderUserId}`;
     const bubble: BubbleKind = m.role === 'ASSISTANT' ? 'ai' : m.senderUserId === meId ? 'mine' : 'other';
-    rows.push({ kind: 'message', key: `m${m.id}`, message: m, bubble, showMeta: sender !== lastSender, senderName: bubble === 'other' ? nameOf(m.senderUserId) : undefined });
+    rows.push({ kind: 'message', key: `m${m.id}`, message: m, bubble, showMeta: sender !== lastSender, senderName: bubble === 'other' ? nameOf(m) : undefined });
     lastSender = sender;
   }
   return rows;

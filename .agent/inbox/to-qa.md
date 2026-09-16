@@ -162,3 +162,11 @@
 - 요청/이슈: api 243 · web 221 통과 확인. 실브라우저(2계정): A 방 X 에 B 입장 후 A 가 방 Y 를 만들어 링크를 B 가 열면 "걔랑은 이미 방 있잖아" + 내 방으로. B 가 X 를 나가면 Y 입장 가능. 빈 방에 친구가 들어오면 "등장!" 라인이 보이는지.
 - 근거 파일: D-022, API.md#rooms, `apps/api/.../ChatRoomService.checkJoinable`, `mapper/RoomMemberMapper.xml`, `apps/web/app/features/rooms/joinErrorMessage.ts`, `apps/web/app/components/chat/RoomView.tsx`
 - date: 2026-09-16
+
+### [개발자 → QA] T-021 메시지 발신자 닉네임 보존 (api+web) 검증 요청
+- 요청/이슈: api `cd apps/api && ./gradlew test`(244 통과), web `cd apps/web && npm test && npm run lint && npm run typecheck && npm run build`(223 통과) 확인.
+  실브라우저(2계정): A 방에 B 입장 → B 가 메시지 2~3개 전송 → B 나가기 → **A 화면에서 B 의 과거 메시지 발신자 이름이 "B 닉" 그대로**(이전엔 "나간 사람"). 새로고침 후에도 같음. B 재입장 후에도 같음.
+  `GET /rooms/{id}/messages` 응답 `items[].senderNickname` — USER 는 닉, ASSISTANT 는 null. SSE `message` 이벤트에도 `senderNickname` 포함.
+- 근거 파일: D-023, API.md#messages, `apps/api/.../message/{Message,MessageResponse}.java`, `mapper/MessageMapper.xml`, `apps/web/app/components/chat/MessageList.tsx`, `app/features/messages/types.ts`
+- 범위 외: 닉네임 변경 시 과거 메시지도 새 닉으로 보임(D-023 의도). 방 상세 `members` 는 그대로 활성 멤버만.
+- date: 2026-09-16

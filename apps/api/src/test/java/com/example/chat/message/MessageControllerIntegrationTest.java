@@ -118,6 +118,21 @@ class MessageControllerIntegrationTest {
 		}
 
 		@Test
+		void 나간_멤버의_메시지도_senderNickname_유지_ASSISTANT_는_null() throws Exception {
+			memberMapper.insert(RoomMember.participant(room.getId(), other.getId()));
+			messageMapper.insert(Message.user(room.getId(), other.getId(), "남이 한 말", Message.InputType.TEXT, RoomMode.AI));
+			messageMapper.insert(Message.assistant(room.getId(), "AI 답", "m", 1, 1));
+			memberMapper.leave(room.getId(), other.getId());
+
+			mvc.perform(get(messagesPath()).cookie(access(owner)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[0].role").value("ASSISTANT"))
+				.andExpect(jsonPath("$.items[0].senderNickname").value(org.hamcrest.Matchers.nullValue()))
+				.andExpect(jsonPath("$.items[1].senderUserId").value(other.getId()))
+				.andExpect(jsonPath("$.items[1].senderNickname").value("남"));
+		}
+
+		@Test
 		void 비멤버_404_잘못된_커서_400() throws Exception {
 			mvc.perform(get(messagesPath()).cookie(access(other)))
 				.andExpect(status().isNotFound())

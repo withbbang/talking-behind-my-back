@@ -292,7 +292,7 @@
 - qa: PASS (QA_REPORT.md 2026-09-16, 사용자 지시로 QA 대행 기록 + 실브라우저 검증)
 
 ## T-021 메시지에 발신 당시 닉네임 보존 (api + web)
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
 - spec: API.md#messages, QA_REPORT.md#T-008
@@ -302,6 +302,11 @@
   - API 계약 변경(먼저 API.md, 그다음 코드): 예) `Message` 응답에 발신 당시 닉네임을 싣거나, 방 상세가 나간 멤버를 포함한 스냅샷을 함께 내려준다. 방식은 착수 전 제안 → 선택.
   - web `MessageList`/`RoomHeaderSheet` 가 이 값을 우선 사용하도록 갱신, 현재 멤버 목록으로 되돌아가는 폴백은 유지.
 - note: T-008 QA(2026-09-16) 중 실브라우저에서 발견. 서버 LLM 컨텍스트는 이미 나간 멤버 라벨을 유지하는데(D-019) 화면 표시만 어긋나 있었다.
+- test: api `MessageControllerIntegrationTest.History` +1(나간 멤버 메시지 senderNickname 유지·ASSISTANT null), 전체 244 통과.
+  web `MessageList.test` +2(senderNickname 우선 / null 이면 멤버 폴백), 전체 40 파일 223 통과, lint 0 오류(기존 경고 1), typecheck·build 통과(2026-09-16 로컬).
+  착수 2026-09-16, 방식은 D-023(A안: `Message.senderNickname` 읽기 시 users JOIN, 스키마 변경 없음).
+  구현 메모: `MessageMapper.xml` 조회 3종(`findById/findByRoomId/findRecentByRoomId`)이 `LEFT JOIN users` 로 `sender_nickname` 을 채운다. 전송 직후 SSE `message`/`done` 은 이미 `findById` 재조회라 자동 포함.
+  web `buildRows.nameOf` 우선순위 senderNickname → `room.members` → "나간 사람". `RoomHeaderSheet` 는 활성 멤버 목록이라 변경 없음. 낙관적 임시 메시지는 `senderNickname: null`(본인 말풍선이라 이름 미표시).
 
 ## T-022 OAuth 로그인 `next` 복귀 + 미리보기 `alreadyMember` (api)
 - status: DONE

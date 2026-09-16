@@ -6,6 +6,7 @@
     <id     property="id"               column="id"/>
     <result property="roomId"           column="room_id"/>
     <result property="senderUserId"     column="sender_user_id"/>
+    <result property="senderNickname"   column="sender_nickname"/>
     <result property="role"             column="role"/>
     <result property="content"          column="content"/>
     <result property="inputType"        column="input_type"/>
@@ -16,8 +17,13 @@
     <result property="createdAt"        column="created_at"/>
   </resultMap>
 
+  <!-- 조회는 users LEFT JOIN 으로 sender_nickname 을 채운다(T-021, D-023). 나간 멤버도 users 행이 있으면 이름 유지. -->
   <sql id="columns">
-    id, room_id, sender_user_id, role, content, input_type, mode, model, prompt_tokens, completion_tokens, created_at
+    m.id, m.room_id, m.sender_user_id, u.nickname AS sender_nickname, m.role, m.content, m.input_type, m.mode, m.model, m.prompt_tokens, m.completion_tokens, m.created_at
+  </sql>
+  <sql id="fromJoined">
+    FROM messages m
+    LEFT JOIN users u ON u.id = m.sender_user_id
   </sql>
 
   <insert id="insert" parameterType="com.example.chat.message.Message" useGeneratedKeys="true" keyProperty="id">
@@ -27,26 +33,26 @@
 
   <select id="findById" resultMap="messageMap">
     SELECT <include refid="columns"/>
-    FROM messages
-    WHERE id = #{id}
+    <include refid="fromJoined"/>
+    WHERE m.id = #{id}
   </select>
 
   <select id="findByRoomId" resultMap="messageMap">
     SELECT <include refid="columns"/>
-    FROM messages
+    <include refid="fromJoined"/>
     <where>
-      room_id = #{roomId}
-      <if test="cursorId != null">AND id &lt; #{cursorId}</if>
+      m.room_id = #{roomId}
+      <if test="cursorId != null">AND m.id &lt; #{cursorId}</if>
     </where>
-    ORDER BY id DESC
+    ORDER BY m.id DESC
     LIMIT #{size}
   </select>
 
   <select id="findRecentByRoomId" resultMap="messageMap">
     SELECT <include refid="columns"/>
-    FROM messages
-    WHERE room_id = #{roomId}
-    ORDER BY id DESC
+    <include refid="fromJoined"/>
+    WHERE m.room_id = #{roomId}
+    ORDER BY m.id DESC
     LIMIT #{limit}
   </select>
 

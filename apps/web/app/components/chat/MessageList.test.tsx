@@ -67,6 +67,18 @@ describe('MessageList (DESIGN.md#3 메시지 목록)', () => {
     expect(onLoadOlder).toHaveBeenCalled();
   });
 
+  it('senderNickname 이 있으면 현재 멤버 목록에 없어도 그 이름 (T-021)', () => {
+    render(<MessageList {...base} messages={[userMsg(1, { senderUserId: 99, senderNickname: '나간영희' })]} />);
+    const list = within(screen.getByRole('list'));
+    expect(list.getByText('나간영희')).toBeInTheDocument();
+    expect(list.queryByText('나간 사람')).not.toBeInTheDocument();
+  });
+
+  it('senderNickname 이 null 이면 현재 멤버 목록으로 폴백', () => {
+    render(<MessageList {...base} messages={[userMsg(1, { senderUserId: 2, senderNickname: null })]} />);
+    expect(within(screen.getByRole('list')).getByText('영희')).toBeInTheDocument();
+  });
+
   it('모르는 발신자는 "나간 사람"', () => {
     render(<MessageList {...base} messages={[userMsg(1, { senderUserId: 99 })]} />);
     expect(within(screen.getByRole('list')).getByText('나간 사람')).toBeInTheDocument();

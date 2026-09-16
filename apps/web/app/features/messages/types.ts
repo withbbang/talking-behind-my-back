@@ -9,6 +9,8 @@ export type Message = {
   role: MessageRole;
   /** USER 만. ASSISTANT 는 null */
   senderUserId: number | null;
+  /** USER 만. 조회 시점 발신자 닉네임 — 나간 멤버도 유지(T-021, D-023). users 행이 없으면 null → 현재 멤버 폴백 */
+  senderNickname: string | null;
   content: string;
   inputType: InputType | null;
   /** 발신 당시 방 모드. ASSISTANT 는 null */

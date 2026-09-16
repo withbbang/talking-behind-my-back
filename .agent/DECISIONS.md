@@ -186,6 +186,13 @@
 - impact: api `ChatRoomService.checkJoinable`, `RoomMemberMapper`(쌍 조회 쿼리), `ErrorCode`, API.md#rooms 입장 실패 표; web `features/rooms/joinErrorMessage.ts` 한 줄, BRAND.md#5. → T-023
 - date: 2026-09-16 (개발자 대행 기록, 사용자 결정 — 세부 4건도 같은 날 사용자 확정)
 
+### D-023 T-021 발신자 닉네임은 `Message.senderNickname` — 읽기 시 users JOIN, 스냅샷 컬럼 없음
+- decision: `Message` 응답(`GET /rooms/{id}/messages`, SSE `message`·`done`)에 `senderNickname` 을 싣는다. USER 만, ASSISTANT 는 null. 값은 조회 시점 `users.nickname`(LEFT JOIN) — 나간 멤버·탈퇴 유저도 users 행이 남아 있으니 이름 유지. users 행이 없으면 null → web 은 현재 멤버 목록 폴백 → 그래도 없으면 "나간 사람". 스키마 변경 없음.
+- rationale: 화면 표시가 서버 LLM 컨텍스트(D-019, `findAllByRoomId` 현재 닉)와 같은 기준이 된다. 닉 변경 시 과거 메시지도 새 닉으로 보이는 건 카카오 등 채팅 앱 관행과 같다. 방 상세 `members` 는 "활성 멤버" 의미로 모드 토글·헤더에서 쓰여 건드리지 않는다.
+- alternatives: (B) `messages.sender_nickname` 스냅샷 컬럼(V4) — 마이그레이션·백필 + 닉 변경 시 LLM 라벨과 다시 어긋남, 기각. (C) 방 상세 `members` 에 나간 멤버 포함(`leftAt`) — 활성 의미 의존처마다 필터 필요, 재입장 케이스 애매, 기각.
+- impact: api `message/{Message, MessageResponse}`, `mapper/MessageMapper.xml`(조회 3종 LEFT JOIN users), API.md#messages; web `features/messages/types.ts`, `components/chat/MessageList.buildRows`(우선순위 senderNickname → members → "나간 사람"), `useMessages` 낙관적 메시지 `senderNickname: null`. → T-021
+- date: 2026-09-16 (개발자 대행 기록, 사용자 결정 — A안 채택)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

@@ -11,6 +11,7 @@ import lombok.Setter;
 /**
  * messages (SCHEMA.md #5). id 가 커서 페이징 키. 오디오 원본은 저장하지 않는다(D-007).
  * senderUserId/mode 는 USER 만(2인 방 발신자·발신 당시 모드, V2). ASSISTANT 는 둘 다 null.
+ * senderNickname 은 조회 시점 users.nickname(D-023) — 나간 멤버도 유지.
  */
 @Getter
 @Setter
@@ -27,6 +28,8 @@ public class Message {
 	private Long id;
 	private Long roomId;
 	private Long senderUserId;
+	/** 조회 전용 — users 조인으로 채움(T-021, D-023). insert 에는 쓰이지 않는다. USER 만, users 행이 없으면 null. */
+	private String senderNickname;
 	private Role role;
 	private String content;
 	private InputType inputType;
