@@ -269,7 +269,7 @@
 - status: TODO
 - owner: 개발자
 - milestone: M2
-- spec: DESIGN.md#채팅(갱신 필요, 디자이너), API.md#rooms #messages
+- spec: DESIGN.md#2~3 #6, BRAND.md, API.md#rooms #messages
 - blocked_by: T-005, T-007
 - acceptance:
   - `app/(chat)/layout.tsx` 사이드바 + 메인. 방 목록(역할·ORPHANED 표시)/선택/제목 수정/나가기. draft 방 폐기 → "+ 새 방" 버튼이 `POST /rooms`.
@@ -281,7 +281,7 @@
 - status: TODO
 - owner: 개발자
 - milestone: M2
-- spec: API.md#rooms, DESIGN.md(갱신 필요)
+- spec: API.md#rooms, DESIGN.md#4~6
 - blocked_by: T-008, T-016, T-017
 - acceptance:
   - `/join/{code}`: 미로그인 → `/login?next=/join/{code}` 왕복 후 복귀. 미리보기 → 입장 버튼 → `router.replace('/rooms/{id}')`. 404/409/410/400 별 안내.
