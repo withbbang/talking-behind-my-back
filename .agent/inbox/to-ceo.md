@@ -64,3 +64,11 @@
   9. 커서 페이징은 불투명 문자열(방 목록 `(lastMessageAt,id)` 키셋). 응답 시간 UTC `Z`.
 - 원하는 결과: D-017~D-025 기록 → CONTEXT.md 기능 요건 6~ 추가, PLAN.md M2 재작성 → 이 항목 `[처리됨]`. DESIGN.md 갱신 요청은 to-designer.md 에 별도.
 - date: 2026-09-15
+
+### [개발자 → CEO] D-022 세부 4건 확정 요청 — 같은 두 사람 활성 방 1개 규칙 (T-023)
+- 요청/이슈: 규칙 본체는 사용자 결정(2026-09-16). 구현 전 확정 필요 —
+  (1) 방향: **쌍 기준**(제안) vs 역할 기준. (2) ORPHANED 방: **제외**(제안) vs 포함. (3) 오류 코드 `PAIR_ROOM_EXISTS` + 카피 "걔랑은 이미 방 있잖아"(제안).
+  (4) 판정 순서에서 PAIR 를 FULL 앞에 둘지(제안: 앞 — "꽉 찼어"보다 "이미 방 있잖아"가 더 정확한 이유).
+- 근거 파일: DECISIONS.md#D-022, TASKS.md T-023, `apps/api/.../ChatRoomService.checkJoinable`
+- 원하는 결과: D-022 세부 확정 표기 → T-023 blocked_by 해제.
+- date: 2026-09-16

@@ -338,6 +338,19 @@
   ORPHANED 모달은 `RoomView` 가 `status === 'ORPHANED' && role === 'PARTICIPANT'` 로만 판단 — `useSendMessage` 410 은 캐시 status 만 바꾼다.
   `JoinClient` 소개문 조사(이/가)는 `lib/josa.iGa`(받침 판정, 비한글은 병기). `uqr` 0.1.3 추가(의존성 0).
 
+## T-023 같은 두 사람은 활성 방 1개만 — 입장 거절 (api + web)
+- status: BLOCKED
+- owner: 개발자
+- milestone: M2
+- spec: D-022, API.md#rooms
+- blocked_by: T-016, T-018, D-022 세부 확정(to-ceo)
+- acceptance:
+  - `GET/POST /rooms/join/{code}`: 입장자와 방 개설자가 이미 다른 ACTIVE 방에서 같은 쌍이면 409 `PAIR_ROOM_EXISTS`(코드명은 D-022 확정값). 같은 방 재입장은 200.
+  - 판정 순서 404 → 410 → 400 SELF → 이미 멤버 200 → 409 PAIR → 409 FULL → 409 LIMIT. 미리보기도 PAIR 까지.
+  - API.md 입장 실패 표 갱신(먼저), `ErrorCode` 추가, `RoomMemberMapper` 쌍 조회 쿼리(MyBatis XML), 서비스 단위 + MockMvc 통합 테스트.
+  - web: `joinErrorMessage` 에 코드 한 줄 + BRAND.md#5 문구, `JoinClient` 테스트 1건.
+- note: 2026-09-16 T-018 착수 대화에서 사용자 요건. 세부(방향·ORPHANED 포함·코드명·문구)는 D-022 제안값 — CEO 확정 후 IN_PROGRESS.
+
 ## T-020 테마 수동 선택(라이트/다크/시스템) (web)
 - status: TODO
 - owner: 개발자
