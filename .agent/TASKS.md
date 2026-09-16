@@ -38,6 +38,8 @@
 - **nginx `proxy_set_header` 는 location 에 하나라도 있으면 server 레벨을 전부 무시한다.** 공통 헤더는 location 마다 반복(T-015).
 - **SSE(SseEmitter) + Spring Security 는 `dispatcherTypeMatchers(ASYNC, ERROR).permitAll()` 필수.** 클라이언트가 끊기면 톰캣이 ASYNC/ERROR 로 재디스패치하는데
   `OncePerRequestFilter` 인증 필터는 그걸 건너뛰어 익명 → 끊길 때마다 "response already committed" ERROR 스택(T-007 QA). 구독 직후 `: connected` 주석으로 헤더를 바로 커밋할 것.
+- **vitest `beforeEach(() => mock.mockReset())` 처럼 화살표가 mock 을 반환하면 vitest 가 그 반환값을 cleanup 훅으로 호출한다** → 인자 없는 유령 호출. 항상 중괄호 블록으로.
+- **React Query 5 `mutateAsync` 거절은 훅의 `onError` 정리보다 먼저 전달될 수 있다.** 실패 후 캐시 상태 단언은 `waitFor`.
 - **Spring Security 7 OAuth2 클래스는 Homepage/Admin 에 참고코드가 없다.** `javap -cp <jar>` 로 시그니처 확인 후 사용.
   `InvalidClientRegistrationIdException` 은 package-private(IllegalArgumentException 하위).
 

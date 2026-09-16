@@ -75,3 +75,37 @@ body {
     animation: none;
   }
 }
+
+/* AI 응답 대기 점 3개 (DESIGN.md#3 스트리밍). 700ms 루프, 모션 줄이기면 정적 "…" */
+.typing-dots i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.4;
+  animation: typing-bounce 700ms ease-in-out infinite;
+}
+.typing-dots i:nth-child(2) {
+  animation-delay: 120ms;
+}
+.typing-dots i:nth-child(3) {
+  animation-delay: 240ms;
+}
+@keyframes typing-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .typing-dots i {
+    animation: none;
+    opacity: 0.7;
+  }
+}
