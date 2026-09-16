@@ -42,8 +42,12 @@
 - checked:
   - T-023 acceptance: `RoomMemberMapper.countActiveRoomsShared`(두 사람 모두 활성 멤버인 ACTIVE 방, 현재 방 제외) → `checkJoinable` 순서 410 → 400 SELF → 이미 멤버 200 → **409 PAIR** → 409 FULL. 서비스 테스트로 (1) 두 번째 방 입장·미리보기 409 + 같은 방 재입장 200, (2) 쌍 기준(참여자가 만든 방에 개설자 입장도 409), (3) ORPHANED 제외 + PAIR 가 FULL 보다 우선 확인. `ErrorCode.PAIR_ROOM_EXISTS`, API.md 표·판정 순서, web 문구 "걔랑은 이미 방 있잖아"(BRAND/DESIGN 표) 일치.
   - T-024: `RoomView` 빈 방 판정에 `stream.notices` 포함. 메시지 0 + "영희 등장!" notice → 라인 표시, 빈 상태 문구 없음(단위). DESIGN.md#3 빈 방 문구 개정.
+  - **실브라우저 추가 검증(같은 날, Playwright = A 상남자/구글, 내장 브라우저 = B 빵선/카카오 id 96)**:
+    - T-023: A 가 방 X·Y 생성 → B 가 X 입장 → B 가 `/join/{Y}` 열면 "걔랑은 이미 방 있잖아" + "내 방으로"(409 PAIR, 미리보기 단계) → B 가 X 나가기(DELETE 204) → `/join/{Y}` 다시 열면 "들어갈래" → 입장 200(`/rooms/{Y}`). 쌍 해소까지 확인.
+    - T-024: B 가 빈 방 X 에 들어오는 순간 A 화면이 빈 상태 대신 "9월 16일 수요일 / 빵선 등장!" 로 전환, B 나가면 "빵선 퇴장" 추가. 스크린샷 `qa-07-t024-notice-in-empty-room.png`.
+    - 카카오 `next` 왕복(T-022 미검증분): 로그아웃 상태 `/join/{X}` → `/login?next=` → 카카오 로그인 → `/join/{X}` 복귀(B, id 96). 이제 구글·카카오 실측, 네이버만 미실측.
 - issues:
-  - (미검증) T-023 실브라우저 — 검증 도중 내장 브라우저(계정 A) 세션이 만료돼 2계정 시나리오를 못 돌림. 서비스·통합 테스트가 판정 순서까지 커버. 실측은 다음 2계정 세션에서: A 방 X 에 B 입장 → A 방 Y 링크를 B 가 열면 "걔랑은 이미 방 있잖아".
+  - (미검증) 네이버 `next` 왕복(메커니즘 provider 무관, 통합 테스트로 대체). 휴대폰 실기기 QR 스캔·공유 시트, 정원·50개 초과.
   - (참고) `mapper/*.xml` 안 `<>` 는 XML 파싱 오류 — `!=` 사용. bootRun 중 `gradlew test` 를 돌리면 devtools 가 재시작하는데 그때 리소스가 깨져 있으면 앱이 죽은 채 남는다(재기동 필요) → TASKS 교훈.
 - date: 2026-09-16
 

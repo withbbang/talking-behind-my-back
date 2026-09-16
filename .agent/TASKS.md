@@ -344,7 +344,7 @@
 
 ## T-023 같은 두 사람은 활성 방 1개만 — 입장 거절 (api + web)
 - status: DONE
-- qa: PASS (QA_REPORT.md 2026-09-16, 테스트 기준 — 실브라우저 2계정 시나리오는 다음 세션)
+- qa: PASS (QA_REPORT.md 2026-09-16, 사용자 참여 Playwright QA — 2계정으로 PAIR 거절·쌍 해소 후 입장 실측)
 - owner: 개발자
 - milestone: M2
 - spec: D-022, API.md#rooms
@@ -359,7 +359,7 @@
 
 ## T-024 빈 방 상태가 시스템 라인을 가림 (web)
 - status: DONE
-- qa: PASS (QA_REPORT.md 2026-09-16, 단위 테스트)
+- qa: PASS (QA_REPORT.md 2026-09-16, 단위 + 실브라우저 "빵선 등장!" 실측)
 - owner: 개발자
 - milestone: M2
 - spec: DESIGN.md#3 빈 방, QA_REPORT.md#T-018 issues
