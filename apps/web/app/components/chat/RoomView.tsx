@@ -6,15 +6,18 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useToastStore } from '@/components/ui/Toast';
 import { useMe } from '@/features/auth/useMe';
 import { useStreamStore } from '@/features/messages/streamStore';
+import { sendErrorMessage } from '@/features/messages/sendErrorMessage';
 import { useMessages, useSendMessage } from '@/features/messages/useMessages';
 import { useRoomEvents } from '@/features/messages/useRoomEvents';
 import { useRoom } from '@/features/rooms/useRooms';
 import { ApiError } from '@/lib/api';
+import { Composer, type ComposerLock } from './Composer';
 import { initialStreamState } from '@/lib/sse';
 import { MessageList } from './MessageList';
 
 /**
- * 채팅방 본문 (DESIGN.md#3). 방 상세 + 메시지 + 이벤트 구독 + 스트리밍. 입력창(Composer)은 커밋 4.
+ * 채팅방 본문 (DESIGN.md#3). 방 상세 + 메시지 + 이벤트 구독 + 스트리밍 + 입력창.
+ * 내 AI 잡이 대기·진행 중이면 입력 잠금(상대는 가능). ORPHANED 방은 잠금 — 확인 모달·삭제는 T-018.
  */
 export function RoomView({ roomId }: { roomId: number }) {
   const room = useRoom(roomId);
@@ -23,6 +26,8 @@ export function RoomView({ roomId }: { roomId: number }) {
   useRoomEvents(roomId);
   const stream = useStreamStore((s) => s.rooms[roomId]) ?? initialStreamState;
   const removeStream = useStreamStore((s) => s.remove);
+  const meId = me.data?.id ?? 0;
+  const myPending = Object.values(stream.streams).some((e) => e.senderUserId === meId && e.status !== 'error');
   const show = useToastStore((s) => s.show);
   const send = useSendMessage(roomId, { meId: me.data?.id ?? 0, mode: room.data?.mode ?? 'AI' });
 
@@ -31,10 +36,11 @@ export function RoomView({ roomId }: { roomId: number }) {
       const original = messages.messages.find((m) => m.id === replyTo);
       removeStream(roomId, replyTo);
       if (!original) return;
-      send.mutate({ content: original.content, inputType: original.inputType ?? 'TEXT' }, { onError: (e) => show(e instanceof ApiError ? e.message : '삐끗했다. 다시 해볼까?', 'error') });
+      send.mutate({ content: original.content, inputType: original.inputType ?? 'TEXT' }, { onError: (e) => show(sendErrorMessage(e), 'error') });
     },
     [messages.messages, removeStream, roomId, send, show],
   );
+  const onSend = (content: string) => send.mutate({ content }, { onError: (e) => show(sendErrorMessage(e), 'error') });
 
   if (room.isPending || me.isPending || messages.isPending) {
     return (
@@ -50,6 +56,7 @@ export function RoomView({ roomId }: { roomId: number }) {
   }
 
   const empty = messages.messages.length === 0 && Object.keys(stream.streams).length === 0;
+  const lock: ComposerLock = room.data.status === 'ORPHANED' ? 'orphaned' : myPending ? 'pending' : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -70,6 +77,7 @@ export function RoomView({ roomId }: { roomId: number }) {
           onRetry={retry}
         />
       )}
+      <Composer mode={room.data.mode} lock={lock} onSend={onSend} />
     </div>
   );
 }
