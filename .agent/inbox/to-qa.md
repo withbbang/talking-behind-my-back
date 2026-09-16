@@ -182,5 +182,6 @@
   (6) 접근성: `radiogroup` "테마 선택", 방향키 이동, 포커스 링. 활성 칸은 색 + 굵기.
   (7) 다른 탭에서 바꾸면 이 탭도 따라옴(storage 이벤트).
 - 근거 파일: D-024, DESIGN.md#원칙·#2, BRAND.md#2·#5, `apps/web/app/lib/{theme,themeInit}.ts`, `components/chat/ThemePicker.tsx`, `Sidebar.tsx`, `app/layout.tsx`, `globals.css`
-- 범위 외: 어드민(M4) 테마, 서버 저장(기기별 localStorage 가 스펙).
-- date: 2026-09-16
+- 개발자 실측(2026-09-17, 구글 계정, OS 다크): (1)(2)(3)(4)(5)(6) 통과 — TASKS.md T-020 note. 미실측: (2) OS 라이트 + 다크 강제 첫 페인트 깜빡임(내 맥은 다크), (4) iOS PWA 상태바, (7) 다른 탭 동기화(단위 테스트만).
+- 범위 외: 어드민(M4) 테마, 서버 저장(기기별 localStorage 가 스펙). PillToggle 방향키 시 DOM 포커스가 원래 칸에 남는 건 기존 동작(모드 토글 동일).
+- date: 2026-09-16 (실측 추가 2026-09-17)

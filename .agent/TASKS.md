@@ -390,7 +390,8 @@
 - test: `lib/theme.test.tsx` 13 · `ThemePicker.test.tsx` 3 · `Sidebar.test.tsx` +1. web 240 통과, lint 0 error, typecheck·build 통과.
 - note: 사용자 요청 2026-09-16(T-008 착수 대화). 착수 2026-09-16, D-024(A안: 프로필 줄 아래 글자 필 3칸, 보조 라벨 없음, 고정 용어). DESIGN.md/BRAND.md 개정은 디자이너 대행(사용자 지시).
   구현: `lib/themeInit.ts`(상수 + 인라인 스크립트, 서버 안전) / `lib/theme.ts`(useSyncExternalStore 스토어, applyTheme, ThemeSync) / `components/chat/ThemePicker.tsx` / `layout.tsx`(next/script beforeInteractive + `<ThemeSync/>`, viewport.themeColor 제거) / `globals.css`(`[data-theme]` 셀렉터).
-  실브라우저(로그인 화면, OS 다크): light 강제 → 라이트 토큰, system → 다크 토큰 + 속성 없음, dark 강제 → 다크. theme-color 메타 항상 1개. 사이드바 실화면은 api 꺼져 있어 단위 테스트만 — QA 요청.
+  실브라우저 2026-09-17(구글 계정 `상남자`, OS 다크, bootRun + nginx-dev): 데스크톱 1134 — 필이 로그아웃 줄 아래 우측(사이드바 280 안, 32px, 활성 600). 다크 탭 → 즉시 반전(bg #170611, surface #ff3d7f), 저장 `dark`, 메타 1개 #170611. 새로고침·방 재진입 유지. 시스템 탭 → 키 삭제, OS 다크 따라감. 방향키 이동 + 포커스 링 accent 2px. 초대 시트 QR 카드 다크에서도 #fff4f8 바탕 + 어두운 모듈. 모바일 375 드로어(폭 300) 안 같은 위치, 하단 잘림 없음, 드로어에서 라이트 탭 → 반전.
+  알려진 것(범위 외, PillToggle 기존 동작): 방향키로 값은 바뀌지만 DOM 포커스는 원래 칸에 남는다(모드 토글도 동일). 원하면 별도 T.
 
 ## M3 음성
 
