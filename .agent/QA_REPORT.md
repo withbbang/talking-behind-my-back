@@ -36,6 +36,26 @@
 
 <!-- QA가 검증 결과를 아래에 계속 추가 -->
 
+### T-022 OAuth `next` 복귀 + `alreadyMember` (api) / T-018 초대 입장 페이지 + QR/링크 공유 + 주인 없는 방 모달 (web)
+- verdict: PASS (사용자 참여 Playwright QA, 개발자 대행 기록, 2026-09-16) — 미검증 항목은 issues 에 명시
+- tests: 존재 / api `./gradlew test` 240 passed / web `npm test` 219 passed(40 파일), `npm run lint` 0 error(기존 경고 1), `typecheck`·`build` 통과. 에이전트 실행(로컬).
+- checked:
+  - acceptance 커버리지: api `NextPath`·resolver·성공 핸들러·`alreadyMember` / web proxy next·로그인 링크 next·`/join` 5상태·InviteSheet(QR·코드·복사·공유·재발급)·OrphanedDialog 단일 트리거. 단위·통합 테스트로 전부 커버.
+  - **실브라우저(Playwright Chromium = 계정 B `빵선이`(id 94, 네이버) / 내장 브라우저 = 계정 A `상남자`(id 95, 구글), 로컬 compose nginx + `./gradlew bootRun` + `npm run dev`, 소셜 로그인은 사용자가 직접 수행)**:
+    - `next` 왕복: 로그아웃 상태 `/join/K7Q2M9XW` → `/login?next=%2Fjoin%2FK7Q2M9XW` → 소셜 링크 3개에 `?next=` 부착 확인 → 구글 로그인 → `/join/K7Q2M9XW` 복귀(콜백이 next 로 302). access 만료(15분) 후 `/join/{code}` 새 탭 → silent refresh → next 로 복귀.
+    - `/join` 실패 문구: 없는 코드 "그런 코드 없는데?" / 본인 방 "이거 네 방이잖아" / 재발급 후 옛 코드 404 / 주인 나간 방 "주인이 도망간 방이야"(4317 ORPHANED 후) — 모두 시트 안 문구 + "내 방으로" → `/` → 최신 방.
+    - 초대 시트(436px): 제목 "친구 데려오기", QR 200px 라이트 카드(`rgb(255,244,248)` 고정), **QR 행렬이 `uqr` 재계산과 일치**(29×29, 404 모듈, 좌표 해시 동일 → `http://localhost:3000/join/{code}` 인코딩 확인. 휴대폰 스캔은 미수행), 코드 "V829 EAR9" 4+4, "링크 복사" → 토스트 "복사했어. 이제 던져줘", "공유하기" 노출(Chromium `navigator.share` 있음), "코드 다시 만들기" → 확인 모달 → 새 코드 즉시 표시.
+    - 입장(390×844): "초대장 도착" / 우측 "상남자가 부른 방 / 들어와서 같이 씹자"(조사 `가` 정확) / 말풍선 안 "새 대화 · 멤버 1/2 · 들어갈래" / 꼬리 발치 "상" 아바타 — 스크린샷 `.playwright-mcp/qa-03-join-preview-390.png`. "들어갈래" → `/rooms/4320` replace.
+    - B 입장 순간 A 화면: 초대 시트 자동 닫힘(memberCount 2, SSE `member`) 확인 — 2회(4320, 4321).
+    - ORPHANED 모달 경로 2/3 실브라우저 확인: (1) B 가 방 안에 있을 때 A 나가기(사이드바 … → "나가면 이 방은 끝이야. 진짜 갈래?" → 나갈래) → B 화면에 SSE 로 즉시 모달(제목·본문·버튼 1개, 입력 잠김 "주인이 도망간 방이야", 토스트 없음) → "알았어" → `/rooms/4318`(남은 방) + 목록에서 4320 제거. (2) B 가 다른 방에 있을 때 A 나가기 → B 목록에서 그 방 탭 → 상세 GET 이 ORPHANED → 같은 모달 → 알았어 → 목록 제거. 스크린샷 `qa-04-orphaned-modal-390.png`.
+    - 개설자 화면엔 모달 없음(A 는 나가기 후 `/` → 3664).
+- issues:
+  - (미검증, 환경) 네이버·카카오 `next` 왕복 — 구글만 실측. 메커니즘은 provider 무관(state attribute)이라 통합 테스트로 대체. 휴대폰 QR 스캔·모바일 share 시트·다크 모드 QR 육안 — 미수행(행렬·고정 색상은 코드로 확인). 전송 410 경로 — 실브라우저는 SSE 가 먼저 오므로 재현 불가, 단위 테스트로 커버. 정원 초과(3번째 계정)·50개 초과 — 계정 부족.
+  - (블록 아님, T-008 기존 동작) 메시지 0개인 방은 빈 상태 "오늘은 누가 그랬어?" 가 시스템 라인("빵선이 등장!")보다 우선해 등장 라인이 안 보인다. 메시지가 있으면 정상. 빈 방 판정에 시스템 라인을 포함할지는 디자이너 판단 → to-designer 백로그.
+  - (블록 아님, 설계상) 내가 안 들어가 있는 방의 목록 `닫힘` 배지는 목록 재조회 전까지 갱신되지 않는다(그 방 SSE 미구독). 탭하면 상세 GET 으로 모달이 뜨므로 사용자 결과는 동일(D-021 단일 트리거).
+  - (참고) QA 도중 4317 방이 ORPHANED 된 것은 계정 전환 과정에서 사용자가 A 로 나간 것으로 추정 — 앱 결함 아님.
+- date: 2026-09-16
+
 ### T-008 채팅 셸 + 방 생성 + 모드/성격 + 스트리밍 UI (web)
 - verdict: PASS (사용자 지시로 QA 대행 기록, 2026-09-16) — 실브라우저 검증 중 결함 2건 발견 → 같은 태스크에서 수정·재검증 후 PASS
 - tests: 존재 / `npm test` 168 passed, 0 failed(신규 2 — 아래 결함 재현 테스트 포함) / `npm run lint` 0 error(경고 1건은 T-008 이전부터 있던 `api.ts` `_retry`, 무관) / `npm run typecheck` 통과 / `npm run build` 통과. 에이전트 실행(로컬).

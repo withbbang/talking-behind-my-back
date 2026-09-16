@@ -40,3 +40,9 @@
 - 근거 파일: `apps/web/app/components/chat/{RoomListItem,Sidebar,AiPromptEditor,MessageList,RoomView}.tsx`, `apps/web/app/lib/sse.ts`
 - 원하는 결과: DESIGN.md#2~3 / BRAND.md#5 표에 반영 또는 대체 문구.
 - date: 2026-09-16
+
+### [개발자 → 디자이너] 빈 방 상태 vs 시스템 라인 우선순위 (T-018 QA 발견)
+- 요청/이슈: 메시지 0개인 방에 친구가 들어오면 "빵선이 등장!" 시스템 라인 대신 빈 상태("오늘은 누가 그랬어?")가 그대로 보인다(빈 방 판정이 메시지 수만 본다). 시스템 라인이 있으면 목록을 보여줄지, 빈 상태 위에 라인만 얹을지 결정 필요.
+- 근거 파일: QA_REPORT.md#T-018 issues, `apps/web/app/components/chat/RoomView.tsx`(`empty` 판정), DESIGN.md#3 빈 방
+- 원하는 결과: DESIGN.md#3 빈 방 항목에 한 줄. 바뀌면 to-dev 로.
+- date: 2026-09-16

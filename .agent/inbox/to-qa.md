@@ -137,7 +137,7 @@
 - 범위 외: 초대 공유 시트·`/join`·ORPHANED 확인 모달(T-018), 보이스(T-010), 테마 수동 선택(T-020), PWA 서비스워커(T-014).
 - date: 2026-09-16
 
-### [개발자 → QA] T-022 OAuth `next` 복귀 + `alreadyMember` (api) / T-018 초대 입장·공유·ORPHANED 모달 (web) 검증 요청
+### [개발자 → QA] T-022 OAuth `next` 복귀 + `alreadyMember` (api) / T-018 초대 입장·공유·ORPHANED 모달 (web) 검증 요청 [처리됨 2026-09-16, QA_REPORT.md#T-022/T-018]
 - 요청/이슈: api `cd apps/api && ./gradlew test`(240 통과), web `cd apps/web && npm test && npm run lint && npm run typecheck && npm run build`(219 통과) 확인.
   수동(compose dev + api + `npm run dev`, 브라우저 `http://localhost:3000`, 계정 2개 — 개설자 A / 참여자 B):
   A 로그인 → 방 생성 → 상단 제목 탭 → 방 정보 시트 "초대" → 초대 시트(QR·코드·링크 복사·공유·재발급) → 링크를 B 의 **로그아웃 상태** 브라우저에 붙여넣기 → `/login?next=/join/{code}` → 소셜 로그인 → `/join/{code}` 로 복귀 → "들어갈래" → 방 입장 → A 화면에 "B 등장!" + 초대 시트 자동 닫힘.

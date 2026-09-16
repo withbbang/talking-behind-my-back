@@ -302,7 +302,8 @@
 - note: T-008 QA(2026-09-16) 중 실브라우저에서 발견. 서버 LLM 컨텍스트는 이미 나간 멤버 라벨을 유지하는데(D-019) 화면 표시만 어긋나 있었다.
 
 ## T-022 OAuth 로그인 `next` 복귀 + 미리보기 `alreadyMember` (api)
-- status: REVIEW
+- status: DONE
+- qa: PASS (QA_REPORT.md 2026-09-16, 사용자 참여 Playwright QA)
 - owner: 개발자
 - milestone: M2
 - spec: API.md#auth #rooms, D-021
@@ -319,7 +320,8 @@
   `OAuth2SuccessHandler` 가 콜백 요청 쿠키에서 `loadAuthorizationRequest` 로 다시 읽는다(필터의 remove 는 응답 헤더만 쓰므로 요청 쿠키는 남아 있음).
 
 ## T-018 초대 입장 페이지 + QR/링크 공유 + 주인 없는 방 모달 (web)
-- status: REVIEW
+- status: DONE
+- qa: PASS (QA_REPORT.md 2026-09-16, 사용자 참여 Playwright QA — 구글 next 왕복·입장·초대 시트·ORPHANED 2경로 실측)
 - owner: 개발자
 - milestone: M2
 - spec: API.md#rooms #auth, DESIGN.md#4~6, D-021
