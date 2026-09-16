@@ -88,6 +88,18 @@ describe('ChatShell (DESIGN.md#2 채팅 셸)', () => {
     expect(screen.getByRole('dialog', { name: '방 정보' })).toBeInTheDocument();
   });
 
+  it('방 헤더 시트의 "초대" → 초대 공유 시트로 전환 (T-018)', async () => {
+    params = { id: '10' };
+    pathname = '/rooms/10';
+    apiFetchMock.mockResolvedValue(roomDetail(10, { title: '오늘 뭐 먹지' }));
+    renderShell();
+    fireEvent.click(await screen.findByRole('button', { name: '오늘 뭐 먹지' }));
+    fireEvent.click(screen.getByRole('button', { name: '초대' }));
+    expect(screen.getByRole('dialog', { name: '친구 데려오기' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '방 정보' })).toBeNull();
+    expect(screen.getByText('K7Q2 M9XW')).toBeInTheDocument();
+  });
+
   it('방 밖이면 제목 자리에 앱 이름', () => {
     renderShell();
     expect(screen.getByRole('heading', { name: '뒷담 친구' })).toBeInTheDocument();

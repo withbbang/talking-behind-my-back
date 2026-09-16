@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { withNext } from '@/lib/nextPath';
 
 export type SocialProvider = 'google' | 'naver' | 'kakao';
 
@@ -43,11 +44,11 @@ const BRAND: Record<SocialProvider, { label: string; className: string; icon: Re
   },
 };
 
-export function SocialLoginButton({ provider }: { provider: SocialProvider }) {
+export function SocialLoginButton({ provider, next = null }: { provider: SocialProvider; next?: string | null }) {
   const { label, className, icon } = BRAND[provider];
   return (
     <a
-      href={`/api/oauth2/authorization/${provider}`}
+      href={withNext(`/api/oauth2/authorization/${provider}`, next)}
       className={`flex h-13 w-full items-center gap-3 rounded-2xl px-4 text-[15px] font-semibold outline-offset-3 focus-visible:outline-3 focus-visible:outline-accent active:scale-[0.98] motion-safe:transition-transform ${className}`}
     >
       <span className="flex w-6 shrink-0 justify-center">{icon}</span>

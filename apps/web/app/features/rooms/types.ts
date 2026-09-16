@@ -34,6 +34,12 @@ export type RoomPatch = Partial<Pick<Room, 'title' | 'mode' | 'aiPersonality' | 
 
 export type Page<T> = { items: T[]; nextCursor: string | null };
 
+/** GET /rooms/join/{code} 미리보기. alreadyMember = 이미 활성 멤버(버튼 "다시 들어가기", D-021). */
+export type JoinPreview = { roomId: number; title: string; ownerNickname: string | null; memberCount: number; alreadyMember: boolean };
+
+/** POST /rooms/{id}/invite/regenerate */
+export type InviteResponse = { inviteCode: string; inviteUrl: string };
+
 export const AI_PERSONALITY_LABEL: Record<AiPersonality, string> = {
   RATIONAL: '차분한 편',
   EMOTIONAL: '공감형',

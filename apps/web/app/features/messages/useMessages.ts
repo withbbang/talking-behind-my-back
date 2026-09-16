@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ROOMS_KEY, roomKey } from '@/features/rooms/useRooms';
-import type { Page, RoomMode } from '@/features/rooms/types';
-import { apiFetch } from '@/lib/api';
+import type { Page, Room, RoomMode } from '@/features/rooms/types';
+import { ApiError, apiFetch } from '@/lib/api';
 import { appendMessage, flattenMessages, removeMessage, replaceMessageId, type MessagesData } from './cache';
 import { useStreamStore } from './streamStore';
 import type { InputType, Message } from './types';
@@ -28,6 +28,7 @@ export type SendVars = { content: string; inputType?: InputType };
 /**
  * 전송 (API.md POST /rooms/{id}/messages → 202). 낙관적 USER 말풍선을 바로 넣고, 202 의 messageId 로 교체한다.
  * AI 모드면 내 잡을 대기로 표시해 입력을 잠근다(HUMAN 은 응답 없음). 실패 시 되돌리고 오류는 호출자가 토스트로.
+ * 410(ROOM_ORPHANED)이면 상세 캐시 status 를 ORPHANED 로 — RoomView 의 모달 트리거는 이 값 하나다(D-021).
  */
 export function useSendMessage(roomId: number, ctx: { meId: number; mode: RoomMode }) {
   const client = useQueryClient();
@@ -52,7 +53,10 @@ export function useSendMessage(roomId: number, ctx: { meId: number; mode: RoomMo
       // 첫 메시지면 서버가 방 제목을 자동 생성한다(API.md autoTitle) — 헤더/시트가 읽는 상세 쿼리도 갱신.
       void client.invalidateQueries({ queryKey: roomKey(roomId), exact: true });
     },
-    onError: (_e, _vars, mctx) => {
+    onError: (e, _vars, mctx) => {
+      if (e instanceof ApiError && e.status === 410) {
+        client.setQueryData<Room>(roomKey(roomId), (old) => (old ? { ...old, status: 'ORPHANED' } : old));
+      }
       if (!mctx) return;
       client.setQueryData<MessagesData>(key, (old) => removeMessage(old, mctx.tempId));
       store.getState().remove(roomId, mctx.tempId);

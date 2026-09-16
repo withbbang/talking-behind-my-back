@@ -4,12 +4,14 @@ import { useParams, usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { List, X } from '@phosphor-icons/react';
 import { useRoom } from '@/features/rooms/useRooms';
+import { InviteSheet } from './InviteSheet';
 import { RoomHeaderSheet } from './RoomHeaderSheet';
 import { Sidebar } from './Sidebar';
 
 /**
  * 채팅 셸 (DESIGN.md#2). 모바일: 상단 바 56 + 햄버거 드로어(300, ink 40% 딤). 데스크톱(≥1024): 사이드바 280 고정.
- * 상단 바 제목은 현재 방 제목(방 밖이면 앱 이름). 방 안에서 제목 탭 → 방 헤더 시트.
+ * 상단 바 제목은 현재 방 제목(방 밖이면 앱 이름). 방 안에서 제목 탭 → 방 헤더 시트 → "초대" → 초대 공유 시트(T-018).
+ * 초대 시트는 친구가 들어오면(memberCount 2) 저절로 닫힌다 — 뒤에 "영희 등장!" 시스템 라인이 보이도록.
  */
 export function ChatShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -21,6 +23,11 @@ export function ChatShell({ children }: { children: ReactNode }) {
   const open = openPath === pathname;
   const setOpen = (v: boolean) => setOpenPath(v ? pathname : null);
   const [headerOpen, setHeaderOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const openInvite = () => {
+    setHeaderOpen(false);
+    setInviteOpen(true);
+  };
 
   const title = roomId === null ? '뒷담 친구' : (room.data?.title ?? '…');
 
@@ -58,7 +65,10 @@ export function ChatShell({ children }: { children: ReactNode }) {
         <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </div>
 
-      {room.data && <RoomHeaderSheet room={room.data} open={headerOpen} onClose={() => setHeaderOpen(false)} />}
+      {room.data && <RoomHeaderSheet room={room.data} open={headerOpen} onClose={() => setHeaderOpen(false)} onInvite={openInvite} />}
+      {room.data?.inviteCode && (
+        <InviteSheet room={room.data} open={inviteOpen && room.data.memberCount < 2} onClose={() => setInviteOpen(false)} />
+      )}
 
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">

@@ -16,6 +16,12 @@
   --danger-bg: rgb(196 0 46 / 0.1);
 }
 
+/* QR 카드 전용 — 모드 무관 라이트 값 고정(D-021 E3). 다크에서도 어두운 모듈/밝은 바탕이라 스캐너 호환. */
+:root {
+  --qr-bg: #fff4f8;
+  --qr-ink: #2b0a1a;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #170611;

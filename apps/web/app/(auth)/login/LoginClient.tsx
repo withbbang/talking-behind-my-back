@@ -6,13 +6,16 @@ import { Toast } from '@/components/ui/Toast';
 import { loginErrorMessage } from '@/features/auth/loginErrorMessage';
 import { silentRefresh } from '@/features/auth/session';
 import { hardNavigate } from '@/lib/navigation';
+import { safeNextPath } from '@/lib/nextPath';
 
 /**
  * 로그인 화면 본문 (DESIGN.md#로그인, 핑크 테마 A 안: 하단 말풍선이 버튼을 담는다).
- * - error 없이 열렸으면 silent refresh 1회: 성공 → / 전체 이동, 실패 → 버튼 노출.
+ * - error 없이 열렸으면 silent refresh 1회: 성공 → next(없으면 /) 전체 이동, 실패 → 버튼 노출.
  * - error 가 있으면 사용자가 방금 로그인을 시도한 것이라 refresh 를 건너뛰고 토스트로 알린다.
+ * - next(`/join/{code}` 등)는 소셜 시작 URL 에 `?next=` 로 넘기고 api 콜백이 그리로 302 한다(D-021, T-022).
  */
-export function LoginClient({ error }: { error: string | null }) {
+export function LoginClient({ error, next }: { error: string | null; next: string | null }) {
+  const target = safeNextPath(next);
   const message = loginErrorMessage(error ?? undefined);
   const [checking, setChecking] = useState(message === null);
   const [toast, setToast] = useState<string | null>(message);
@@ -24,7 +27,7 @@ export function LoginClient({ error }: { error: string | null }) {
     silentRefresh().then((ok) => {
       if (cancelled) return;
       if (ok) {
-        hardNavigate('/');
+        hardNavigate(target ?? '/');
       } else {
         setChecking(false);
       }
@@ -32,7 +35,7 @@ export function LoginClient({ error }: { error: string | null }) {
     return () => {
       cancelled = true;
     };
-  }, [message]);
+  }, [message, target]);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col justify-between px-5 pt-24 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
@@ -61,9 +64,9 @@ export function LoginClient({ error }: { error: string | null }) {
             </div>
           ) : (
             <>
-              <SocialLoginButton provider="google" />
-              <SocialLoginButton provider="naver" />
-              <SocialLoginButton provider="kakao" />
+              <SocialLoginButton provider="google" next={target} />
+              <SocialLoginButton provider="naver" next={target} />
+              <SocialLoginButton provider="kakao" next={target} />
             </>
           )}
         </div>

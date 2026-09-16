@@ -7,6 +7,8 @@ vi.mock('@/lib/api', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/lib/api')>();
   return { ...mod, apiFetch: vi.fn() };
 });
+const replace = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace }), usePathname: () => '/rooms/10' }));
 
 import { ApiError, apiFetch } from '@/lib/api';
 import { RoomView } from './RoomView';
@@ -40,6 +42,7 @@ function renderIt(id = 10) {
 describe('RoomView (DESIGN.md#3)', () => {
   beforeEach(() => {
     apiFetchMock.mockReset(); // 화살표가 mock 을 반환하면 vitest 가 cleanup 훅으로 호출한다
+    replace.mockReset();
     useToastStore.setState({ toast: null });
     useStreamStore.setState({ rooms: {} });
   });
@@ -95,6 +98,44 @@ describe('RoomView (DESIGN.md#3)', () => {
     mockApi(roomDetail(10, { role: 'PARTICIPANT', status: 'ORPHANED', messageCount: 1 }), [userMsg(1)]);
     renderIt();
     expect(await screen.findByRole('textbox')).toHaveAttribute('placeholder', '주인이 도망간 방이야');
+  });
+
+  it('참여자 + ORPHANED → "이용할 수 없는 채팅방입니다." 모달, "알았어" → DELETE → / (D-021)', async () => {
+    mockApi(roomDetail(10, { role: 'PARTICIPANT', status: 'ORPHANED', messageCount: 1 }), [userMsg(1)]);
+    renderIt();
+    const dialog = await screen.findByRole('dialog', { name: '이용할 수 없는 채팅방입니다.' });
+    expect(dialog).toHaveTextContent('주인이 도망갔어. 이 방은 여기까지.');
+    expect(screen.queryByRole('button', { name: '취소' })).toBeNull();
+
+    // DELETE 는 마지막 호출 — mockApi 구현을 덮어 DELETE 도 받게 한다
+    apiFetchMock.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path === '/rooms/10' && init?.method === 'DELETE') return undefined;
+      if (path === '/auth/me') return me;
+      throw new Error(`unexpected ${path}`);
+    });
+    fireEvent.click(screen.getByRole('button', { name: '알았어' }));
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/10', { method: 'DELETE' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
+  });
+
+  it('전송 410 → 토스트 없이 캐시 status ORPHANED → 모달 (D-021 단일 트리거)', async () => {
+    mockApi(roomDetail(10, { role: 'PARTICIPANT', memberCount: 2, messageCount: 0 }), [], () => {
+      throw new ApiError(410, 'ROOM_ORPHANED', '이탈');
+    });
+    renderIt();
+    const box = await screen.findByRole('textbox', { name: '메시지' });
+    fireEvent.change(box, { target: { value: '아직 있어?' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(await screen.findByRole('dialog', { name: '이용할 수 없는 채팅방입니다.' })).toBeInTheDocument();
+    expect(useToastStore.getState().toast).toBeNull();
+    expect(screen.queryByText('아직 있어?')).toBeNull();
+  });
+
+  it('개설자 화면에는 ORPHANED 모달이 뜨지 않는다', async () => {
+    mockApi(roomDetail(10, { role: 'OWNER', status: 'ORPHANED', messageCount: 0 }));
+    renderIt();
+    expect(await screen.findByText('오늘은 누가 그랬어?')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('토스트 정리', () => {

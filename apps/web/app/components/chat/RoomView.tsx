@@ -14,10 +14,12 @@ import { ApiError } from '@/lib/api';
 import { Composer, type ComposerLock } from './Composer';
 import { initialStreamState } from '@/lib/sse';
 import { MessageList } from './MessageList';
+import { OrphanedDialog } from './OrphanedDialog';
 
 /**
  * 채팅방 본문 (DESIGN.md#3). 방 상세 + 메시지 + 이벤트 구독 + 스트리밍 + 입력창.
- * 내 AI 잡이 대기·진행 중이면 입력 잠금(상대는 가능). ORPHANED 방은 잠금 — 확인 모달·삭제는 T-018.
+ * 내 AI 잡이 대기·진행 중이면 입력 잠금(상대는 가능).
+ * ORPHANED 방(참여자): 잠금 + 주인 없는 방 모달(DESIGN.md#6). 트리거는 캐시 status 하나 — 목록 탭(상세 GET)·SSE member·전송 410 모두 여기로 모인다(D-021).
  */
 export function RoomView({ roomId }: { roomId: number }) {
   const room = useRoom(roomId);
@@ -30,17 +32,24 @@ export function RoomView({ roomId }: { roomId: number }) {
   const myPending = Object.values(stream.streams).some((e) => e.senderUserId === meId && e.status !== 'error');
   const show = useToastStore((s) => s.show);
   const send = useSendMessage(roomId, { meId: me.data?.id ?? 0, mode: room.data?.mode ?? 'AI' });
+  const toastSendError = useCallback(
+    (e: unknown) => {
+      const message = sendErrorMessage(e); // 410 은 null — 캐시 status 가 바뀌어 모달이 뜬다
+      if (message) show(message, 'error');
+    },
+    [show],
+  );
 
   const retry = useCallback(
     (replyTo: number) => {
       const original = messages.messages.find((m) => m.id === replyTo);
       removeStream(roomId, replyTo);
       if (!original) return;
-      send.mutate({ content: original.content, inputType: original.inputType ?? 'TEXT' }, { onError: (e) => show(sendErrorMessage(e), 'error') });
+      send.mutate({ content: original.content, inputType: original.inputType ?? 'TEXT' }, { onError: toastSendError });
     },
-    [messages.messages, removeStream, roomId, send, show],
+    [messages.messages, removeStream, roomId, send, toastSendError],
   );
-  const onSend = (content: string) => send.mutate({ content }, { onError: (e) => show(sendErrorMessage(e), 'error') });
+  const onSend = (content: string) => send.mutate({ content }, { onError: toastSendError });
 
   if (room.isPending || me.isPending || messages.isPending) {
     return (
@@ -56,10 +65,12 @@ export function RoomView({ roomId }: { roomId: number }) {
   }
 
   const empty = messages.messages.length === 0 && Object.keys(stream.streams).length === 0;
-  const lock: ComposerLock = room.data.status === 'ORPHANED' ? 'orphaned' : myPending ? 'pending' : null;
+  const orphaned = room.data.status === 'ORPHANED';
+  const lock: ComposerLock = orphaned ? 'orphaned' : myPending ? 'pending' : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <OrphanedDialog roomId={roomId} open={orphaned && room.data.role === 'PARTICIPANT'} />
       {empty ? (
         <Centered>
           <Avatar kind="ai" size={64} />
