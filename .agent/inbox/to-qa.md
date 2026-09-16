@@ -136,3 +136,24 @@
   (9) nginx 경유 SSE: 델타가 버퍼링 없이 순서대로, 재연결 시 놓친 메시지 보충(`GET messages` 무효화).
 - 범위 외: 초대 공유 시트·`/join`·ORPHANED 확인 모달(T-018), 보이스(T-010), 테마 수동 선택(T-020), PWA 서비스워커(T-014).
 - date: 2026-09-16
+
+### [개발자 → QA] T-022 OAuth `next` 복귀 + `alreadyMember` (api) / T-018 초대 입장·공유·ORPHANED 모달 (web) 검증 요청
+- 요청/이슈: api `cd apps/api && ./gradlew test`(240 통과), web `cd apps/web && npm test && npm run lint && npm run typecheck && npm run build`(219 통과) 확인.
+  수동(compose dev + api + `npm run dev`, 브라우저 `http://localhost:3000`, 계정 2개 — 개설자 A / 참여자 B):
+  A 로그인 → 방 생성 → 상단 제목 탭 → 방 정보 시트 "초대" → 초대 시트(QR·코드·링크 복사·공유·재발급) → 링크를 B 의 **로그아웃 상태** 브라우저에 붙여넣기 → `/login?next=/join/{code}` → 소셜 로그인 → `/join/{code}` 로 복귀 → "들어갈래" → 방 입장 → A 화면에 "B 등장!" + 초대 시트 자동 닫힘.
+  A 나가기 → B 화면에 "이용할 수 없는 채팅방입니다." 모달 → "알았어" → B 목록에서 방 제거.
+- 근거 파일: DECISIONS.md#D-021, API.md#auth/#rooms, DESIGN.md#4~6, BRAND.md#5,
+  api `auth/oauth2/{NextPath,NextPathAuthorizationRequestResolver,OAuth2SuccessHandler}.java`, `global/config/SecurityConfig.java`, `chatroom/JoinPreviewResponse.java`,
+  web `proxy.ts`, `app/lib/{nextPath,josa}.ts`, `app/(auth)/login/{page,LoginClient}.tsx`, `app/(auth)/join/[code]/{page,JoinClient}.tsx`,
+  `app/components/ui/QrCode.tsx`, `app/components/chat/{InviteSheet,OrphanedDialog,ChatShell,RoomView}.tsx`, `app/features/rooms/{useInvite,joinErrorMessage,types}.ts`, `app/features/messages/{useMessages,sendErrorMessage}.ts`, `app/globals.css`(--qr-*)
+- 확인 포인트:
+  (1) **next 왕복(핵심, 개발자 미검증)**: 로그아웃 상태에서 `/join/{code}` → `/login?next=` → 소셜 로그인(구글·네이버·카카오 각 1회) → `/join/{code}` 복귀. 실패 시 `/login?error=` 로 가고 next 는 사라져도 됨. `next=https://evil` 같은 값은 `/` 로.
+  (2) 이미 로그인된 채 `/login?next=/join/{code}` 직접 입력 → proxy 가 바로 `/join/{code}`. 이미 멤버가 링크 재방문 → 버튼 "다시 들어가기".
+  (3) `/join` 실패 5종 문구(BRAND 표) + "내 방으로": 없는 코드 / 꽉 찬 방(3번째 계정) / 주인 나간 방 / 본인 방(A 가 자기 링크) / 50개 초과(가능하면). api 껐을 때 "삐끗했다. 다시 해볼까?" + "다시".
+  (4) 초대 시트: **휴대폰 카메라로 QR 스캔**(라이트·다크 모드 둘 다 — 카드는 항상 밝은 배경) → `/join/{code}` 열림. 코드 "XXXX XXXX" 표시·복사값은 8자 연속·토스트. 링크 복사. "공유하기" 는 share 지원 브라우저(모바일 Safari/Chrome, 데스크톱 Safari)에만 노출. 재발급 → 확인 모달 → 새 코드, 옛 링크는 404.
+  (5) ORPHANED 모달 3경로: B 가 방 안에 있을 때 A 나가기(SSE) / B 가 목록에서 `닫힘` 방 탭 / B 가 옛 화면에서 전송(410). 모두 같은 모달, 토스트 없음, 뒤 대화 딤 + 입력 잠김, 닫기 없음. "알았어" → `DELETE` → `/`(남은 방 또는 빈 상태). A(개설자) 화면엔 모달 없음.
+  (6) 초대 시트가 열린 채 B 입장 → 시트 자동 닫힘 + "B 등장!". B 나가기 → A 방 정보 시트에 "초대" 다시 노출.
+  (7) 입장 화면 레이아웃(390): 제목 "초대장 도착", 우측 소개 2줄("{닉}이(가) 부른 방" 조사 맞는지 — 받침 유무), 말풍선 꼬리 발치 개설자 아바타, 하단 safe-area 잘림 없음. 다크 모드 반전.
+  (8) 접근성: 시트 dialog 라벨 "친구 데려오기", 복사 버튼 aria-label "코드 복사", QR `role=img` "초대 QR", 모달 포커스 "알았어".
+- 범위 외: 쌍당 방 1개 규칙(미등록, 별도 T), 보이스(T-010), 테마 수동 선택(T-020), PWA(T-013/T-014).
+- date: 2026-09-16

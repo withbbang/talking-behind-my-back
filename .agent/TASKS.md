@@ -319,7 +319,7 @@
   `OAuth2SuccessHandler` 가 콜백 요청 쿠키에서 `loadAuthorizationRequest` 로 다시 읽는다(필터의 remove 는 응답 헤더만 쓰므로 요청 쿠키는 남아 있음).
 
 ## T-018 초대 입장 페이지 + QR/링크 공유 + 주인 없는 방 모달 (web)
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
 - spec: API.md#rooms #auth, DESIGN.md#4~6, D-021
@@ -330,6 +330,13 @@
   - 공유 시트(개설자, 방 헤더 시트 "초대" 에서 진입): 코드 4+4 표시·복사(8자), 링크 복사, QR(`uqr` 행렬 → 둥근 모듈 SVG, 라이트 토큰 고정 카드), `navigator.share` 있으면 "공유하기", 코드 재발급(확인 모달 → `POST invite/regenerate` → 시트 갱신).
   - ORPHANED 모달: 캐시 `room.status` 단일 트리거(D-021). 참여자에게만. "알았어" → `DELETE /rooms/{id}` → 목록에서 제거 → `/`. 전송 410 은 캐시 status 갱신(토스트 제거).
   - 테스트: `proxy`(next 부여/불량 무시), `LoginClient`(next 전달), `JoinClient` 상태별 렌더·입장·오류, `InviteSheet` 복사·공유 조건부·재발급, `QrCode` 행렬→rect, `OrphanedDialog`+`RoomView` 트리거·확인 호출.
+- test: 신규 `lib/nextPath` 14, `lib/josa` 2, `features/rooms/joinErrorMessage` 6, `features/rooms/useInvite` 3, `(auth)/join/[code]/JoinClient` 8, `ui/QrCode` 2, `chat/InviteSheet` 6;
+  수정 `proxy` +5, `LoginClient` +2, `ChatShell` +1, `RoomView` +3, `sendErrorMessage` 410→null. 전체 40 파일 219 통과, lint 0 오류(기존 경고 1), typecheck·build 통과(2026-09-16 로컬).
+  브라우저(nginx :3000): 미인증 `/join/K7Q2M9XW` → `/login?next=%2Fjoin%2FK7Q2M9XW`, 소셜 링크 3개 `?next=` 부착 확인. 로그인 이후 화면은 실소셜 로그인이 필요해 QA 로.
+- note: 착수 2026-09-16, 결정은 D-021. 구현 메모: `lib/nextPath.safeNextPath` 는 api `NextPath` 와 같은 정규식(양쪽 동시 수정).
+  `InviteSheet` 는 `room.inviteCode` 가 있을 때만(개설자) 마운트, `memberCount < 2` 조건으로 친구가 들어오면 저절로 닫힘.
+  ORPHANED 모달은 `RoomView` 가 `status === 'ORPHANED' && role === 'PARTICIPANT'` 로만 판단 — `useSendMessage` 410 은 캐시 status 만 바꾼다.
+  `JoinClient` 소개문 조사(이/가)는 `lib/josa.iGa`(받침 판정, 비한글은 병기). `uqr` 0.1.3 추가(의존성 0).
 
 ## T-020 테마 수동 선택(라이트/다크/시스템) (web)
 - status: TODO
