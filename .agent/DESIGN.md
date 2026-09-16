@@ -6,13 +6,14 @@
 > 토큰·카피 보이스(개구쟁이 반말)·AI 성격은 `BRAND.md`. 화면 문구는 BRAND.md#5 표와 동일해야 한다. 개발자는 여기 없는 UI를 임의로 만들지 않고 inbox/to-designer.md로 요청.
 > 2026-09-16 개정(디자이너 대행, 사용자 결정): 2인 채팅방 요건(D-017~D-019, T-008/T-018) 반영. 로그인은 구현 상태로 갱신.
 > 2026-09-16 2차 개정(디자이너 대행, 사용자 결정 D-021): §4 QR 렌더·코드 표시·공유 버튼 조건, §5 초대장 말풍선 아바타·소개문, 미결에서 QR 라이브러리 제거.
+> 2026-09-16 3차 개정(디자이너 대행, 사용자 결정 D-024): #원칙 테마 수동 선택, §2 사이드바 하단 테마 필 토글.
 
 ## 원칙
 - 모바일 우선. 기준 뷰포트 390×844(iPhone), 데스크톱 ≥1024에서 사이드바 고정.
 - 입력창은 항상 하단 고정(키보드 올라와도 가려지지 않게 `100dvh` + safe-area).
 - 스트리밍 중에도 레이아웃이 튀지 않도록 말풍선은 아래로만 자란다.
 - 접근성: 모든 버튼 `aria-label`, 스트리밍 말풍선 `aria-live="polite"`, 포커스 링(`--accent` 2px) 유지. 색만으로 상태 구분 금지.
-- 다크/라이트: v1은 시스템 설정 따라감(수동 토글 없음). `surface`/`on-surface` 는 모드에서 반전(BRAND.md#2).
+- 다크/라이트: 기본은 시스템 설정. 사이드바 하단 테마 선택(`시스템 | 라이트 | 다크`, T-020/D-024)으로 수동 고정 가능 — 선택은 기기별(`localStorage`), 첫 페인트 전 적용. `surface`/`on-surface` 는 모드에서 반전(BRAND.md#2).
 - **심플**: 화면당 주 액션 1개. 아이콘 버튼은 라벨 없이 쓰되 44×44 터치 영역. 구분선 대신 여백(16/24px). 그림자 없음.
 - **귀여움**: 모서리 ≥16px(말풍선 22px, 시트 28px, 필 9999px). 등장 모션은 `bubble-in` 1회(scale .96→1, 180ms), `prefers-reduced-motion` 시 즉시. 아바타는 `icon.svg` 하트만.
 
@@ -45,7 +46,7 @@
     제목 아래 보조 줄 13px `muted`: `주인` 배지(내가 OWNER) 또는 상대 닉네임(PARTICIPANT). ORPHANED 방은 `닫힘` 배지 + 제목 `muted`.
   - 항목 … 메뉴(길게 누르기/호버 아이콘): 제목 수정(개설자만, 인라인 Input) · 나가기(ConfirmDialog "나가면 이 방은 끝이야. 진짜 갈래?" / 참여자는 "나가면 여기 얘긴 못 봐. 갈래?").
   - 상단 도달 시 이전 페이지 로드(키셋 커서). 빈 목록: 하트 아바타 + "아직 방이 없네? 하나 파자." 한 줄.
-  - 하단: 프로필(아바타 + 닉네임) · 로그아웃 텍스트 버튼.
+  - 하단: 프로필(아바타 + 닉네임) · 로그아웃 텍스트 버튼. 그 아래 한 줄에 테마 선택 필 토글 `시스템 | 라이트 | 다크`(PillToggle, `aria-label` "테마 선택", 좌측 보조 라벨 없음, 우측 정렬). 드로어에서도 같은 위치(T-020, D-024).
 
 ### 3. 채팅방 `/rooms/[id]`
 - **방 헤더 시트** (상단 바 제목 탭 → 바텀 시트)
@@ -123,6 +124,7 @@
 | SocialLoginButton, Toast | components/ui | 구현됨 |
 | PillToggle, Badge, Avatar, Sheet, ConfirmDialog, Skeleton, Input | components/ui | T-008 |
 | Sidebar, RoomListItem, RoomHeaderSheet, AiPromptEditor | components/chat | T-008 |
+| ThemePicker(시스템/라이트/다크 필) | components/chat | T-020 |
 | MessageList, MessageBubble(나/상대/AI), StreamingBubble, SystemLine, DateChip | components/chat | T-008 |
 | Composer (textarea+send, mic 은 M3) | components/chat | T-008 |
 | InviteSheet(QR·코드·링크·재발급), JoinPreview, OrphanedDialog | components/chat | T-018 |

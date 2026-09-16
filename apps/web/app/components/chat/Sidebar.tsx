@@ -11,6 +11,7 @@ import type { RoomListItem as RoomListItemData } from '@/features/rooms/types';
 import { useCreateRoom, useLeaveRoom, usePatchRoom, useRooms } from '@/features/rooms/useRooms';
 import { ApiError } from '@/lib/api';
 import { RoomListItem } from './RoomListItem';
+import { ThemePicker } from './ThemePicker';
 
 export function activeRoomId(pathname: string): number | null {
   const m = /^\/rooms\/(\d+)/.exec(pathname);
@@ -18,7 +19,7 @@ export function activeRoomId(pathname: string): number | null {
 }
 
 /**
- * 사이드바 (DESIGN.md#2). 상단 "+ 새 방", 방 목록(하단 도달 시 다음 페이지), 하단 프로필 + 로그아웃.
+ * 사이드바 (DESIGN.md#2). 상단 "+ 새 방", 방 목록(하단 도달 시 다음 페이지), 하단 프로필 + 로그아웃, 그 아래 테마 선택(T-020).
  * 데스크톱은 고정 280, 모바일은 ChatShell 드로어 안에 같은 컴포넌트.
  */
 export function Sidebar() {
@@ -89,6 +90,9 @@ export function Sidebar() {
         >
           로그아웃
         </button>
+      </div>
+      <div className="flex shrink-0 justify-end">
+        <ThemePicker />
       </div>
     </div>
   );

@@ -193,6 +193,17 @@
 - impact: api `message/{Message, MessageResponse}`, `mapper/MessageMapper.xml`(조회 3종 LEFT JOIN users), API.md#messages; web `features/messages/types.ts`, `components/chat/MessageList.buildRows`(우선순위 senderNickname → members → "나간 사람"), `useMessages` 낙관적 메시지 `senderNickname: null`. → T-021
 - date: 2026-09-16 (개발자 대행 기록, 사용자 결정 — A안 채택)
 
+### D-024 T-020 테마 수동 선택 — 사이드바 하단 글자 필 토글, 고정 용어 "시스템 | 라이트 | 다크"
+- decision:
+  - UI 는 사이드바 하단 프로필 줄 **아래** 한 줄에 `PillToggle` 3칸(`시스템 | 라이트 | 다크`). 좌측 보조 라벨("화면") 없음. `aria-label="테마 선택"`. 사이드바 컴포넌트를 공유하므로 모바일 드로어에도 같은 위치.
+  - 라벨은 고정 용어(로그인/로그아웃과 같은 층) — 개구쟁이 카피 적용 안 함. BRAND.md#5 고정 용어 목록에 추가.
+  - 저장: `localStorage["theme"]` = `light`|`dark`, 시스템은 키 삭제. 첫 페인트 전 `<html data-theme>` 부착은 `app/layout.tsx` `<head>` 인라인 스크립트. `<meta name="theme-color">` 는 Next `viewport.themeColor` 미디어 배열 대신 단일 메타를 직접 렌더하고 JS 가 content 를 갱신한다(미디어 메타는 수동 선택을 반영 못 함).
+  - `globals.css` 다크 토큰은 `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }` 와 `:root[data-theme="dark"]` 두 셀렉터에서 같은 값. `--qr-*` 는 D-021 E3 대로 모드 무관.
+- rationale: 3안 목업(A 글자 필 / B 아이콘 필 프로필 줄 안 / C 순환 버튼 1개) 중 A — 기존 컴포넌트 재사용, 3상태가 한눈에 읽히고 닉네임 말줄임을 압박하지 않는다. 라벨에 장난기를 넣으면 32px 필 안에서 의미가 흐려진다.
+- alternatives: B — 280px 안에 아바타+닉+필+로그아웃, 긴 닉 말줄임 심함. C — 현재 상태만 보이고 다음 상태 예측 불가, 툴팁 필요. 기각.
+- impact: web `lib/theme.ts`, `components/chat/ThemePicker.tsx`, `Sidebar.tsx`, `app/layout.tsx`, `globals.css`; DESIGN.md #원칙·§2, BRAND.md #2·#5. → T-020
+- date: 2026-09-16 (개발자 대행 기록, 사용자 결정 — A안, "화면" 라벨 제거, 고정 용어)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

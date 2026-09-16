@@ -170,3 +170,17 @@
 - 근거 파일: D-023, API.md#messages, `apps/api/.../message/{Message,MessageResponse}.java`, `mapper/MessageMapper.xml`, `apps/web/app/components/chat/MessageList.tsx`, `app/features/messages/types.ts`
 - 범위 외: 닉네임 변경 시 과거 메시지도 새 닉으로 보임(D-023 의도). 방 상세 `members` 는 그대로 활성 멤버만.
 - date: 2026-09-16
+
+### [개발자 → QA] T-020 테마 수동 선택(시스템/라이트/다크) (web) 검증 요청
+- 요청/이슈: web `cd apps/web && npm test && npm run lint && npm run typecheck && npm run build`(240 통과) 확인.
+  실브라우저(로그인 필요, 데스크톱 + 모바일 390):
+  (1) 사이드바 하단 프로필·로그아웃 줄 **아래** 우측에 필 토글 `시스템 | 라이트 | 다크`. 좌측 라벨 없음. 모바일 드로어에서도 같은 위치, safe-area 잘림 없음.
+  (2) 라이트/다크 탭 → 즉시 전체 반전(surface 반전 포함), 새로고침·다른 방 이동·로그인 화면·`/join` 에서도 유지, **첫 페인트 깜빡임 없음**(다크 강제 + OS 라이트에서 새로고침 여러 번).
+  (3) 시스템 탭 → `localStorage.theme` 키 삭제, OS 설정 따라감. OS 를 바꾸면(맥 시스템 설정) 시스템 모드에서만 따라오고 고정 모드에선 무시.
+  (4) `<meta name="theme-color">` 가 **항상 1개**이고 content 가 적용 모드의 `--bg`(#fff4f8 / #170611). iOS 홈화면 PWA 상태바 색이 선택 모드를 따르는지(가능하면).
+  (5) 초대 QR 카드는 다크 강제에서도 밝은 바탕(D-021 E3 유지).
+  (6) 접근성: `radiogroup` "테마 선택", 방향키 이동, 포커스 링. 활성 칸은 색 + 굵기.
+  (7) 다른 탭에서 바꾸면 이 탭도 따라옴(storage 이벤트).
+- 근거 파일: D-024, DESIGN.md#원칙·#2, BRAND.md#2·#5, `apps/web/app/lib/{theme,themeInit}.ts`, `components/chat/ThemePicker.tsx`, `Sidebar.tsx`, `app/layout.tsx`, `globals.css`
+- 범위 외: 어드민(M4) 테마, 서버 저장(기기별 localStorage 가 스펙).
+- date: 2026-09-16

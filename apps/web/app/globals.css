@@ -3,7 +3,8 @@
 /*
  * 디자인 토큰 — 핑크 테마 (2026-09-15, T-005 이후 사용자 결정). DESIGN.md 컬러 토큰 미결 항목의 개발자 초안.
  * 핵심 은유는 "말풍선"(app/icon.svg 와 동일 계열: #FF4D6A / #E5163C / #0C0A10).
- * 다크 모드는 시스템 설정을 따른다(DESIGN.md#원칙, 수동 토글 없음). surface 는 라이트/다크에서 반전된다.
+ * 다크 모드: 기본은 시스템 설정, <html data-theme="light|dark"> 가 있으면 그 값이 이긴다(T-020, D-024, lib/theme.ts).
+ * 다크 값은 아래 두 셀렉터에 같은 값으로 둔다 — 값이 바뀌면 둘 다 고친다. surface 는 라이트/다크에서 반전된다.
  */
 :root {
   --bg: #fff4f8;
@@ -23,7 +24,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #170611;
     --ink: #ffe1eb;
     --muted: rgb(255 225 235 / 0.62);
@@ -33,6 +34,17 @@
     --danger: #ff8fa8;
     --danger-bg: rgb(255 143 168 / 0.16);
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #170611;
+  --ink: #ffe1eb;
+  --muted: rgb(255 225 235 / 0.62);
+  --surface: #ff3d7f;
+  --on-surface: #170611;
+  --accent: #ff6b9c;
+  --danger: #ff8fa8;
+  --danger-bg: rgb(255 143 168 / 0.16);
 }
 
 /* Tailwind 4 테마 변수 — `bg-bg`, `text-ink`, `bg-surface`, `text-accent` 등으로 사용 */

@@ -20,7 +20,7 @@
 
 ## 2. 컬러
 
-### 토큰 (`globals.css` `:root` / `prefers-color-scheme: dark`)
+### 토큰 (`globals.css` `:root` / `prefers-color-scheme: dark` / `[data-theme]`)
 
 | 토큰 | 라이트 | 다크 | 역할 |
 |---|---|---|---|
@@ -34,6 +34,8 @@
 | `--danger-bg` | danger 10% | danger 16% | 오류 배경 |
 
 Tailwind: `bg-bg text-ink text-muted bg-surface text-on-surface text-accent text-danger bg-danger-bg`. 토큰 밖 hex 를 컴포넌트에 직접 쓰지 않는다.
+
+모드 결정(T-020, D-024): `<html data-theme="light|dark">` 가 있으면 그 값, 없으면 `prefers-color-scheme`. 다크 값은 두 셀렉터(`@media dark` 안 `:root:not([data-theme="light"])`, `:root[data-theme="dark"]`)에 같은 값으로 둔다 — 값이 바뀌면 둘 다. `--qr-*` 는 모드 무관.
 
 ### 아이콘 전용 팔레트 (`app/icon.svg`)
 
@@ -89,7 +91,7 @@ Tailwind: `bg-bg text-ink text-muted bg-surface text-on-surface text-accent text
 - **장난기.** 능청·살짝 과장 OK. 단 놀림 대상은 항상 상황·AI 자신·"그 사람". **사용자를 놀리지 않는다.**
 - **짧게.** 30자 이내, 한 문장. 오류는 "무슨 일 + 뭐 하면 됨" 두 조각까지.
 - 문장부호: 물음표 적극, 느낌표는 문장당 1개까지, 말줄임표 "…" 허용. 이모지 없음(아이콘이 대신).
-- 고정 용어는 손대지 않는다: 로그인 / 로그아웃 / 설정 / 복사 / 취소 / 확인. `aria-label`·스크린리더 문구도 담백한 표준어("메시지 전송") — 장난은 눈에 보이는 글에만.
+- 고정 용어는 손대지 않는다: 로그인 / 로그아웃 / 설정 / 복사 / 취소 / 확인 / 시스템 · 라이트 · 다크(테마 선택, D-024). `aria-label`·스크린리더 문구도 담백한 표준어("메시지 전송") — 장난은 눈에 보이는 글에만.
 - 안전: 실명·신상·혐오 표현 금지(§5-3). 개구쟁이는 말투지, 공격이 아니다.
 
 | 우리는 | 우리는 아니다 |

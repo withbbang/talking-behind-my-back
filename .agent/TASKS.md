@@ -44,6 +44,7 @@
   `InvalidClientRegistrationIdException` 은 package-private(IllegalArgumentException 하위).
 - **MyBatis XML 안 SQL 의 `<>` 는 XML 파싱 오류.** `!=` 로. `bootRun` 중 `gradlew test` 를 돌리면 devtools 가 재시작하는데 그때 리소스가 깨져 있으면 앱이 죽은 채 남는다 — 고친 뒤 bootRun 재기동.
 - **RTL `getByText` 는 한 `<p>` 안에서 `<br/>` 로 나뉜 줄을 못 잡는다.** 여러 줄 카피는 줄마다 `<span className="block">`.
+- **hydration 전 인라인 스크립트로 React 가 렌더한 `<meta>`/`<title>` 을 바꾸면 React 19 가 hoistable 매칭에 실패해 같은 태그를 하나 더 꽂는다**(T-020 theme-color 중복 실측). 첫 페인트 전엔 `<html>` 속성만 건드리고 메타는 마운트 후 갱신. `'use client'` 모듈의 문자열 상수를 서버 컴포넌트(layout)에서 import 하면 클라이언트 참조가 되니 상수는 지시어 없는 모듈로 분리.
 
 ---
 
@@ -377,16 +378,19 @@
 - note: T-018 Playwright QA(2026-09-16)에서 발견. DESIGN.md#3 빈 방 문구 개정(디자이너 대행, 사용자 결정).
 
 ## T-020 테마 수동 선택(라이트/다크/시스템) (web)
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
-- spec: DESIGN.md#원칙(v1 은 시스템 따라감 — 개정 필요), BRAND.md#2, D-020
+- spec: DESIGN.md#원칙·#2 사이드바, BRAND.md#2, D-020, D-024
 - blocked_by: T-008
 - acceptance:
   - 사이드바 하단 프로필 영역에 테마 선택(시스템/라이트/다크). 선택은 `localStorage` 에 저장, 첫 페인트 전 `<html data-theme>` 적용(깜빡임 없음).
   - `globals.css` 토큰이 `prefers-color-scheme` 외에 `[data-theme]` 로도 반전. `themeColor` 메타 동기화.
   - 단위 테스트: 저장/복원/시스템 추종 전환.
-- note: 사용자 요청 2026-09-16(T-008 착수 대화). DESIGN.md "수동 토글 없음" 문구 개정은 to-designer 로 요청.
+- test: `lib/theme.test.tsx` 13 · `ThemePicker.test.tsx` 3 · `Sidebar.test.tsx` +1. web 240 통과, lint 0 error, typecheck·build 통과.
+- note: 사용자 요청 2026-09-16(T-008 착수 대화). 착수 2026-09-16, D-024(A안: 프로필 줄 아래 글자 필 3칸, 보조 라벨 없음, 고정 용어). DESIGN.md/BRAND.md 개정은 디자이너 대행(사용자 지시).
+  구현: `lib/themeInit.ts`(상수 + 인라인 스크립트, 서버 안전) / `lib/theme.ts`(useSyncExternalStore 스토어, applyTheme, ThemeSync) / `components/chat/ThemePicker.tsx` / `layout.tsx`(next/script beforeInteractive + `<ThemeSync/>`, viewport.themeColor 제거) / `globals.css`(`[data-theme]` 셀렉터).
+  실브라우저(로그인 화면, OS 다크): light 강제 → 라이트 토큰, system → 다크 토큰 + 속성 없음, dark 강제 → 다크. theme-color 메타 항상 1개. 사이드바 실화면은 api 꺼져 있어 단위 테스트만 — QA 요청.
 
 ## M3 음성
 

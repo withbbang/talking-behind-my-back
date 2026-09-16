@@ -55,6 +55,16 @@ describe('Sidebar (DESIGN.md#2)', () => {
     expect(screen.getByRole('button', { name: '로그아웃' })).toBeInTheDocument();
   });
 
+  it('하단에 테마 선택 필 토글(시스템 | 라이트 | 다크) — T-020', async () => {
+    mockApi([]);
+    renderSidebar();
+    expect(await screen.findByText('영선')).toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: '테마 선택' });
+    expect(group).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '시스템' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByText('화면')).not.toBeInTheDocument();
+  });
+
   it('방이 없으면 빈 상태 문구', async () => {
     mockApi([]);
     renderSidebar();
