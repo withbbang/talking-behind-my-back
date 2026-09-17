@@ -415,7 +415,7 @@
 ## M3 음성
 
 ## T-009 STT/TTS Provider + 엔드포인트 (api)
-- status: TODO
+- status: IN_PROGRESS
 - owner: 개발자
 - milestone: M3
 - spec: API.md#speech, D-007
@@ -436,6 +436,19 @@
   - 메시지별 듣기 → TTS 재생 큐. 마이크 → STT → `inputType: 'VOICE'`.
   - 보이스 모드 상태 머신(idle→recording→transcribing→streaming→speaking→recording) 순수 함수 + 테스트.
   - 권한 거부/네트워크 오류 시 텍스트 입력으로 복귀.
+- note: 체감 보강(VAD 자동 종료·문장 단위 TTS 선재생)은 → T-026 참조 (D-026). 이 태스크는 DESIGN.md#7 상태 머신까지.
+
+## T-026 보이스 모드 체감 보강 — VAD 자동 종료 + 문장 단위 TTS 선재생 (web)
+- status: TODO
+- owner: 개발자
+- milestone: M3
+- spec: D-026, DESIGN.md#7, API.md#speech
+- blocked_by: T-010
+- acceptance:
+  - VAD: `AnalyserNode` RMS 기반 무음 감지 순수 함수(`detectSilence(frames, thresholdDb, holdMs)`) + 테스트. 발화 종료 후 N ms 무음이면 녹음 자동 종료 → transcribing. 최대 길이(60초)도 자동 종료.
+  - 문장 단위 TTS: SSE 델타를 문장 경계(`. ! ? …` + 개행)로 자르는 순수 함수 + 테스트. 첫 문장이 완성되면 `/speech/tts` 를 먼저 호출해 재생 큐에 넣고, 이후 문장은 순서대로 이어 재생. `done` 이후 남은 꼬리 처리.
+  - 재생 큐가 비고 스트림도 끝나면 speaking → recording 자동 전환(T-010 상태 머신 확장).
+  - 기존 API 변경 없음. 실패 시 T-010 의 전체 문장 TTS 로 폴백.
 
 ## M4 어드민
 

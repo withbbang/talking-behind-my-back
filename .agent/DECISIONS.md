@@ -218,6 +218,18 @@
 - impact: web 문구 전반(`lib/copy.ts` 신설, `lib/josa.ts` 삭제), BRAND.md#5 표·DESIGN.md#2~6 문구 갱신(to-designer.md), API.md 변경 없음. → T-025
 - date: 2026-09-17 (개발자 대행 기록, 사용자 결정 — 수정안 기입 + 확인 질문 4건 답변)
 
+### D-026 보이스 모드는 턴 기반(D-007 유지) — 실시간 음성↔음성은 채택하지 않음, 체감 보강은 T-026 으로 분리
+- decision: T-009/T-010 은 문서대로 턴 기반(녹음 → `/speech/stt` → 메시지 전송(SSE) → `done` 후 `/speech/tts` → 재생 → 자동 재녹음)으로 만든다.
+  OpenAI Realtime 류 실시간 양방향(WebSocket/WebRTC, STT/TTS 단계 없음)은 채택하지 않는다.
+  "대화 같은 느낌"은 같은 API 위에서 클라이언트만 바꿔 보강한다 → T-026(VAD 무음 감지 자동 종료 + 문장 단위 TTS 선재생). 끼어들기(barge-in)는 백로그.
+  T-009 세부: STT 는 클라이언트가 `durationMs`(MediaRecorder 실측)를 같이 보내면 공급자 호출 전에 상한을 검사하고, 공급자가 돌려준 길이로 한 번 더 검사한다(둘 다 `AUDIO_TOO_LONG`).
+  `daily_usage.stt_seconds` 는 공급자 보고 길이 올림, `tts_chars` 는 요청 텍스트 길이. OpenAI 는 OmniRoute 를 거치지 않고 직접 호출(D-007 의 `/v1/audio/*` 경유는 미확인 상태 유지).
+- rationale: 실시간 방식은 OmniRoute 모델 alias·Provider 인터페이스(D-007)·직렬 큐·4:1 컨텍스트·텍스트 보존을 전부 우회하고 분당 과금이라 CONTEXT.md 비용 상한 요건과 충돌한다.
+  턴 기반 + VAD + 문장 단위 선재생이면 Claude 앱 보이스 모드와 거의 같은 체감이 나오고 설계 변경이 없다.
+- alternatives: OpenAI Realtime API 직접 연결 — 기각(위 이유). Web Speech API — D-007 에서 이미 기각.
+- impact: T-009 착수, T-026 신설(blocked_by T-010), API.md#speech 에 `durationMs` 추가. DESIGN.md#7 변경 없음.
+- date: 2026-09-17 (개발자 대행 기록, 사용자 결정 — "추천 방식으로 진행")
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

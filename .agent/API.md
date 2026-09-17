@@ -158,7 +158,7 @@ Message:
 
 | Method | Path | 설명 |
 |---|---|---|
-| POST | `/speech/stt` | multipart `audio` (webm/opus, mp4/aac, wav). 최대 25MB, 60초. |
+| POST | `/speech/stt` | multipart `audio` (webm/opus, mp4/aac, wav) + 선택 `durationMs`(클라이언트 실측). 최대 25MB, 60초. |
 | POST | `/speech/tts` | `{ "text": string, "voice"?: string }` → `audio/mpeg`. `text` 최대 1,000자. |
 
 STT 200:
@@ -166,6 +166,11 @@ STT 200:
 { "text": "오늘 날씨 어때", "durationMs": 2400, "provider": "openai" }
 ```
 TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤더 `Cache-Control: private, max-age=3600`.
+
+- STT 400 `AUDIO_TOO_LONG`: `durationMs` 가 상한(60초)을 넘거나, 공급자가 돌려준 길이가 상한을 넘을 때(D-026). `audio` 가 비면 400 `VALIDATION_FAILED`(`details.audio`).
+- TTS 400 `TEXT_TOO_LONG`: `text` 1,000자 초과. 공백만이면 400 `VALIDATION_FAILED`(`details.text`). `voice` 생략 시 서버 기본값(`TTS_VOICE`).
+- 공급자 실패(연결/타임아웃/비 2xx)는 502 `SPEECH_UPSTREAM_ERROR`. 오디오는 `app.speech.tmp-dir` 에 잠시 저장 후 응답 전에 삭제된다(성공·실패 모두).
+- 사용량: STT 성공 시 `daily_usage.stt_seconds += ceil(공급자 보고 길이)`, TTS 성공 시 `tts_chars += text.length`.
 
 프론트 보이스 모드는 `/speech/stt` → `POST /rooms/{id}/messages`(`inputType: "VOICE"`) → `done` 후 `/speech/tts`(assistant content) 순서로 호출한다. 별도 복합 엔드포인트는 두지 않는다.
 
