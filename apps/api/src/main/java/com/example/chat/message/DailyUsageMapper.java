@@ -16,5 +16,11 @@ public interface DailyUsageMapper {
 	int addTokens(@Param("userId") Long userId, @Param("date") LocalDate date,
 		@Param("promptTokens") int promptTokens, @Param("completionTokens") int completionTokens);
 
+	/** STT 성공 시 stt_seconds 누적(공급자 보고 길이 올림, T-009) */
+	int addSttSeconds(@Param("userId") Long userId, @Param("date") LocalDate date, @Param("seconds") int seconds);
+
+	/** TTS 성공 시 tts_chars 누적(요청 텍스트 길이, T-009) */
+	int addTtsChars(@Param("userId") Long userId, @Param("date") LocalDate date, @Param("chars") int chars);
+
 	Optional<DailyUsage> find(@Param("userId") Long userId, @Param("date") LocalDate date);
 }

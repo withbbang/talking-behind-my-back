@@ -357,6 +357,22 @@ class MapperTest {
 			assertThat(u2.getPromptTokens()).isEqualTo(5);
 			assertThat(u2.getUsageDate()).isEqualTo(d2);
 		}
+
+		@Test
+		void stt_seconds_와_tts_chars_도_같은_행에_누적된다() {
+			User me = newUser("me");
+			LocalDate d = LocalDate.of(2026, 9, 17);
+
+			usageMapper.addSttSeconds(me.getId(), d, 3);
+			usageMapper.addSttSeconds(me.getId(), d, 4);
+			usageMapper.addTtsChars(me.getId(), d, 120);
+			usageMapper.addMessage(me.getId(), d);
+
+			DailyUsage u = usageMapper.find(me.getId(), d).orElseThrow();
+			assertThat(u.getSttSeconds()).isEqualTo(7);
+			assertThat(u.getTtsChars()).isEqualTo(120);
+			assertThat(u.getMessageCount()).isEqualTo(1);
+		}
 	}
 
 }

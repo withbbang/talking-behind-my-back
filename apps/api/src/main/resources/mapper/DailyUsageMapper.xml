@@ -31,6 +31,18 @@
       completion_tokens = completion_tokens + VALUES(completion_tokens)
   </insert>
 
+  <insert id="addSttSeconds">
+    INSERT INTO daily_usage (user_id, usage_date, stt_seconds)
+    VALUES (#{userId}, #{date}, #{seconds})
+    ON DUPLICATE KEY UPDATE stt_seconds = stt_seconds + VALUES(stt_seconds)
+  </insert>
+
+  <insert id="addTtsChars">
+    INSERT INTO daily_usage (user_id, usage_date, tts_chars)
+    VALUES (#{userId}, #{date}, #{chars})
+    ON DUPLICATE KEY UPDATE tts_chars = tts_chars + VALUES(tts_chars)
+  </insert>
+
   <select id="find" resultMap="usageMap">
     SELECT <include refid="columns"/>
     FROM daily_usage

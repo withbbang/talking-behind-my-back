@@ -32,6 +32,8 @@ app:
     model: test-model
   speech:
     openai-api-key: ""
+    openai-base-url: http://localhost:1   # 실제 OpenAI 를 부르면 안 된다 — 단위 테스트는 MockWebServer, 컨트롤러는 FakeSpeechTestConfig
+    tmp-dir: build/tmp/audio
 
 logging:
   level:
