@@ -24,6 +24,13 @@ public record SpeechProperties(
 	String ttsVoice,
 	int timeoutSeconds
 ) {
+	/** D-028: tts-voice 를 비우면 OmniRoute 가 alloy 를 넣어 Edge 사이드카가 500 — 기동 시점에 막는다. */
+	public SpeechProperties {
+		if (ttsVoice == null || ttsVoice.isBlank()) {
+			throw new IllegalArgumentException("app.speech.tts-voice (TTS_VOICE) must not be blank — e.g. ko-KR-SunHiNeural (D-028)");
+		}
+	}
+
 	public long maxAudioMs() {
 		return maxAudioSeconds * 1000L;
 	}

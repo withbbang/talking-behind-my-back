@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -47,6 +48,14 @@ public class GlobalExceptionHandler {
 		ErrorCode code = ErrorCode.VALIDATION_FAILED;
 		return ResponseEntity.status(code.getStatus())
 			.body(ErrorResponse.of(code, "요청 본문을 읽을 수 없습니다.", null));
+	}
+
+	/** 쿼리/폼 파라미터 타입 불일치(`durationMs=abc`, `size=x`) — 값은 로그·응답에 남기지 않는다 (T-009 리뷰). */
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+		ErrorCode code = ErrorCode.VALIDATION_FAILED;
+		return ResponseEntity.status(code.getStatus())
+			.body(ErrorResponse.of(code, code.getDefaultMessage(), Map.of(e.getName(), "값의 형식이 올바르지 않습니다.")));
 	}
 
 	@ExceptionHandler(MaxUploadSizeExceededException.class)

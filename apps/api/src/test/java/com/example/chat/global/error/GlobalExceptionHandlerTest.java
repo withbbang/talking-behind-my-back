@@ -9,6 +9,7 @@ import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
@@ -47,6 +48,19 @@ class GlobalExceptionHandlerTest {
 		assertThat(res.getBody().code()).isEqualTo("ROOM_NOT_FOUND");
 		assertThat(res.getBody().message()).isEqualTo("room 99");
 		assertThat(res.getBody().details()).isEqualTo(Map.of("roomId", 99));
+	}
+
+	@Test
+	@DisplayName("쿼리/폼 파라미터 타입 불일치(durationMs=abc, size=x)는 400 VALIDATION_FAILED + details.<param>, 값은 노출하지 않는다")
+	void 파라미터_타입_불일치() {
+		ResponseEntity<ErrorResponse> res = handler.handleTypeMismatch(
+			new MethodArgumentTypeMismatchException("abc", Long.class, "durationMs", null, new NumberFormatException("For input string: \"abc\"")));
+
+		assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(res.getBody()).isNotNull();
+		assertThat(res.getBody().code()).isEqualTo("VALIDATION_FAILED");
+		assertThat(res.getBody().details()).isEqualTo(Map.of("durationMs", "값의 형식이 올바르지 않습니다."));
+		assertThat(res.getBody().toString()).doesNotContain("abc");
 	}
 
 	@Test

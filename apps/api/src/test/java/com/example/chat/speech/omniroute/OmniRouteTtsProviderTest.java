@@ -71,6 +71,19 @@ class OmniRouteTtsProviderTest {
 	}
 
 	@Test
+	void 타임아웃은_SpeechException_이고_메시지에_근본_원인_클래스가_남는다() {
+		SpeechProperties props = new SpeechProperties("omniroute", "omniroute", "/tmp/x", 60, 1000,
+			"openai/whisper-1", "openai/tts-1", "", "", "", "", "alloy", 1);
+		OmniRouteTtsProvider slow = new OmniRouteTtsProvider(WebClient.builder().baseUrl(server.url("/v1").toString()).build(), props);
+		server.enqueue(new MockResponse().setHeader("Content-Type", "audio/mpeg").setBody(new Buffer().write(new byte[]{1, 2, 3}))
+			.setBodyDelay(3, TimeUnit.SECONDS));
+
+		assertThatThrownBy(() -> slow.synthesize("안녕", "alloy"))
+			.isInstanceOf(SpeechException.class)
+			.hasMessageContaining("TimeoutException");
+	}
+
+	@Test
 	void 빈_본문은_SpeechException() {
 		server.enqueue(new MockResponse().setHeader("Content-Type", "audio/mpeg").setBody(new Buffer()));
 

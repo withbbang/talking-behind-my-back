@@ -42,7 +42,7 @@ public class OmniRouteTtsProvider implements TtsProvider {
 		} catch (WebClientResponseException e) {
 			throw new SpeechException("omniroute tts responded " + e.getStatusCode().value(), e);
 		} catch (RuntimeException e) {
-			throw new SpeechException("omniroute tts call failed: " + e.getClass().getSimpleName(), e);
+			throw new SpeechException("omniroute tts call failed: " + SpeechException.rootName(e), e);
 		}
 		if (out == null || out.length == 0) throw new SpeechException("omniroute tts returned empty body", null);
 		return out;

@@ -2,6 +2,9 @@
 # DB: 로컬은 docker-compose.dev.yml 의 chat_app, CI 는 ci.yml 의 MySQL 서비스(chat_app_test) — DB_URL 로 덮어씀.
 # @MybatisTest 는 트랜잭션 롤백이라 로컬 dev DB 를 그대로 써도 데이터가 남지 않는다.
 spring:
+  servlet:
+    multipart:
+      location: ${java.io.tmpdir}/chat-app-test-audio   # = app.speech.tmp-dir
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/chat_app?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
     username: ${DB_USERNAME:chat_app}
@@ -32,7 +35,8 @@ app:
     model: test-model
   speech:
     # 공급자 호출은 app.llm.base-url(localhost:1) 을 타므로 실제로 나가지 않는다 — 단위 테스트는 MockWebServer, 컨트롤러는 FakeSpeechTestConfig
-    tmp-dir: build/tmp/audio
+    # 절대 경로여야 한다 — 상대 경로면 Tomcat multipart location 과 어긋난다(T-009 리뷰)
+    tmp-dir: ${java.io.tmpdir}/chat-app-test-audio
 
 logging:
   level:

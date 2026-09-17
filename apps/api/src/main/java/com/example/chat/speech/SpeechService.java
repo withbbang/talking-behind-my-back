@@ -30,6 +30,8 @@ public class SpeechService {
 	private final DailyUsageMapper usage;
 	private final SpeechProperties props;
 	private final AppProperties appProps;
+	/** 항상 절대 경로 — 상대 경로면 Tomcat 이 multipart location 기준으로 써서 삭제 경로와 어긋난다(T-009 리뷰). */
+	private final Path tmpDir;
 
 	public SpeechService(SttProvider stt, TtsProvider tts, DailyUsageMapper usage, SpeechProperties props, AppProperties appProps) {
 		this.stt = stt;
@@ -37,12 +39,23 @@ public class SpeechService {
 		this.usage = usage;
 		this.props = props;
 		this.appProps = appProps;
+		this.tmpDir = Path.of(props.tmpDir()).toAbsolutePath().normalize();
+		// Tomcat 은 spring.servlet.multipart.location(= 같은 경로)이 없으면 첫 업로드에서 죽는다 → 기동 시 만든다
+		try {
+			Files.createDirectories(tmpDir);
+		} catch (IOException e) {
+			throw new IllegalStateException("audio tmp dir unavailable: " + tmpDir, e);
+		}
 	}
 
 	public SttResult stt(Long userId, MultipartFile audio, Long clientDurationMs) {
 		if (audio == null || audio.isEmpty()) {
 			throw new BusinessException(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.getDefaultMessage(),
 				Map.of("audio", "오디오가 비어 있습니다."));
+		}
+		if (clientDurationMs != null && clientDurationMs < 0) {
+			throw new BusinessException(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.getDefaultMessage(),
+				Map.of("durationMs", "0 이상이어야 합니다."));
 		}
 		if (clientDurationMs != null && clientDurationMs > props.maxAudioMs()) {
 			throw new BusinessException(ErrorCode.AUDIO_TOO_LONG);
@@ -89,13 +102,7 @@ public class SpeechService {
 	}
 
 	private Path newTmpFile(String ext) {
-		Path dir = Path.of(props.tmpDir());
-		try {
-			Files.createDirectories(dir);
-		} catch (IOException e) {
-			throw new IllegalStateException("audio tmp dir unavailable: " + dir, e);
-		}
-		return dir.resolve(UUID.randomUUID() + "." + ext);
+		return tmpDir.resolve(UUID.randomUUID() + "." + ext);
 	}
 
 	/** 공급자가 확장자로 포맷을 판별하므로 content-type 우선, 없으면 원본 파일명, 그것도 없으면 bin. */
@@ -110,9 +117,10 @@ public class SpeechService {
 			default: break;
 		}
 		if (originalFilename != null) {
-			int dot = originalFilename.lastIndexOf('.');
-			if (dot > 0 && dot < originalFilename.length() - 1) {
-				String ext = originalFilename.substring(dot + 1).toLowerCase();
+			String name = originalFilename.substring(Math.max(originalFilename.lastIndexOf('/'), originalFilename.lastIndexOf('\\')) + 1);
+			int dot = name.lastIndexOf('.');
+			if (dot > 0 && dot < name.length() - 1) {
+				String ext = name.substring(dot + 1).toLowerCase();
 				if (ext.matches("[a-z0-9]{1,5}")) return ext;
 			}
 		}

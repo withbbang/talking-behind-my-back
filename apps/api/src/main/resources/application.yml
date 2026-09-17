@@ -22,6 +22,8 @@ spring:
       # STT 오디오 업로드 상한(API.md#speech). nginx client_max_body_size 25m 와 정합.
       max-file-size: 25MB
       max-request-size: 26MB
+      # Tomcat 이 업로드를 먼저 쓰는 위치 = app.speech.tmp-dir(tmpfs). 없으면 컨테이너 디스크(overlay)를 거친다(D-007, T-009 리뷰).
+      location: ${SPEECH_TMP_DIR:/tmp/audio}
   security:
     oauth2:
       client:
@@ -118,7 +120,7 @@ app:
   speech:
     stt-provider: ${STT_PROVIDER:omniroute}   # omniroute | clova (D-027: 기본은 LLM 과 같은 OmniRoute 의 /v1/audio/*)
     tts-provider: ${TTS_PROVIDER:omniroute}
-    stt-model: ${STT_MODEL:groq/whisper-large-v3-turbo}   # OmniRoute 규칙 provider/model (D-028: Groq 무료 티어, 대시보드에 키)
+    stt-model: ${STT_MODEL:groq/whisper-large-v3}   # OmniRoute 규칙 provider/model (D-028: Groq 무료 티어, 대시보드에 키). turbo 는 "짜증나"→"찾았나" 오전사, non-turbo +0.2초
     tts-model: ${TTS_MODEL:edge/tts-1}                    # D-028: OmniRoute 에 등록한 OpenAI 호환 노드(prefix edge) = edge-tts 사이드카
     tmp-dir: ${SPEECH_TMP_DIR:/tmp/audio}     # compose 에서 tmpfs
     max-audio-seconds: 60

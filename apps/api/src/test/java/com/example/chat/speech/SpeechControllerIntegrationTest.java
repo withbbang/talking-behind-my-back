@@ -42,6 +42,7 @@ class SpeechControllerIntegrationTest {
 	@Autowired UserMapper userMapper;
 	@Autowired DailyUsageMapper usageMapper;
 	@Autowired AppProperties appProps;
+	@Autowired org.springframework.core.env.Environment env;
 	@Autowired FakeSpeechTestConfig.FakeStt stt;
 	@Autowired FakeSpeechTestConfig.FakeTts tts;
 
@@ -122,8 +123,25 @@ class SpeechControllerIntegrationTest {
 		}
 
 		@Test
+		void durationMs_가_숫자가_아니면_400_VALIDATION_FAILED_details_durationMs() throws Exception {
+			mvc.perform(multipart("/speech/stt").file(audio(new byte[]{1})).param("durationMs", "abc").cookie(access(me)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+				.andExpect(jsonPath("$.details.durationMs").exists());
+			assertThat(stt.calls).isZero();
+		}
+
+		@Test
+		void Tomcat_multipart_임시_위치가_tmp_dir_과_같은_절대_경로다_D007_tmpfs() {
+			String location = env.getProperty("spring.servlet.multipart.location");
+			String tmpDir = env.getProperty("app.speech.tmp-dir");
+			assertThat(location).isNotBlank().isEqualTo(tmpDir);
+			assertThat(java.nio.file.Path.of(location).isAbsolute()).isTrue();
+		}
+
+		@Test
 		void 공급자_실패_502_SPEECH_UPSTREAM_ERROR() throws Exception {
-			stt.failWith = new SpeechException("openai stt responded 500", null);
+			stt.failWith = new SpeechException("omniroute stt responded 500", null);
 
 			mvc.perform(multipart("/speech/stt").file(audio(new byte[]{1})).cookie(access(me)))
 				.andExpect(status().isBadGateway())
@@ -190,7 +208,7 @@ class SpeechControllerIntegrationTest {
 
 		@Test
 		void 공급자_실패_502_SPEECH_UPSTREAM_ERROR() throws Exception {
-			tts.failWith = new SpeechException("openai tts responded 429", null);
+			tts.failWith = new SpeechException("omniroute tts responded 429", null);
 
 			mvc.perform(post("/speech/tts").contentType(MediaType.APPLICATION_JSON)
 					.content("{\"text\":\"안녕\"}").cookie(access(me)))

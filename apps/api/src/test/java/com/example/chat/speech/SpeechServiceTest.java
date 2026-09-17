@@ -218,12 +218,82 @@ class SpeechServiceTest {
 		}
 
 		@Test
+		void 음수_durationMs_는_VALIDATION_FAILED_details_durationMs() {
+			assertThatThrownBy(() -> service.stt(7L, webm(new byte[]{1}), -5L))
+				.isInstanceOf(BusinessException.class)
+				.satisfies(e -> {
+					BusinessException be = (BusinessException) e;
+					assertThat(be.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED);
+					assertThat(be.getDetails()).asInstanceOf(InstanceOfAssertFactories.MAP).containsKey("durationMs");
+				});
+			assertThat(stt.receivedPaths).isEmpty();
+		}
+
+		@Test
+		void tmp_dir_가_상대_경로여도_공급자에는_절대_경로가_간다_그래야_삭제_경로와_같다() {
+			Path rel = Path.of("build", "tmp", "speech-rel-test");
+			SpeechProperties props = new SpeechProperties("fake", "fake", rel.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
+				"openai/whisper-large-v3", "edge/tts-1", "", "", "", "", "alloy", 30);
+			SpeechService relService = new SpeechService(stt, tts, usage, props, app);
+
+			relService.stt(7L, webm(new byte[]{1}), null);
+
+			assertThat(stt.receivedPaths.get(0).isAbsolute()).isTrue();
+			assertThat(stt.receivedPaths.get(0)).startsWithRaw(rel.toAbsolutePath());   // startsWith 는 realpath 를 봐서 삭제된 파일에 예외
+			assertThat(stt.existedAtCall).isTrue();
+			assertThat(Files.exists(stt.receivedPaths.get(0))).isFalse();
+		}
+
+		@Test
 		void 확장자는_content_type_에서_정한다_mp4() {
 			MockMultipartFile mp4 = new MockMultipartFile("audio", "blob", "audio/mp4", new byte[]{1});
 
 			service.stt(7L, mp4, null);
 
 			assertThat(stt.receivedPaths.get(0).getFileName().toString()).endsWith(".mp4");
+		}
+	}
+
+	@Nested
+	@DisplayName("startup")
+	class Startup {
+
+		@Test
+		void 생성_시_tmp_dir_을_만든다_Tomcat_multipart_location_이_같은_경로라_요청_전에_있어야_한다() {
+			Path fresh = tmpDir.resolve("nested").resolve("audio");
+			assertThat(Files.exists(fresh)).isFalse();
+			SpeechProperties props = new SpeechProperties("fake", "fake", fresh.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
+				"openai/whisper-large-v3", "edge/tts-1", "", "", "", "", "alloy", 30);
+
+			new SpeechService(stt, tts, usage, props, app);
+
+			assertThat(Files.isDirectory(fresh)).isTrue();
+		}
+	}
+
+	@Nested
+	@DisplayName("extensionOf")
+	class ExtensionOf {
+
+		@Test
+		void content_type_없으면_원본_파일명_확장자() {
+			assertThat(SpeechService.extensionOf(null, "voice.m4a")).isEqualTo("m4a");
+			assertThat(SpeechService.extensionOf("", "REC.WAV")).isEqualTo("wav");
+		}
+
+		@Test
+		void 파일명에_경로가_섞여도_확장자만_쓴다() {
+			assertThat(SpeechService.extensionOf(null, "../../etc/passwd.wav")).isEqualTo("wav");
+			assertThat(SpeechService.extensionOf(null, "a/b/c.mp3")).isEqualTo("mp3");
+		}
+
+		@Test
+		void 둘_다_없거나_이상하면_bin() {
+			assertThat(SpeechService.extensionOf(null, null)).isEqualTo("bin");
+			assertThat(SpeechService.extensionOf("application/octet-stream", "blob")).isEqualTo("bin");
+			assertThat(SpeechService.extensionOf(null, "x.")).isEqualTo("bin");
+			assertThat(SpeechService.extensionOf(null, "x.toolongext")).isEqualTo("bin");
+			assertThat(SpeechService.extensionOf(null, "x.w a")).isEqualTo("bin");
 		}
 	}
 

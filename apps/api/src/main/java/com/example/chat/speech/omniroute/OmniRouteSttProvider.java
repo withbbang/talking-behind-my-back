@@ -51,7 +51,7 @@ public class OmniRouteSttProvider implements SttProvider {
 		} catch (WebClientResponseException e) {
 			throw new SpeechException("omniroute stt responded " + e.getStatusCode().value(), e);
 		} catch (RuntimeException e) {
-			throw new SpeechException("omniroute stt call failed: " + rootName(e), e);
+			throw new SpeechException("omniroute stt call failed: " + SpeechException.rootName(e), e);
 		}
 		JsonNode node = parse(raw);
 		JsonNode text = node.path("text");
@@ -80,11 +80,5 @@ public class OmniRouteSttProvider implements SttProvider {
 		} catch (RuntimeException e) {
 			throw new SpeechException("omniroute stt response is not json", e);
 		}
-	}
-
-	private static String rootName(Throwable e) {
-		Throwable t = e;
-		while (t.getCause() != null && t.getCause() != t) t = t.getCause();
-		return t.getClass().getSimpleName();
 	}
 }
