@@ -34,7 +34,7 @@ services:
   api:
     image: ghcr.io/${GH_OWNER}/${APP_NAME}-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    env_file: .env                     # OAuth 키, JWT, STT/TTS 키 등 (.env.example 참고)
+    env_file: .env                     # OAuth 키, JWT, STT/TTS 모델명 등 (.env.example 참고). 공급자 키는 OmniRoute 대시보드에(D-027)
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: Asia/Seoul
@@ -92,7 +92,7 @@ services:
   # TTS 사이드카 (D-028): Edge "Read Aloud" 음성을 OpenAI 호환 API 로. OmniRoute 에 "OpenAI 호환" 공급자
   # (http://edge-tts:5050/v1)로 등록. 호스트 포트 없음. 비공식 API 라 MS 가 막으면 OmniRoute 콤보 폴백(gtts/ko)으로.
   edge-tts:
-    image: travisvn/openai-edge-tts:latest
+    image: travisvn/openai-edge-tts:latest@sha256:af8df8fb39719623cb6c3dbcba87ab65813030d97e20ae436d3161a53d41d72a   # 비공식 Edge API 의존 — digest 고정(2026-02-18 빌드). 올릴 땐 curl 로 한국어 TTS 확인 후
     restart: unless-stopped
     environment:
       PORT: 5050

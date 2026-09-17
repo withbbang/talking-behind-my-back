@@ -58,7 +58,7 @@ services:
   # OmniRoute 내장 edgetts 어댑터는 MS DRM 토큰(Sec-MS-GEC) 미지원으로 403 이라 이 컨테이너를 OmniRoute 에
   # "OpenAI 호환" 공급자(http://edge-tts:5050/v1)로 등록해 쓴다. 호스트 포트는 열지 않는다 — OmniRoute 만 접근.
   edge-tts:
-    image: travisvn/openai-edge-tts:latest
+    image: travisvn/openai-edge-tts:latest@sha256:af8df8fb39719623cb6c3dbcba87ab65813030d97e20ae436d3161a53d41d72a   # 비공식 Edge API 의존 — digest 고정(2026-02-18 빌드). 올릴 땐 curl 로 한국어 TTS 확인 후
     environment:
       PORT: 5050
       REQUIRE_API_KEY: "False"
