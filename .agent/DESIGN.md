@@ -102,16 +102,25 @@
 - ConfirmDialog: 제목 "이용할 수 없는 채팅방이야." 본문 "방장이 도망간 방이야!" 버튼 1개 "나가기" → `DELETE /rooms/{id}` → 목록에서 제거 → 남은 방 첫 항목 또는 빈 상태로.
 - 뒤 채팅 내용은 딤 처리(`ink` 40%), 모달 닫기 없음(확인만).
 
-### 7. 보이스 모드 (오버레이, M3)
-- 상단 바 토글로 진입. 전체 화면 오버레이 `bg` 96% + 채팅 목록 뒤에 흐릿하게.
-- 중앙 큰 원 240px `surface`(상태별 애니메이션):
-  - `recording` — 펄스(scale 1↔1.06), "듣는 중"
-  - `transcribing` — 점 3개, "받아적는 중"
-  - `streaming` — 원 안에 응답 델타 미리보기(15px, 4줄 말줄임), "답하는 중"
-  - `speaking` — 원이 음성 진폭에 맞춰 진동, "말하는 중"
+### 7. 보이스 모드 (오버레이, M3 — 2026-09-18 D-029 개정)
+- 진입: 상단 바 우측 토글(`Waveform` 아이콘, `aria-label` "음성", `aria-pressed`). **AI 모드이고 ORPHANED 아닐 때만** 보인다. 오버레이 중 HUMAN 으로 바뀌면 종료 + 공용 오류 토스트 대신 "AI 모드에서만 돼!"(초안).
+- 전체 화면 오버레이 `bg` 96% + 뒤 목록 흐림, `role="dialog"` `aria-label` "보이스 모드".
+- 중앙: **말하는 쪽으로 뒤집히는 말풍선 2개**(원 대신, D-029). 활성 말풍선만 100%, 반대쪽은 45%.
+  | 상태 | 활성 말풍선 | 안 | 라벨 |
+  |---|---|---|---|
+  | `recording` | 우측 `surface`/`on-surface`, 라운드 26, 우하단 꼬리 6 | 세로 바 5개 등락(CSS, 700ms 루프) + `m:ss` `tabular-nums` | 듣는 중 |
+  | `transcribing` | 우측 동일 | 점 3개(`typing-dots`) | 받아적는 중 |
+  | `streaming` | 좌측 `bg` + `ink` 12% 테두리, 좌하단 꼬리, 하트 아바타 | 응답 델타 미리보기 15px 4줄 말줄임 | 답하는 중 |
+  | `speaking` | 좌측 동일 | 펄스(scale 1↔1.04) | 말하는 중 |
+  라벨은 말풍선 아래 13px, `aria-live="polite"`. `prefers-reduced-motion` 이면 모든 모션 정지(정적 표시).
 - 하단: 보조 버튼 "다시"(현재 단계 취소 → recording) · 텍스트 버튼 "끄기".
-- 권한 거부: 원 대신 카드 + "마이크 좀 열어줘. 브라우저 설정에서.". 네트워크 오류: 토스트 + 텍스트 입력으로 복귀.
-- 변환된 발화·응답은 오버레이 닫은 뒤 목록에 남는다. 2인 방에서도 사용 가능(충돌 처리 M3 결정).
+- 60초 상한: 녹음이 60초에 닿으면 자동 종료 → transcribing, 토스트 "60초까지만 들을 수 있어!"(초안). STT 결과가 비면 토스트 "아무 말도 안 들렸는데?"(초안) 후 recording.
+- 권한 거부: 말풍선 대신 카드 + "마이크 좀 열어줘. 브라우저 설정에서." + "다시"(권한 재요청) / "끄기". 네트워크·전송 오류: 좌측 말풍선에 문구("시스템 오류. 다시 시도해줄래?", 409 는 "아직 답 쓰는 중. 좀만 기다려줘!") + "다시".
+- 루프: recording → STT → `POST messages`(`inputType: VOICE`) → `replyTo` 가 내 messageId 인 스트림만 추적 → `done` 뒤 assistant content 를 `/speech/tts`(1,000자 초과는 문장 경계 분할 순차) → 재생 끝 → recording. 2인 방에서 상대 메시지의 응답은 목록에만 남고 읽지 않는다(D-029).
+- 컴포저 마이크(오버레이 밖): 캡슐 안 전송 버튼 왼쪽 40px 원(`ink` 12% 테두리, `aria-label` "마이크"). 탭 → 캡슐이 녹음 줄로 바뀜: `accent` 점 펄스 + "듣는 중" + `m:ss` + X(`aria-label` "녹음 취소") + ✓(`aria-label` "녹음 완료"). 완료 → "받아적는 중" 점 3개(비활성) → STT 텍스트를 **즉시** `VOICE` 로 전송(D-029 3=b). 잠김(pending/orphaned) 중엔 마이크 숨김.
+- 듣기 버튼: AI 말풍선 시간 줄 앞 24px 스피커(`aria-label` "듣기"), 재생 중 정지 아이콘("정지"), 로딩 중 `aria-busy`. 동시 재생 1개 — 다른 것을 누르면 이전 재생 중단.
+- iOS: 토글·듣기·마이크 탭 제스처에서 `Audio` 1개를 무음으로 unlock 하고 재사용(D-029).
+- 변환된 발화·응답은 오버레이 닫은 뒤 목록에 남는다.
 
 ### 8. 어드민 `/admin` (M4)
 - 좌측 네비(대시보드 · 회원 · 대화). 데스크톱 전용. 페르소나 메뉴 없음(D-017 폐지).
@@ -129,8 +138,8 @@
 | MessageList, MessageBubble(나/상대/AI), StreamingBubble, SystemLine, DateChip | components/chat | T-008 |
 | Composer (textarea+send, mic 은 M3) | components/chat | T-008 |
 | InviteSheet(QR·코드·링크·재발급), JoinPreview, OrphanedDialog | components/chat | T-018 |
-| VoiceButton, VoiceModeOverlay, VoiceOrb, AudioPlayer(재생 큐) | components/voice | T-010 |
+| VoiceButton, VoiceModeOverlay, VoiceOrb, ListenButton | components/voice | T-010 |
+| useRecorder, voiceMachine, splitForTts, ttsPlayer, useVoiceMode | features/speech | T-010 |
 
 ## 미결 (디자이너 확정 필요)
-- 보이스 오브 애니메이션 스펙(라이브러리 vs CSS) — M3 착수 시.
 - 데스크톱 방 헤더: 시트 대신 우측 패널로 펼칠지 — T-008 구현 후 판단.

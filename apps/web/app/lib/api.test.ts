@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiFetch, setUnauthenticatedHandler } from './api';
+import { ApiError, apiFetch, apiFetchBlob, setUnauthenticatedHandler } from './api';
 
 // lib/api.ts 계약 (API.md#공통, T-001 acceptance):
 //  - 항상 credentials: 'include', JSON 요청/응답
@@ -110,5 +110,42 @@ describe('apiFetch', () => {
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(502);
     expect(err.code).toBe('HTTP_502');
+  });
+});
+
+describe('apiFetchBlob (T-010 — TTS 오디오 응답)', () => {
+  const fetchMock = vi.fn<typeof fetch>();
+  const onUnauthenticated = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockReset();
+    onUnauthenticated.mockReset();
+    setUnauthenticatedHandler(onUnauthenticated);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('2xx 면 본문을 Blob(응답 Content-Type 유지)으로 돌려준다', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'Content-Type': 'audio/mpeg' } }));
+    const blob = await apiFetchBlob('/speech/tts', { method: 'POST', body: { text: '안녕' } });
+    expect(blob.type).toBe('audio/mpeg');
+    expect(blob.size).toBe(3);
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init?.credentials).toBe('include');
+    expect(new Headers(init?.headers).get('Accept')).toBe('audio/mpeg');
+  });
+
+  it('401 → refresh 성공 → 재시도, 에러 본문은 ApiError 로', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(401, { code: 'TOKEN_EXPIRED', message: 'x' }))
+      .mockResolvedValueOnce(jsonResponse(200))
+      .mockResolvedValueOnce(new Response(new Uint8Array([9]), { status: 200, headers: { 'Content-Type': 'audio/mpeg' } }));
+    const blob = await apiFetchBlob('/speech/tts', { method: 'POST', body: { text: '안녕' } });
+    expect(blob.size).toBe(1);
+    fetchMock.mockResolvedValueOnce(jsonResponse(400, { code: 'TEXT_TOO_LONG', message: '텍스트가 너무 깁니다.' }));
+    await expect(apiFetchBlob('/speech/tts', { method: 'POST', body: { text: 'a' } })).rejects.toMatchObject({ status: 400, code: 'TEXT_TOO_LONG' });
   });
 });

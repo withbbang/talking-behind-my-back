@@ -40,6 +40,7 @@ describe('reduceStreams', () => {
     s = reduceStreams(s, ev('message', userMsg(102, { senderUserId: 2 })), now);
     s = reduceStreams(s, ev('done', { replyTo: 101, message: aiMsg(103), promptTokens: 1, completionTokens: 1 }), now);
     expect(s.streams[101]).toBeUndefined();
+    expect(s.lastDone).toEqual({ replyTo: 101, text: aiMsg(103).content }); // 보이스 모드가 내 응답 본문을 읽는다(T-010)
     s = reduceStreams(s, ev('error', { replyTo: 102, code: 'LLM_UPSTREAM_ERROR', message: 'AI 응답에 실패했습니다.' }), now);
     expect(s.streams[102]).toMatchObject({ status: 'error' });
     expect(removeStream(s, 102).streams[102]).toBeUndefined();

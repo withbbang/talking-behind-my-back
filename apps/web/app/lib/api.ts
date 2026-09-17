@@ -100,10 +100,8 @@ async function rawFetch(path: string, init: ApiInit): Promise<Response> {
   return fetch(`${apiBase()}${path}`, { ...rest, headers: h, body: payload, credentials: 'include' });
 }
 
-/**
- * JSON API 호출. 2xx 면 파싱된 본문(204 는 undefined), 아니면 ApiError throw.
- */
-export async function apiFetch<T = unknown>(path: string, init: ApiInit = {}): Promise<T> {
+/** 401 → refresh 1회 → 재시도까지 끝낸 응답. 비 2xx 는 ApiError. apiFetch/apiFetchBlob 공통. */
+async function fetchWithRefresh(path: string, init: ApiInit): Promise<Response> {
   const retryOn401 = init.retryOn401 ?? true;
   let res = await rawFetch(path, init);
 
@@ -120,9 +118,27 @@ export async function apiFetch<T = unknown>(path: string, init: ApiInit = {}): P
   if (!res.ok) {
     throw await parseError(res);
   }
+  return res;
+}
+
+/**
+ * JSON API 호출. 2xx 면 파싱된 본문(204 는 undefined), 아니면 ApiError throw.
+ */
+export async function apiFetch<T = unknown>(path: string, init: ApiInit = {}): Promise<T> {
+  const res = await fetchWithRefresh(path, init);
   if (res.status === 204 || res.headers.get('Content-Length') === '0') {
     return undefined as T;
   }
   const text = await res.text();
   return (text ? JSON.parse(text) : undefined) as T;
+}
+
+/**
+ * 바이너리 응답(TTS `audio/mpeg`, T-010). 401/refresh·에러 매핑은 apiFetch 와 같고, 본문은 Blob(응답 Content-Type 유지).
+ */
+export async function apiFetchBlob(path: string, init: ApiInit = {}): Promise<Blob> {
+  const headers = new Headers(init.headers);
+  if (!headers.has('Accept')) headers.set('Accept', 'audio/mpeg');
+  const res = await fetchWithRefresh(path, { ...init, headers });
+  return res.blob();
 }

@@ -32,3 +32,14 @@ describe('MessageBubble (DESIGN.md#3 말풍선 3종)', () => {
     expect(screen.getByRole('img', { name: '음성' })).toBeInTheDocument();
   });
 });
+
+describe('MessageBubble 듣기 버튼 (T-010)', () => {
+  it('AI 말풍선에만 "듣기" 버튼, 나/상대에는 없음', () => {
+    const { rerender } = render(<MessageBubble message={aiMsg(3, { content: '또?' })} kind="ai" showMeta />);
+    expect(screen.getByRole('button', { name: '듣기' })).toBeInTheDocument();
+    rerender(<MessageBubble message={userMsg(1)} kind="mine" showMeta />);
+    expect(screen.queryByRole('button', { name: '듣기' })).toBeNull();
+    rerender(<MessageBubble message={userMsg(2, { senderUserId: 2 })} kind="other" senderName="영희" showMeta />);
+    expect(screen.queryByRole('button', { name: '듣기' })).toBeNull();
+  });
+});

@@ -435,7 +435,7 @@
   Clova 는 빈만 뜨는 스텁(호출 시 502). 실구현은 필요해지면 별도 T.
 
 ## T-010 듣기/말하기 버튼 + 보이스 모드 루프 (web)
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M3
 - spec: DESIGN.md#보이스-모드, API.md#speech
@@ -445,7 +445,13 @@
   - 메시지별 듣기 → TTS 재생 큐. 마이크 → STT → `inputType: 'VOICE'`.
   - 보이스 모드 상태 머신(idle→recording→transcribing→streaming→speaking→recording) 순수 함수 + 테스트.
   - 권한 거부/네트워크 오류 시 텍스트 입력으로 복귀.
-- note: 체감 보강(VAD 자동 종료·문장 단위 TTS 선재생)은 → T-026 참조 (D-026). 이 태스크는 DESIGN.md#7 상태 머신까지.
+- test: 신규 web 79건(전체 `npm test` 319 passed / 52 files, lint 0 error·기존 경고 1, typecheck·build 통과).
+  순수/훅: `features/speech/voiceMachine`(11, 상태 전이·turn·2인 방 replyTo 필터), `splitForTts`(6), `mime`(4), `speechApi`(3), `ttsPlayer`(7, 큐·중단·unlock),
+  `useRecorder`(6, MediaRecorder fake·권한 거부·60초 자동종료), `useTts`(4), `useVoiceMode`(10, 루프·denied·빈결과·409·2인 방·exit·active off).
+  컴포넌트: `components/voice/ListenButton`(3), `VoiceModeOverlay`(8, 단계별 활성·라벨 aria-live·denied/error 카드), `Composer.voice`(8, 마이크 흐름·즉시 전송·60초),
+  `ChatShell`(+2, 토글 노출 조건), `RoomView`(+4, 오버레이 연결·HUMAN 전환·VOICE POST), `MessageBubble`(+1), `lib/api`(+2 apiFetchBlob).
+  실측 미수행: 브라우저 pane 에 마이크 없음(getUserMedia 불가) + api 는 OAuth 쿠키 필요(T-009 와 동일 제약). STT/TTS 백엔드 왕복은 T-009 에서 실측 완료. 실기기 음성 루프는 T-013.
+- note: 2026-09-18 착수(D-029: 말풍선 오브·STT 즉시 전송·CSS 모션·토글 노출 조건·2인 방 충돌·60초 상한·iOS unlock). 체감 보강(VAD 자동 종료·문장 단위 TTS 선재생)은 → T-026 참조 (D-026). 이 태스크는 DESIGN.md#7 상태 머신까지.
 
 ## T-026 보이스 모드 체감 보강 — VAD 자동 종료 + 문장 단위 TTS 선재생 (web)
 - status: TODO

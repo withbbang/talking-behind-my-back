@@ -19,6 +19,9 @@ vi.mock('./Sidebar', () => ({ Sidebar: () => <nav aria-label="방 목록">sideba
 import { apiFetch } from '@/lib/api';
 import { ChatShell } from './ChatShell';
 import { roomDetail } from '@/features/rooms/testFixtures';
+import { useVoiceStore } from '@/features/speech/voiceStore';
+import { useTtsStore } from '@/features/speech/useTts';
+import { fakePlayer } from '@/features/speech/testFixtures';
 
 const apiFetchMock = vi.mocked(apiFetch);
 
@@ -103,5 +106,46 @@ describe('ChatShell (DESIGN.md#2 채팅 셸)', () => {
   it('방 밖이면 제목 자리에 앱 이름', () => {
     renderShell();
     expect(screen.getByRole('heading', { name: '뒷담 친구' })).toBeInTheDocument();
+  });
+});
+
+describe('ChatShell 보이스 토글 (T-010, D-029 노출 조건)', () => {
+  beforeEach(() => {
+    useVoiceStore.setState({ roomId: null });
+    useTtsStore.setState({ playingId: null, player: fakePlayer() });
+  });
+
+  it('AI 모드 ACTIVE 방: 상단 바 우측 "음성" 토글, 탭하면 열림(aria-pressed) + 재생기 unlock, 다시 탭하면 닫힘', async () => {
+    pathname = '/rooms/10';
+    params = { id: '10' };
+    apiFetchMock.mockResolvedValue(roomDetail(10, { mode: 'AI', status: 'ACTIVE' }));
+    renderShell();
+    const toggle = await screen.findByRole('button', { name: '음성' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(toggle);
+    expect(useVoiceStore.getState().roomId).toBe(10);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(useTtsStore.getState().player.unlock).toHaveBeenCalled();
+    fireEvent.click(toggle);
+    expect(useVoiceStore.getState().roomId).toBeNull();
+  });
+
+  it('HUMAN 모드·ORPHANED·방 밖에서는 토글 없음', async () => {
+    pathname = '/rooms/10';
+    params = { id: '10' };
+    apiFetchMock.mockResolvedValue(roomDetail(10, { mode: 'HUMAN' }));
+    const { unmount } = renderShell();
+    expect(await screen.findByText(roomDetail(10).title)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '음성' })).toBeNull();
+    unmount();
+    apiFetchMock.mockResolvedValue(roomDetail(10, { status: 'ORPHANED' }));
+    const r2 = renderShell();
+    expect(await screen.findByText(roomDetail(10).title)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '음성' })).toBeNull();
+    r2.unmount();
+    pathname = '/';
+    params = {};
+    renderShell();
+    expect(screen.queryByRole('button', { name: '음성' })).toBeNull();
   });
 });

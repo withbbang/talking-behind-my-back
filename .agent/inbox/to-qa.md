@@ -221,3 +221,22 @@
 - 범위 외: 프론트 버튼·보이스 모드(T-010), VAD·문장 단위 TTS(T-026), Clova 실구현, 일일 호출 상한(D-007 open).
 - date: 2026-09-17
 
+
+
+### [개발자 → QA] T-010 듣기/말하기 버튼 + 보이스 모드 루프 (web) 검증 요청
+- 요청/이슈: `cd apps/web && npm test`(319 passed / 52 files), `npm run lint`(0 error, 기존 경고 1: api.ts `_retry`), `npm run typecheck`, `npm run build` 통과 확인.
+  신규 79건은 `app/features/speech/**` + `app/components/voice/**` + Composer/ChatShell/RoomView/MessageBubble/api 추가분.
+  설계 근거 D-029(사용자 결정 1=2B·3=b, 나머지 승인) — DESIGN.md#7, BRAND.md#5 신규 문구 행 반영됨.
+- 검증 포인트(코드/테스트 리뷰 + 가능하면 실기기):
+  (1) 상태 머신 `voiceMachine`: idle→recording→transcribing→streaming→speaking→recording. RETRY("다시")·EXIT("끄기")·PERMISSION_DENIED 전이, 단계 안 맞는 이벤트 무시, 2인 방에서 내 `replyTo` 응답만 speaking 으로.
+  (2) 컴포저 마이크(D-029 3=b): 탭 → "듣는 중"+m:ss+취소/완료 → 완료 시 STT 결과를 **확인 없이** VOICE 로 즉시 전송. 빈 결과 "아무 말도 안 들렸는데?", 실패 공용 오류, 권한 거부 "마이크 좀 열어줘…", 60초 자동 완료 "60초까지만 들을 수 있어!".
+  (3) 오버레이(D-029 1=2B): 말하는 쪽으로 뒤집히는 말풍선 2개(내 쪽 우측 surface / AI 쪽 좌측 테두리+하트). recording 말풍선 탭=녹음 완료. 상태 라벨 `aria-live=polite`. denied/error 는 카드. "다시"/"끄기".
+  (4) 듣기 버튼: AI 말풍선에만, 재생 중 "정지", 동시 재생 1개(다른 버튼 누르면 이전 중단). 1,000자 초과는 문장 경계 분할 순차 재생.
+  (5) 상단 바 토글: **AI 모드·ORPHANED 아님**일 때만. 오버레이 중 HUMAN 전환 시 닫힘 + "AI 모드에서만 돼!".
+  (6) iOS 자동재생: 토글·듣기·마이크 탭 제스처에서 `Audio` 1개 unlock 후 재사용.
+  (7) reduced-motion: `voice-bars`·`orb-pulse`·`typing-dots` 정지.
+- 미수행(사유): 브라우저 자동화 pane 에 마이크 없음(getUserMedia 불가), api 는 OAuth 쿠키 필요(T-009 와 동일) → 실기기/실브라우저 음성 루프는 미실측. STT/TTS 백엔드 왕복은 T-009 QA(2026-09-18)에서 실측 완료(Groq STT·edge-tts). 실기기 검증은 T-013.
+- 신규 문구는 **초안**(D-029): 60초 "60초까지만 들을 수 있어!", 빈 결과 "아무 말도 안 들렸는데?", HUMAN 전환 "AI 모드에서만 돼!". 사용자가 REVIEW 이후 직접 수정 예정 — QA 는 동작만, 문구 확정은 대기.
+- 근거 파일: D-029, DESIGN.md#7, BRAND.md#5, TASKS.md T-010, `apps/web/app/features/speech/**`, `apps/web/app/components/voice/**`.
+- 범위 외: VAD·문장 단위 선재생(T-026), 실기기 PWA 음성(T-013).
+- date: 2026-09-18

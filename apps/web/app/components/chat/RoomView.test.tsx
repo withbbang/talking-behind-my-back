@@ -7,6 +7,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/lib/api')>();
   return { ...mod, apiFetch: vi.fn() };
 });
+vi.mock('@/features/speech/speechApi', () => ({ transcribe: vi.fn(), synthesize: vi.fn() }));
 const replace = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace }), usePathname: () => '/rooms/10' }));
 
@@ -16,6 +17,11 @@ import { useToastStore } from '@/components/ui/Toast';
 import { useStreamStore } from '@/features/messages/streamStore';
 import { roomDetail } from '@/features/rooms/testFixtures';
 import { aiMsg, userMsg } from '@/features/messages/testFixtures';
+import { transcribe } from '@/features/speech/speechApi';
+import { FakeMediaRecorder, fakePlayer, fakeStream } from '@/features/speech/testFixtures';
+import { defaultRecorderDeps } from '@/features/speech/useRecorder';
+import { useTtsStore } from '@/features/speech/useTts';
+import { useVoiceStore } from '@/features/speech/voiceStore';
 
 const me = { id: 1, nickname: '영선', profileImageUrl: null, role: 'USER', status: 'ACTIVE', provider: 'KAKAO' };
 function mockApi(room: unknown, messages: unknown[] = [], onSend?: () => unknown) {
@@ -148,5 +154,59 @@ describe('RoomView (DESIGN.md#3)', () => {
 
   it('토스트 정리', () => {
     act(() => useToastStore.getState().clear());
+  });
+});
+
+describe('RoomView 보이스 모드 연결 (T-010)', () => {
+  beforeEach(() => {
+    apiFetchMock.mockReset();
+    useToastStore.setState({ toast: null });
+    useStreamStore.setState({ rooms: {} });
+    useVoiceStore.setState({ roomId: null });
+    useTtsStore.setState({ playingId: null, player: fakePlayer() });
+    defaultRecorderDeps.getUserMedia = vi.fn(async () => fakeStream().stream);
+    defaultRecorderDeps.MediaRecorderImpl = FakeMediaRecorder as unknown as typeof MediaRecorder;
+  });
+
+  it('voiceStore 가 이 방이면 오버레이(dialog "보이스 모드")가 뜨고 녹음이 시작된다', async () => {
+    mockApi(roomDetail(10, { mode: 'AI' }), [userMsg(1)]);
+    useVoiceStore.setState({ roomId: 10 });
+    renderIt();
+    expect(await screen.findByRole('dialog', { name: '보이스 모드' })).toBeInTheDocument();
+    await waitFor(() => expect(defaultRecorderDeps.getUserMedia).toHaveBeenCalled());
+    expect(screen.getByText('듣는 중')).toBeInTheDocument();
+  });
+
+  it('"끄기" → 오버레이 닫힘 + voiceStore null', async () => {
+    mockApi(roomDetail(10, { mode: 'AI' }), [userMsg(1)]);
+    useVoiceStore.setState({ roomId: 10 });
+    renderIt();
+    fireEvent.click(await screen.findByRole('button', { name: '끄기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '보이스 모드' })).toBeNull());
+    expect(useVoiceStore.getState().roomId).toBeNull();
+  });
+
+  it('HUMAN 모드로 바뀌면 오버레이를 닫고 토스트 "AI 모드에서만 돼!"', async () => {
+    mockApi(roomDetail(10, { mode: 'HUMAN' }), [userMsg(1)]);
+    useVoiceStore.setState({ roomId: 10 });
+    renderIt();
+    expect(await screen.findByRole('list')).toBeInTheDocument();
+    await waitFor(() => expect(useVoiceStore.getState().roomId).toBeNull());
+    expect(screen.queryByRole('dialog', { name: '보이스 모드' })).toBeNull();
+    expect(useToastStore.getState().toast?.message).toBe('AI 모드에서만 돼!');
+  });
+
+  it('컴포저의 음성 전송은 inputType VOICE 로 POST 한다', async () => {
+    const onSend = vi.fn(() => ({ messageId: 101 }));
+    mockApi(roomDetail(10, { mode: 'AI' }), [userMsg(1)], onSend);
+    vi.mocked(transcribe).mockResolvedValueOnce({ text: '음성으로', durationMs: 1000 });
+    renderIt();
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: '마이크' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '녹음 완료' }));
+    });
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/10/messages', expect.objectContaining({ method: 'POST', body: { content: '음성으로', inputType: 'VOICE' } })));
   });
 });

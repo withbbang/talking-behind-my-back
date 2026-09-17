@@ -38,7 +38,8 @@ export type StreamEntry = {
   startedAt: string;
 };
 export type Notice = { id: string; text: string; createdAt: string };
-export type StreamState = { streams: Record<number, StreamEntry>; notices: Notice[] };
+/** 마지막 done — 보이스 모드가 내 replyTo 의 assistant 본문을 읽는다(T-010). */
+export type StreamState = { streams: Record<number, StreamEntry>; notices: Notice[]; lastDone?: { replyTo: number; text: string } };
 
 export const initialStreamState: StreamState = { streams: {}, notices: [] };
 
@@ -72,7 +73,7 @@ export function reduceStreams(state: StreamState, event: RoomEvent, now: string 
       return { ...state, streams: { ...state.streams, [replyTo]: { ...cur, text: cur.text + text, status: 'streaming' } } };
     }
     case 'done':
-      return removeStream(state, event.data.replyTo);
+      return { ...removeStream(state, event.data.replyTo), lastDone: { replyTo: event.data.replyTo, text: event.data.message.content } };
     case 'error': {
       const { replyTo, message } = event.data;
       const cur = state.streams[replyTo] ?? { replyTo, senderUserId: null, text: '', startedAt: now };

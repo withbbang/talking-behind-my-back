@@ -252,6 +252,22 @@
 - impact: `infra/docker-compose*.yml` `edge-tts` 서비스 + OmniRoute env, `.env.example`/`.env.omniroute.example`, api `application.yml` 기본값(stt-model/tts-model/tts-voice), README#첫-배포-순서, T-009 QA 체크리스트. 비공식 API 의존은 리스크로 TASKS 백로그에 기록.
 - date: 2026-09-17 (개발자 대행 기록, 사용자 결정 — "무료는 없나?" → Edge 사이드카 선택)
 
+### D-029 T-010 보이스 모드 UI 확정 — 말풍선 오브·STT 즉시 전송·CSS 모션·토글 노출 조건·2인 방 충돌
+- decision:
+  (1) 오버레이 중앙은 DESIGN 초안의 240px 원 대신 **말하는 쪽으로 뒤집히는 말풍선**. 내가 말할 때(recording·transcribing) 우측 `surface` 말풍선(우하단 꼬리), AI 가 말할 때(streaming·speaking) 좌측 테두리 말풍선 + 하트 아바타. 비활성 쪽은 45% 로 남겨 대화 장면을 유지한다.
+  (2) 오브 모션은 CSS keyframes 만(recording 바 5개 등락, speaking 펄스, transcribing 점 3개). 실제 진폭 연동은 T-026(`AnalyserNode` 공유).
+  (3) 컴포저 마이크는 탭 시작/탭 종료. STT 결과를 확인 단계 없이 즉시 `inputType: "VOICE"` 로 전송한다(오전사 위험은 인지, 사용자 선택).
+  (4) 듣기 버튼: AI 말풍선 시간 줄 앞 24px 스피커, 재생 중 정지 아이콘, 동시 재생 1개. 1,000자 초과는 문장 경계로 잘라 순차 재생(`splitForTts`, T-026 이 같은 함수 재사용).
+  (5) 상단 바 보이스 토글은 **AI 모드이고 ORPHANED 아닐 때만** 표시. 오버레이 중 HUMAN 으로 바뀌는 이벤트가 오면 종료 + 토스트.
+  (6) 2인 방 충돌: 내 메시지에 대한 응답(`replyTo` = 내 messageId)만 TTS. 전송 409 ROOM_BUSY 는 오버레이 오류 상태("아직 답 쓰는 중. 좀만 기다려줘!") + "다시".
+  (7) 60초 상한 타이머 강제 종료는 T-010 에 포함(API 가 거부하므로 VAD 와 무관). VAD 는 T-026.
+  (8) iOS 자동재생: 토글·듣기 탭(사용자 제스처)에서 `Audio` 엘리먼트 1개를 무음 재생으로 unlock 하고 모든 TTS 재생에 재사용.
+  (9) 신규 카피 초안(사용자가 REVIEW 이후 직접 수정 예정): 60초 도달 "60초까지만 들을 수 있어!", STT 빈 결과 "아무 말도 안 들렸는데?", aria "보이스 모드"/"녹음 취소"/"녹음 완료"/"듣기"/"정지"/"마이크".
+- rationale: 브랜드 은유가 "말풍선"이고 상태를 색이 아니라 형태·위치로 구분한다는 DESIGN 원칙에 맞는다. CSS 만으로도 상태 구분이 충분하고 결정적이라 테스트 가능. HUMAN 모드는 AI 응답이 없어 루프가 성립하지 않는다.
+- alternatives: 원형 오브(DESIGN 초안), Web Audio 진폭 연동, STT 결과 textarea 확인 후 전송(3=a), 앞 1,000자만 재생, `done` 뒤 자동 재전송 — 모두 기각(사용자 선택 1=2B·3=b, 나머지 추천안 승인).
+- impact: DESIGN.md#7 개정, BRAND.md#5 표에 신규 문구 행, `apps/web` `features/speech/*`·`components/voice/*`·Composer·MessageBubble·ChatShell·RoomView. API 변경 없음.
+- date: 2026-09-18 (개발자 대행 기록, 사용자 결정 — "1=2B, 3=b, 나머지 승인")
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

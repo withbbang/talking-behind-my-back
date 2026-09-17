@@ -1,7 +1,11 @@
 'use client';
 
-import { useCallback } from 'react';
-import { GENERIC_ERROR } from '@/lib/copy';
+import { useCallback, useEffect } from 'react';
+import { GENERIC_ERROR, VOICE_COPY } from '@/lib/copy';
+import { VoiceModeOverlay } from '@/components/voice/VoiceModeOverlay';
+import { useVoiceMode } from '@/features/speech/useVoiceMode';
+import { useVoiceStore } from '@/features/speech/voiceStore';
+import type { InputType } from '@/features/messages/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToastStore } from '@/components/ui/Toast';
@@ -20,7 +24,7 @@ import { OrphanedDialog } from './OrphanedDialog';
 /**
  * 채팅방 본문 (DESIGN.md#3). 방 상세 + 메시지 + 이벤트 구독 + 스트리밍 + 입력창.
  * 내 AI 잡이 대기·진행 중이면 입력 잠금(상대는 가능).
- * ORPHANED 방(참여자): 잠금 + 주인 없는 방 모달(DESIGN.md#6). 트리거는 캐시 status 하나 — 목록 탭(상세 GET)·SSE member·전송 410 모두 여기로 모인다(D-021).
+ * ORPHANED 방(참여자): 잠금 + 주인 없는 방 모달(DESIGN.md#6). 보이스 모드 오버레이(DESIGN.md#7)도 여기서 그린다. 트리거는 캐시 status 하나 — 목록 탭(상세 GET)·SSE member·전송 410 모두 여기로 모인다(D-021).
  */
 export function RoomView({ roomId }: { roomId: number }) {
   const room = useRoom(roomId);
@@ -50,7 +54,20 @@ export function RoomView({ roomId }: { roomId: number }) {
     },
     [messages.messages, removeStream, roomId, send, toastSendError],
   );
-  const onSend = (content: string) => send.mutate({ content }, { onError: toastSendError });
+  const onSend = (content: string, inputType: InputType = 'TEXT') => send.mutate({ content, inputType }, { onError: toastSendError });
+
+  // 보이스 모드 (T-010, D-029): 상단 바 토글이 이 방을 가리키고 AI 모드·ACTIVE 일 때만 활성. HUMAN 으로 바뀌면 닫고 안내.
+  const voiceRoomId = useVoiceStore((s) => s.roomId);
+  const closeVoice = useVoiceStore((s) => s.close);
+  const voiceAllowed = room.data?.mode === 'AI' && room.data?.status !== 'ORPHANED';
+  const voiceActive = voiceRoomId === roomId && voiceAllowed;
+  useEffect(() => {
+    if (voiceRoomId !== roomId || !room.data || voiceAllowed) return;
+    closeVoice();
+    if (room.data.mode !== 'AI') show(VOICE_COPY.aiOnly);
+  }, [voiceRoomId, roomId, room.data, voiceAllowed, closeVoice, show]);
+  const sendVoice = useCallback((content: string) => send.mutateAsync({ content, inputType: 'VOICE' }), [send]);
+  const voice = useVoiceMode({ roomId, active: voiceActive, send: sendVoice, onExit: closeVoice });
 
   if (room.isPending || me.isPending || messages.isPending) {
     return (
@@ -73,6 +90,7 @@ export function RoomView({ roomId }: { roomId: number }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <OrphanedDialog roomId={roomId} open={orphaned && room.data.role === 'PARTICIPANT'} />
+      {voiceActive && <VoiceModeOverlay state={voice.state} elapsedMs={voice.elapsedMs} preview={voice.preview} onDone={() => void voice.done()} onRetry={voice.retry} onExit={voice.exit} />}
       {empty ? (
         <Centered>
           <Avatar kind="ai" size={64} />
