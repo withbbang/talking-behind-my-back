@@ -202,7 +202,7 @@
 - 범위 외: BRAND.md/DESIGN.md 문서 동기화(to-designer.md), api `ErrorCode` 메시지(변경 없음).
 - date: 2026-09-17
 
-### [개발자 → QA] T-009 STT/TTS Provider + 엔드포인트 (api) 검증 요청
+### [개발자 → QA] T-009 STT/TTS Provider + 엔드포인트 (api) 검증 요청 [처리됨 2026-09-18, QA_REPORT.md#T-009 PASS]
 - 요청/이슈: `cd apps/api && ./gradlew test`(280 통과, compose MySQL 필요) 확인. 신규 35건은 `src/test/java/com/example/chat/speech/**` + MapperTest usage.
   로컬 실측(compose + bootRun, 로그인 쿠키 필요, nginx :3000 경유). STT/TTS 는 OmniRoute `/v1/audio/*` 경유(D-027):
   (1) 로컬 OmniRoute 에는 Groq(STT)·edge 노드(TTS)가 연결돼 있다(D-028). `STT_MODEL=nope/x` 처럼 없는 모델로 bootRun 하면 `POST /api/speech/stt` → 502 `SPEECH_UPSTREAM_ERROR`(OmniRoute 400 본문을 그대로 흘리지 않는지), TTS 도 동일.

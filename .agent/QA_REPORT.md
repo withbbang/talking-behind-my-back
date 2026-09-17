@@ -333,3 +333,25 @@
   - (미검증) "{닉} 퇴장!" 실브라우저 — 두 번째 계정 로그인 세션이 없어 실제 나가기 이벤트를 못 냈다. 단위(`sse.test.ts`)로만 확인. 계정 B 로그인 시 1분 확인 가능.
   - (처리됨 2026-09-17) BRAND.md#5 표·DESIGN.md 인라인 문구 동기화 — 디자이너 대행(사용자 지시).
 - date: 2026-09-17
+
+### T-009 STT/TTS Provider + 엔드포인트 (api)
+- verdict: PASS (사용자 지시로 개발자 QA 대행, 2026-09-18 — 이전 세션에서 실측 후 기록 누락분 재실측)
+- tests: 존재 / api `./gradlew cleanTest test` **292 passed**(강제 재실행, compose MySQL. 첫 `gradlew test` 는 캐시로 "BUILD SUCCESSFUL in 1s" 라 무효 처리하고 cleanTest 로 다시 돌림). speech: `SpeechControllerIntegrationTest` 14(stt 8·tts 6), `SpeechServiceTest` 16(stt 11·tts 5), `SpeechPropertiesTest` 2, `SpeechProviderSelectionTest` 1, `extensionOf` 3, `startup` 1, `OmniRouteClientTest` 6, `OmniRouteSttProviderTest` 5, `OmniRouteTtsProviderTest` 4. 에이전트 실행(로컬).
+- checked:
+  - **실서버**: compose(nginx :3000 · MySQL · OmniRoute Groq/edge 노드 · edge-tts) + `./gradlew bootRun` 기본 설정(`groq/whisper-large-v3`, `edge/tts-1`, SunHi). 로컬 JWT_SECRET(코드 공개 기본값) 서명 토큰 user 1/2(소셜 자격증명 미사용). 마이크 없이 edge-tts 로 만든 한국어 음성 "진짜 짜증나. 부장이 또 회의에 30분 늦게 왔어." 를 `afconvert` 로 wav 16kHz / m4a(aac) 변환해 사용. 호스트에 ffmpeg 가 없어 webm/opus 는 미생성(확장자 매핑은 `extensionOf` 단위 테스트).
+  - (2) STT wav 5.9초 → 200 `{"text":" 진짜 짜증나. 부장이 또 회의에 30분 늦게 왔어.","durationMs":5880,"provider":"omniroute"}` 1.06초, 전사 정확(non-turbo). m4a `audio/mp4`(iOS 경로) → 같은 텍스트 200 0.37초. `daily_usage.stt_seconds` 6 → 12 → 18(올림 초).
+  - (2) TTS `{"text":"안녕, 반가워"}` → 200 `Content-Type: audio/mpeg`, `Cache-Control: private, max-age=3600`, 본문 MPEG layer III 24kHz 15,120B, 0.63초. `voice:"ko-KR-InJoonNeural"` 200 20,448B(다른 음성으로 생성됨 — 크기·바이트 상이). `tts_chars` 0 → 7 → 14. 청취는 미수행.
+  - (5-1) 52.9초 wav(`durationMs=54000`) → 200 3.6초(타임아웃 30초 여유), 반복 문장 정확 전사, `stt_seconds` +53 → 71.
+  - (3) 모든 호출 뒤 `/tmp/audio` 0개(성공·400·413·502 전부).
+  - (4)(5-2) `durationMs=60001` 400 `AUDIO_TOO_LONG` / `abc` 400 `VALIDATION_FAILED` details.durationMs / `-5` 400 details.durationMs / audio 파트 없음 400 details.audio / 1,001자 400 `TEXT_TOO_LONG` / 공백 400 details.text. 사용량 미증가.
+  - (5) 27,000,000B: nginx 경유 **413 HTML**(프론트는 상태코드만 볼 것), :8080 직행 413 JSON `PAYLOAD_TOO_LARGE`.
+  - (1) 502 매핑: 잘못된 `voice`(edge 500) 와 무효 오디오(Groq 400) 모두 502 `SPEECH_UPSTREAM_ERROR` JSON, 상류 본문 미노출. api 로그는 `stt upstream failed: omniroute stt responded 400` 처럼 상태코드만(본문·오디오·토큰 없음). `STT_MODEL=nope/x` 재기동은 미수행(같은 502 경로, 단위 테스트 커버).
+  - (6) 쿠키 없음 401. user 2 를 잠시 SUSPENDED 로 바꿔 403 `USER_SUSPENDED` 확인 후 ACTIVE 복구.
+  - (7) `STT_PROVIDER=clova` 기동은 미수행(`SpeechProviderSelectionTest` 커버).
+  - 계약 일치: API.md#speech 응답 필드·헤더·에러 코드(AUDIO_TOO_LONG·TEXT_TOO_LONG·VALIDATION_FAILED·SPEECH_UPSTREAM_ERROR·401·403) 전부 실측과 일치.
+- issues:
+  - (교훈, TASKS 반영) 체크리스트의 "26MB" 를 26,000,000B 로 만들면 25MiB(26,214,400B) **미만**이라 nginx·Boot 를 통과해 Groq 까지 갔다가 502 가 난다. 상한 실측은 26,214,401B 이상으로.
+  - (블록 아님, 참고) 24.8MiB 의 무효 오디오도 상한 안이라 공급자까지 간다. Groq 무료 티어라 비용 무시. 서버측 최소 포맷 검증(매직 넘버)은 필요해지면 별도 T.
+  - (블록 아님, 참고) bootRun 로그에 netty `MacOSDnsServerAddressStreamProvider` 로드 실패 ERROR 1회 — macOS 로컬 전용(`netty-resolver-dns-native-macos` 미포함), Linux 컨테이너 무관.
+  - 뒷정리: user 2 ACTIVE 복구, 임시 토큰·오디오 파일 삭제, bootRun 종료. `daily_usage` user 1 오늘 행은 실측값(71/14) 그대로.
+- date: 2026-09-18

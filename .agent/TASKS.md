@@ -46,6 +46,7 @@
 - **RTL `getByText` 는 한 `<p>` 안에서 `<br/>` 로 나뉜 줄을 못 잡는다.** 여러 줄 카피는 줄마다 `<span className="block">`.
 - **외부 AI 호출(LLM·STT·TTS)은 전부 OmniRoute 경유가 기본.** 새 외부 API 를 붙일 때 "직접 호출" 로 설계하지 말고 OmniRoute `/v1/*` 지원부터 확인(T-009 에서 OpenAI 직접 호출로 갔다가 되돌림). 로컬 OmniRoute 에 `curl -X POST … /v1/<path>` 로 404 인지 400 인지 보면 안다.
 - **hydration 전 인라인 스크립트로 React 가 렌더한 `<meta>`/`<title>` 을 바꾸면 React 19 가 hoistable 매칭에 실패해 같은 태그를 하나 더 꽂는다**(T-020 theme-color 중복 실측). 첫 페인트 전엔 `<html>` 속성만 건드리고 메타는 마운트 후 갱신. `'use client'` 모듈의 문자열 상수를 서버 컴포넌트(layout)에서 import 하면 클라이언트 참조가 되니 상수는 지시어 없는 모듈로 분리.
+- **업로드 상한 실측 파일은 26,214,401B 이상.** "26MB" 를 26,000,000B 로 만들면 25MiB 미만이라 nginx(25m)·Boot(25MB) 를 통과해 공급자까지 갔다가 502 가 난다(T-009 QA).
 
 ---
 
@@ -416,7 +417,7 @@
 ## M3 음성
 
 ## T-009 STT/TTS Provider + 엔드포인트 (api)
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M3
 - spec: API.md#speech, D-007
@@ -425,6 +426,7 @@
   - `speech/SttProvider`·`TtsProvider` + `omniroute/*` 구현(D-027, 원안 `openai/*`) + `clova/*` 스텁. `SpeechProperties`(app.speech.*) + provider 선택 `@ConditionalOnProperty`.
   - `/speech/stt` multipart → `app.speech.tmp-dir` 저장 → 변환 → 삭제(테스트로 확인). 길이 상한 → `AUDIO_TOO_LONG`.
   - `/speech/tts` 텍스트 상한(`max-tts-chars`) → `TEXT_TOO_LONG`, `audio/mpeg` 반환. `daily_usage.stt_seconds/tts_chars` 갱신.
+- qa: PASS (QA_REPORT.md 2026-09-18, 개발자 QA 대행 — 292 테스트 재실행 + nginx 경유 STT/TTS·상한·413·502·401/403 실측)
 - test: `speech/SpeechServiceTest`(14, fake 공급자·@TempDir 로 저장→삭제·상한·사용량·duration 폴백·502 매핑), `omniroute/OmniRouteSttProviderTest`(5)·`OmniRouteTtsProviderTest`(3, MockWebServer),
   `SpeechControllerIntegrationTest`(12, 실제 SecurityConfig + FakeSpeechTestConfig: 401/403/200/400×3/502·헤더·usage 행), `SpeechProviderSelectionTest`(1, clova 스텁 선택), MapperTest usage +1.
   api 전체 280 통과(2026-09-17 로컬, compose MySQL). 실제 OmniRoute 왕복은 대시보드에 STT/TTS 공급자 자격증명이 있어야 해 미실측 — QA 체크리스트.
