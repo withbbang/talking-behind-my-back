@@ -44,6 +44,7 @@
   `InvalidClientRegistrationIdException` 은 package-private(IllegalArgumentException 하위).
 - **MyBatis XML 안 SQL 의 `<>` 는 XML 파싱 오류.** `!=` 로. `bootRun` 중 `gradlew test` 를 돌리면 devtools 가 재시작하는데 그때 리소스가 깨져 있으면 앱이 죽은 채 남는다 — 고친 뒤 bootRun 재기동.
 - **RTL `getByText` 는 한 `<p>` 안에서 `<br/>` 로 나뉜 줄을 못 잡는다.** 여러 줄 카피는 줄마다 `<span className="block">`.
+- **외부 AI 호출(LLM·STT·TTS)은 전부 OmniRoute 경유가 기본.** 새 외부 API 를 붙일 때 "직접 호출" 로 설계하지 말고 OmniRoute `/v1/*` 지원부터 확인(T-009 에서 OpenAI 직접 호출로 갔다가 되돌림). 로컬 OmniRoute 에 `curl -X POST … /v1/<path>` 로 404 인지 400 인지 보면 안다.
 - **hydration 전 인라인 스크립트로 React 가 렌더한 `<meta>`/`<title>` 을 바꾸면 React 19 가 hoistable 매칭에 실패해 같은 태그를 하나 더 꽂는다**(T-020 theme-color 중복 실측). 첫 페인트 전엔 `<html>` 속성만 건드리고 메타는 마운트 후 갱신. `'use client'` 모듈의 문자열 상수를 서버 컴포넌트(layout)에서 import 하면 클라이언트 참조가 되니 상수는 지시어 없는 모듈로 분리.
 
 ---
@@ -424,10 +425,10 @@
   - `speech/SttProvider`·`TtsProvider` + `openai/*` 구현 + `clova/*` 스텁. `SpeechProperties`(app.speech.*) + provider 선택 `@ConditionalOnProperty`.
   - `/speech/stt` multipart → `app.speech.tmp-dir` 저장 → 변환 → 삭제(테스트로 확인). 길이 상한 → `AUDIO_TOO_LONG`.
   - `/speech/tts` 텍스트 상한(`max-tts-chars`) → `TEXT_TOO_LONG`, `audio/mpeg` 반환. `daily_usage.stt_seconds/tts_chars` 갱신.
-- test: `speech/SpeechServiceTest`(12, fake 공급자·@TempDir 로 저장→삭제·상한·사용량·502 매핑), `openai/OpenAiSttProviderTest`(5)·`OpenAiTtsProviderTest`(3, MockWebServer),
+- test: `speech/SpeechServiceTest`(14, fake 공급자·@TempDir 로 저장→삭제·상한·사용량·duration 폴백·502 매핑), `omniroute/OmniRouteSttProviderTest`(5)·`OmniRouteTtsProviderTest`(3, MockWebServer),
   `SpeechControllerIntegrationTest`(12, 실제 SecurityConfig + FakeSpeechTestConfig: 401/403/200/400×3/502·헤더·usage 행), `SpeechProviderSelectionTest`(1, clova 스텁 선택), MapperTest usage +1.
-  api 전체 278 통과(2026-09-17 로컬, compose MySQL). 실제 OpenAI 왕복은 키가 없어 미실측 — QA 체크리스트.
-- note: D-026. `durationMs` 는 클라이언트 힌트(공급자 호출 전 차단) + 공급자 보고 길이(호출 후 재검사) 이중 검사. 파일 확장자는 content-type 으로 정한다(OpenAI 가 확장자로 포맷 판별, iOS `audio/mp4` → `.mp4`).
+  api 전체 280 통과(2026-09-17 로컬, compose MySQL). 실제 OmniRoute 왕복은 대시보드에 STT/TTS 공급자 자격증명이 있어야 해 미실측 — QA 체크리스트.
+- note: D-026·D-027. 초안은 OpenAI 직접 호출이었으나 사용자 지적으로 OmniRoute `/v1/audio/*` 경유로 정정(로컬 3.8.50 에서 경로 동작 확인). `durationMs` 는 클라이언트 힌트(공급자 호출 전 차단) + 공급자 보고 길이(호출 후 재검사) 이중 검사, 공급자가 길이를 안 주면 클라이언트 값으로 집계. 파일 확장자는 content-type 으로 정한다(OpenAI 가 확장자로 포맷 판별, iOS `audio/mp4` → `.mp4`).
   `audio` 파트 누락은 `required=false` 로 받아 서비스에서 VALIDATION_FAILED(details.audio) — required 로 두면 MissingServletRequestPart 가 500 으로 샌다.
   Clova 는 빈만 뜨는 스텁(호출 시 502). 실구현은 필요해지면 별도 T.
 

@@ -203,16 +203,16 @@
 - date: 2026-09-17
 
 ### [개발자 → QA] T-009 STT/TTS Provider + 엔드포인트 (api) 검증 요청
-- 요청/이슈: `cd apps/api && ./gradlew test`(278 통과, compose MySQL 필요) 확인. 신규 33건은 `src/test/java/com/example/chat/speech/**` + MapperTest usage.
-  로컬 실측(compose + bootRun, 로그인 쿠키 필요, nginx :3000 경유):
-  (1) `OPENAI_API_KEY` 없이 `POST /api/speech/stt`(multipart `audio`) → 502 `SPEECH_UPSTREAM_ERROR`(401 을 그대로 흘리지 않는지), `POST /api/speech/tts` `{"text":"안녕"}` → 502.
-  (2) 키가 있으면(선택): 5초 webm/opus 녹음 → 200 `{text, durationMs, provider:"openai"}`, `daily_usage.stt_seconds` 가 올림 초로 증가. TTS 200 `Content-Type: audio/mpeg`, `Cache-Control: private, max-age=3600`, 재생 가능한 mp3, `tts_chars` 증가.
+- 요청/이슈: `cd apps/api && ./gradlew test`(280 통과, compose MySQL 필요) 확인. 신규 35건은 `src/test/java/com/example/chat/speech/**` + MapperTest usage.
+  로컬 실측(compose + bootRun, 로그인 쿠키 필요, nginx :3000 경유). STT/TTS 는 OmniRoute `/v1/audio/*` 경유(D-027):
+  (1) OmniRoute 대시보드에 STT/TTS 공급자 자격증명이 **없을 때** `POST /api/speech/stt`(multipart `audio`) → 502 `SPEECH_UPSTREAM_ERROR`(OmniRoute 400 본문을 그대로 흘리지 않는지), `POST /api/speech/tts` `{"text":"안녕"}` → 502.
+  (2) 자격증명이 있으면(선택, `STT_MODEL`/`TTS_MODEL` 이 대시보드 공급자와 맞아야 함): 5초 webm/opus 녹음 → 200 `{text, durationMs, provider:"omniroute"}`, `daily_usage.stt_seconds` 가 올림 초로 증가(공급자가 duration 을 안 주면 `durationMs` 로). TTS 200 `Content-Type: audio/mpeg`, `Cache-Control: private, max-age=3600`, 재생 가능한 mp3, `tts_chars` 증가.
   (3) 처리 중·후 `/tmp/audio`(로컬은 `app.speech.tmp-dir`) 에 파일이 남지 않는지(성공·실패 모두).
   (4) `durationMs=60001` → 400 `AUDIO_TOO_LONG`(공급자 미호출). 1,001자 텍스트 → 400 `TEXT_TOO_LONG`. 공백 텍스트 → 400 `VALIDATION_FAILED` `details.text`. `audio` 파트 없음 → 400 `details.audio`(500 아님).
   (5) 26MB 파일 → 413 `PAYLOAD_TOO_LARGE`(nginx 25m 과 Boot multipart 상한 정합).
   (6) 미인증 401, 정지 회원 403 `USER_SUSPENDED`.
   (7) `STT_PROVIDER=clova` 로 기동하면 부팅은 되고 호출은 502(스텁).
-- 근거 파일: D-007, D-026, API.md#speech, TASKS.md T-009, `apps/api/src/main/java/com/example/chat/speech/**`, `mapper/DailyUsageMapper.xml`
-- 범위 외: 프론트 버튼·보이스 모드(T-010), VAD·문장 단위 TTS(T-026), Clova 실구현, 일일 호출 상한(D-007 open), OmniRoute `/v1/audio/*` 경유.
+- 근거 파일: D-007, D-026, D-027, API.md#speech, TASKS.md T-009, `apps/api/src/main/java/com/example/chat/speech/**`, `mapper/DailyUsageMapper.xml`
+- 범위 외: 프론트 버튼·보이스 모드(T-010), VAD·문장 단위 TTS(T-026), Clova 실구현, 일일 호출 상한(D-007 open).
 - date: 2026-09-17
 

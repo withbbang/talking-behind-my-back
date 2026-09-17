@@ -56,7 +56,7 @@
 ### D-007 STT/TTS는 서버 API 방식, Provider 인터페이스로 교체 가능하게
 - decision: 브라우저 Web Speech API를 쓰지 않는다. `SttProvider`/`TtsProvider` 인터페이스 + `openai`/`clova` 구현체, `STT_PROVIDER`/`TTS_PROVIDER` 환경변수로 선택. 오디오는 `/tmp/audio`(tmpfs)에서 처리 후 즉시 삭제. 기능 3(메시지별 듣기/말하기 버튼)과 기능 4(보이스 모드 루프)는 같은 API를 쓰고 UI만 다르다. 음성 입력 메시지는 `input_type=VOICE`.
 - rationale: 브라우저 API는 iOS Safari 지원이 불안정하고 음성 품질이 OS에 묶인다. 서버 방식은 비용이 들지만 일관된 품질과 한국어 정확도를 확보한다.
-- alternatives: Web Speech API(무료) — 기각. OmniRoute `/v1/audio/*` 경유 — 지원 여부 미확인, 확인되면 별도 결정.
+- alternatives: Web Speech API(무료) — 기각. OmniRoute `/v1/audio/*` 경유 — 지원 확인됨 → D-027 로 채택.
 - impact: `speech/*`, API.md `/speech/*`, nginx `client_max_body_size 25m`, compose tmpfs
 - open: 녹음 길이 상한(초), 하루 호출 상한 — 비용 확인 후 결정.
 - date: 2026-09-13
@@ -223,12 +223,23 @@
   OpenAI Realtime 류 실시간 양방향(WebSocket/WebRTC, STT/TTS 단계 없음)은 채택하지 않는다.
   "대화 같은 느낌"은 같은 API 위에서 클라이언트만 바꿔 보강한다 → T-026(VAD 무음 감지 자동 종료 + 문장 단위 TTS 선재생). 끼어들기(barge-in)는 백로그.
   T-009 세부: STT 는 클라이언트가 `durationMs`(MediaRecorder 실측)를 같이 보내면 공급자 호출 전에 상한을 검사하고, 공급자가 돌려준 길이로 한 번 더 검사한다(둘 다 `AUDIO_TOO_LONG`).
-  `daily_usage.stt_seconds` 는 공급자 보고 길이 올림, `tts_chars` 는 요청 텍스트 길이. OpenAI 는 OmniRoute 를 거치지 않고 직접 호출(D-007 의 `/v1/audio/*` 경유는 미확인 상태 유지).
+  `daily_usage.stt_seconds` 는 공급자 보고 길이 올림, `tts_chars` 는 요청 텍스트 길이. ~~OpenAI 는 OmniRoute 를 거치지 않고 직접 호출~~ → D-027 에서 정정(OmniRoute 경유).
 - rationale: 실시간 방식은 OmniRoute 모델 alias·Provider 인터페이스(D-007)·직렬 큐·4:1 컨텍스트·텍스트 보존을 전부 우회하고 분당 과금이라 CONTEXT.md 비용 상한 요건과 충돌한다.
   턴 기반 + VAD + 문장 단위 선재생이면 Claude 앱 보이스 모드와 거의 같은 체감이 나오고 설계 변경이 없다.
 - alternatives: OpenAI Realtime API 직접 연결 — 기각(위 이유). Web Speech API — D-007 에서 이미 기각.
 - impact: T-009 착수, T-026 신설(blocked_by T-010), API.md#speech 에 `durationMs` 추가. DESIGN.md#7 변경 없음.
 - date: 2026-09-17 (개발자 대행 기록, 사용자 결정 — "추천 방식으로 진행")
+
+### D-027 STT/TTS 도 OmniRoute 경유 — OpenAI 직접 호출 폐기 (D-026 정정, D-007 미결 해소)
+- decision: 기본 공급자 `omniroute` 는 LLM 과 같은 OmniRoute(`app.llm.base-url`·`OMNIROUTE_API_KEY`)의 OpenAI 호환 `POST /v1/audio/transcriptions`·`/v1/audio/speech` 를 쓴다.
+  모델은 OmniRoute 규칙대로 `STT_MODEL`/`TTS_MODEL` 에 `provider/model`(기본 `openai/whisper-1`·`openai/tts-1`) 또는 대시보드 alias. 실제 공급자 자격증명(OpenAI 키 등)은 OmniRoute 대시보드에만 두고 api 는 갖지 않는다.
+  api 의 `OPENAI_*` 환경변수는 없앤다. Clova 는 `STT_PROVIDER=clova` 스텁 유지.
+  공급자가 길이(`duration`)를 안 주면 클라이언트 `durationMs` 로 `stt_seconds` 를 대신 집계한다(둘 다 없으면 0, 미집계).
+- rationale: 외부 AI 호출은 한 곳(OmniRoute)에서 공급자 교체·비용·폴백을 관리한다는 D-006 원칙과 같다. 로컬 OmniRoute 3.8.50 에서 두 경로가 실제로 동작함을 확인(2026-09-17: `Invalid speech model: whisper-1. Use format: provider/model`, `No credentials for provider: openai` — 라우팅까지 도달).
+  API 레퍼런스에도 `POST /v1/audio/speech {"model":"openai/tts-1"}`·`handleAudioTranscription` 이 문서화돼 있고 오디오 응답은 그대로 통과한다.
+- alternatives: OpenAI 직접 호출(D-026 초안) — 키를 두 군데 관리하고 공급자 교체가 앱 코드에 묶여 기각.
+- impact: `speech/omniroute/*`(구 `openai/*`), `SpeechProperties`(`stt-model`/`tts-model`), `WebClientConfig.omniRouteWebClient` 재사용, `infra/.env.example` `STT_MODEL`/`TTS_MODEL`, API.md#speech `provider: "omniroute"`. T-010 무관.
+- date: 2026-09-17 (개발자 대행 기록, 사용자 결정 — "OmniRoute 로 할 건데")
 
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
