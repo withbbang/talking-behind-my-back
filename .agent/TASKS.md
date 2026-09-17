@@ -428,7 +428,7 @@
 - test: `speech/SpeechServiceTest`(14, fake 공급자·@TempDir 로 저장→삭제·상한·사용량·duration 폴백·502 매핑), `omniroute/OmniRouteSttProviderTest`(5)·`OmniRouteTtsProviderTest`(3, MockWebServer),
   `SpeechControllerIntegrationTest`(12, 실제 SecurityConfig + FakeSpeechTestConfig: 401/403/200/400×3/502·헤더·usage 행), `SpeechProviderSelectionTest`(1, clova 스텁 선택), MapperTest usage +1.
   api 전체 280 통과(2026-09-17 로컬, compose MySQL). 실제 OmniRoute 왕복은 대시보드에 STT/TTS 공급자 자격증명이 있어야 해 미실측 — QA 체크리스트.
-- note: D-026·D-027. 초안은 OpenAI 직접 호출이었으나 사용자 지적으로 OmniRoute `/v1/audio/*` 경유로 정정(로컬 3.8.50 에서 경로 동작 확인). `durationMs` 는 클라이언트 힌트(공급자 호출 전 차단) + 공급자 보고 길이(호출 후 재검사) 이중 검사, 공급자가 길이를 안 주면 클라이언트 값으로 집계. 파일 확장자는 content-type 으로 정한다(OpenAI 가 확장자로 포맷 판별, iOS `audio/mp4` → `.mp4`).
+- note: D-026·D-027·D-028. 초안은 OpenAI 직접 호출이었으나 사용자 지적으로 OmniRoute `/v1/audio/*` 경유로 정정(로컬 3.8.50 에서 경로 동작 확인). 공급자는 무료로 확정: STT Groq(대시보드 연결 완료), TTS edge-tts 사이드카(OmniRoute OpenAI 호환 노드 `edge`, 로컬 등록 완료). OmniRoute 경유 실측 2026-09-17: STT 200 정확 전사, TTS 200 mp3. `durationMs` 는 클라이언트 힌트(공급자 호출 전 차단) + 공급자 보고 길이(호출 후 재검사) 이중 검사, 공급자가 길이를 안 주면 클라이언트 값으로 집계. 파일 확장자는 content-type 으로 정한다(OpenAI 가 확장자로 포맷 판별, iOS `audio/mp4` → `.mp4`).
   `audio` 파트 누락은 `required=false` 로 받아 서비스에서 VALIDATION_FAILED(details.audio) — required 로 두면 MissingServletRequestPart 가 500 으로 샌다.
   Clova 는 빈만 뜨는 스텁(호출 시 502). 실구현은 필요해지면 별도 T.
 
@@ -526,4 +526,6 @@
 - 토큰 기준 컨텍스트 윈도우(D-006 open)
 - 사용량 일일 상한 + 어드민 알림(D-007 open)
 - `MapperTest` 를 `@MybatisTest` 슬라이스로 전환(속도) — Boot 4 `AutoConfigureTestDatabase` 패키지 확인 후
+- TTS 폴백 콤보: OmniRoute 에서 `edge/tts-1` 실패 시 `gtts/ko` 로 넘어가는 콤보 설정 + `TTS_MODEL` 을 콤보 alias 로(D-028). 비공식 Edge API 차단 대비.
+- OmniRoute `next` 이미지가 내장 edgetts 403(Sec-MS-GEC)을 고쳤는지 확인 → 고쳤으면 edge-tts 사이드카 제거(D-028).
 - 잘못된 percent-encoding 쿼리스트링(Tomcat `InvalidParameterException`) 500 → 400 `VALIDATION_FAILED` 매핑(T-006 QA 발견)

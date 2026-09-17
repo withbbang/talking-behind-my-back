@@ -205,8 +205,10 @@
 ### [개발자 → QA] T-009 STT/TTS Provider + 엔드포인트 (api) 검증 요청
 - 요청/이슈: `cd apps/api && ./gradlew test`(280 통과, compose MySQL 필요) 확인. 신규 35건은 `src/test/java/com/example/chat/speech/**` + MapperTest usage.
   로컬 실측(compose + bootRun, 로그인 쿠키 필요, nginx :3000 경유). STT/TTS 는 OmniRoute `/v1/audio/*` 경유(D-027):
-  (1) OmniRoute 대시보드에 STT/TTS 공급자 자격증명이 **없을 때** `POST /api/speech/stt`(multipart `audio`) → 502 `SPEECH_UPSTREAM_ERROR`(OmniRoute 400 본문을 그대로 흘리지 않는지), `POST /api/speech/tts` `{"text":"안녕"}` → 502.
-  (2) 자격증명이 있으면(선택, `STT_MODEL`/`TTS_MODEL` 이 대시보드 공급자와 맞아야 함): 5초 webm/opus 녹음 → 200 `{text, durationMs, provider:"omniroute"}`, `daily_usage.stt_seconds` 가 올림 초로 증가(공급자가 duration 을 안 주면 `durationMs` 로). TTS 200 `Content-Type: audio/mpeg`, `Cache-Control: private, max-age=3600`, 재생 가능한 mp3, `tts_chars` 증가.
+  (1) 로컬 OmniRoute 에는 Groq(STT)·edge 노드(TTS)가 연결돼 있다(D-028). `STT_MODEL=nope/x` 처럼 없는 모델로 bootRun 하면 `POST /api/speech/stt` → 502 `SPEECH_UPSTREAM_ERROR`(OmniRoute 400 본문을 그대로 흘리지 않는지), TTS 도 동일.
+  (2) 기본 설정으로: 5초 webm/opus 녹음(한국어) → 200 `{text, durationMs, provider:"omniroute"}` 에 말한 내용이 그대로, `daily_usage.stt_seconds` 가 올림 초로 증가. `POST /api/speech/tts` `{"text":"안녕, 반가워"}` → 200 `Content-Type: audio/mpeg`, `Cache-Control: private, max-age=3600`, 재생하면 한국어 여성 음성(SunHi), `tts_chars` 증가. `voice:"ko-KR-InJoonNeural"` 이면 남성.
+      개발자 OmniRoute 레벨 실측(2026-09-17): STT "오늘 날씨 어때? 나 좀 심심해." 정확, 0.6초. TTS 0.4초, 1,000자 10초. api 경유는 로그인 쿠키가 필요해 미실측.
+  (2-1) `docker compose -f docker-compose.dev.yml ps` 에 `edge-tts` 가 떠 있어야 TTS 가 된다. 내려가 있으면 502.
   (3) 처리 중·후 `/tmp/audio`(로컬은 `app.speech.tmp-dir`) 에 파일이 남지 않는지(성공·실패 모두).
   (4) `durationMs=60001` → 400 `AUDIO_TOO_LONG`(공급자 미호출). 1,001자 텍스트 → 400 `TEXT_TOO_LONG`. 공백 텍스트 → 400 `VALIDATION_FAILED` `details.text`. `audio` 파트 없음 → 400 `details.audio`(500 아님).
   (5) 26MB 파일 → 413 `PAYLOAD_TOO_LARGE`(nginx 25m 과 Boot multipart 상한 정합).

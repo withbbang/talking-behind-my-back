@@ -241,6 +241,17 @@
 - impact: `speech/omniroute/*`(구 `openai/*`), `SpeechProperties`(`stt-model`/`tts-model`), `WebClientConfig.omniRouteWebClient` 재사용, `infra/.env.example` `STT_MODEL`/`TTS_MODEL`, API.md#speech `provider: "omniroute"`. T-010 무관.
 - date: 2026-09-17 (개발자 대행 기록, 사용자 결정 — "OmniRoute 로 할 건데")
 
+### D-028 STT/TTS 무료 공급자 확정 — STT = Groq(whisper), TTS = Edge 사이드카(OmniRoute OpenAI 호환 노드), 유료·직접 호출 배제
+- decision: STT 는 OmniRoute 에 Groq 연결(무료 티어, 대시보드에 키) → `STT_MODEL=groq/whisper-large-v3-turbo`.
+  TTS 는 compose 에 `edge-tts`(travisvn/openai-edge-tts, Microsoft Edge "Read Aloud" 음성, 키·계정 없음) 사이드카를 두고 OmniRoute 에 "OpenAI 호환" 오디오 노드(prefix `edge`, `http://edge-tts:5050/v1`)로 등록 → `TTS_MODEL=edge/tts-1`, `TTS_VOICE=ko-KR-SunHiNeural`(비우면 안 됨).
+  OmniRoute `AUDIO_REMOTE_PROVIDER_NODES=true` 필수(loopback/172.x 밖 노드 허용). 연결의 API 키는 더미 문자열(비우면 OmniRoute 가 credentials 없음으로 거부).
+  폴백 후보: OmniRoute 내장 `gtts/ko`(구글 번역 음성, 키 없음, 동작 확인) — MS 가 비공식 Edge API 를 막으면 콤보로 전환(별도 T).
+- rationale: 사용자 요구 "무료". 실측(2026-09-17): Groq STT 한국어 3.8초 샘플 정확 전사 0.6초, Edge TTS 한국어 0.4초·1,000자 10초. OmniRoute 내장 `edgetts` 어댑터는 MS DRM 토큰(Sec-MS-GEC) 미지원으로 403 이라 사이드카로 우회.
+  Pollinations 는 새 플랫폼(gen.pollinations.ai)이 키 필수 + pollen 과금이라 기각. OpenAI 직접 호출은 D-027 로 이미 배제. 원칙: 외부 AI 호출은 전부 OmniRoute 경유.
+- alternatives: gTTS 단독(품질 낮음, 여성 1종) — 폴백으로만. ElevenLabs 직접(월 1만 자 무료 후 유료) — 기각. OmniRoute `next` 이미지의 edgetts 수정 여부 — 미확인, 확인되면 사이드카 제거 가능.
+- impact: `infra/docker-compose*.yml` `edge-tts` 서비스 + OmniRoute env, `.env.example`/`.env.omniroute.example`, api `application.yml` 기본값(stt-model/tts-model/tts-voice), README#첫-배포-순서, T-009 QA 체크리스트. 비공식 API 의존은 리스크로 TASKS 백로그에 기록.
+- date: 2026-09-17 (개발자 대행 기록, 사용자 결정 — "무료는 없나?" → Edge 사이드카 선택)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)
