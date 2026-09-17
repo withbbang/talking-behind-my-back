@@ -422,13 +422,13 @@
 - spec: API.md#speech, D-007
 - blocked_by: T-002
 - acceptance:
-  - `speech/SttProvider`·`TtsProvider` + `openai/*` 구현 + `clova/*` 스텁. `SpeechProperties`(app.speech.*) + provider 선택 `@ConditionalOnProperty`.
+  - `speech/SttProvider`·`TtsProvider` + `omniroute/*` 구현(D-027, 원안 `openai/*`) + `clova/*` 스텁. `SpeechProperties`(app.speech.*) + provider 선택 `@ConditionalOnProperty`.
   - `/speech/stt` multipart → `app.speech.tmp-dir` 저장 → 변환 → 삭제(테스트로 확인). 길이 상한 → `AUDIO_TOO_LONG`.
   - `/speech/tts` 텍스트 상한(`max-tts-chars`) → `TEXT_TOO_LONG`, `audio/mpeg` 반환. `daily_usage.stt_seconds/tts_chars` 갱신.
 - test: `speech/SpeechServiceTest`(14, fake 공급자·@TempDir 로 저장→삭제·상한·사용량·duration 폴백·502 매핑), `omniroute/OmniRouteSttProviderTest`(5)·`OmniRouteTtsProviderTest`(3, MockWebServer),
   `SpeechControllerIntegrationTest`(12, 실제 SecurityConfig + FakeSpeechTestConfig: 401/403/200/400×3/502·헤더·usage 행), `SpeechProviderSelectionTest`(1, clova 스텁 선택), MapperTest usage +1.
   api 전체 280 통과(2026-09-17 로컬, compose MySQL). 실제 OmniRoute 왕복은 대시보드에 STT/TTS 공급자 자격증명이 있어야 해 미실측 — QA 체크리스트.
-- note: D-026·D-027·D-028. 초안은 OpenAI 직접 호출이었으나 사용자 지적으로 OmniRoute `/v1/audio/*` 경유로 정정(로컬 3.8.50 에서 경로 동작 확인). 공급자는 무료로 확정: STT Groq(대시보드 연결 완료), TTS edge-tts 사이드카(OmniRoute OpenAI 호환 노드 `edge`, 로컬 등록 완료). OmniRoute 경유 실측 2026-09-17: STT 200 정확 전사, TTS 200 mp3. `durationMs` 는 클라이언트 힌트(공급자 호출 전 차단) + 공급자 보고 길이(호출 후 재검사) 이중 검사, 공급자가 길이를 안 주면 클라이언트 값으로 집계. 파일 확장자는 content-type 으로 정한다(OpenAI 가 확장자로 포맷 판별, iOS `audio/mp4` → `.mp4`).
+- note: D-026·D-027·D-028. 코드 리뷰(2026-09-18) 반영: Tomcat `multipart.location`=tmp-dir(tmpfs), tmp-dir 절대경로·기동 시 생성, 파라미터 타입 불일치 400 핸들러(기존 `size` 파라미터 500 도 같이 해소), 음수 durationMs 400, `tts-voice` 빈 값 기동 실패, edge-tts digest 고정. 초안은 OpenAI 직접 호출이었으나 사용자 지적으로 OmniRoute `/v1/audio/*` 경유로 정정(로컬 3.8.50 에서 경로 동작 확인). 공급자는 무료로 확정: STT Groq(대시보드 연결 완료), TTS edge-tts 사이드카(OmniRoute OpenAI 호환 노드 `edge`, 로컬 등록 완료). OmniRoute 경유 실측 2026-09-17: STT 200 정확 전사, TTS 200 mp3. `durationMs` 는 클라이언트 힌트(공급자 호출 전 차단) + 공급자 보고 길이(호출 후 재검사) 이중 검사, 공급자가 길이를 안 주면 클라이언트 값으로 집계. 파일 확장자는 content-type 으로 정한다(OpenAI 가 확장자로 포맷 판별, iOS `audio/mp4` → `.mp4`).
   `audio` 파트 누락은 `required=false` 로 받아 서비스에서 VALIDATION_FAILED(details.audio) — required 로 두면 MissingServletRequestPart 가 500 으로 샌다.
   Clova 는 빈만 뜨는 스텁(호출 시 502). 실구현은 필요해지면 별도 T.
 

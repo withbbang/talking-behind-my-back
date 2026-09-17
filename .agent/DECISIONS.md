@@ -232,7 +232,7 @@
 
 ### D-027 STT/TTS 도 OmniRoute 경유 — OpenAI 직접 호출 폐기 (D-026 정정, D-007 미결 해소)
 - decision: 기본 공급자 `omniroute` 는 LLM 과 같은 OmniRoute(`app.llm.base-url`·`OMNIROUTE_API_KEY`)의 OpenAI 호환 `POST /v1/audio/transcriptions`·`/v1/audio/speech` 를 쓴다.
-  모델은 OmniRoute 규칙대로 `STT_MODEL`/`TTS_MODEL` 에 `provider/model`(기본 `openai/whisper-1`·`openai/tts-1`) 또는 대시보드 alias. 실제 공급자 자격증명(OpenAI 키 등)은 OmniRoute 대시보드에만 두고 api 는 갖지 않는다.
+  모델은 OmniRoute 규칙대로 `STT_MODEL`/`TTS_MODEL` 에 `provider/model`(~~기본 `openai/whisper-1`·`openai/tts-1`~~ → D-028 에서 `groq/whisper-large-v3`·`edge/tts-1` 로 정정) 또는 대시보드 alias. 실제 공급자 자격증명(OpenAI 키 등)은 OmniRoute 대시보드에만 두고 api 는 갖지 않는다.
   api 의 `OPENAI_*` 환경변수는 없앤다. Clova 는 `STT_PROVIDER=clova` 스텁 유지.
   공급자가 길이(`duration`)를 안 주면 클라이언트 `durationMs` 로 `stt_seconds` 를 대신 집계한다(둘 다 없으면 0, 미집계).
 - rationale: 외부 AI 호출은 한 곳(OmniRoute)에서 공급자 교체·비용·폴백을 관리한다는 D-006 원칙과 같다. 로컬 OmniRoute 3.8.50 에서 두 경로가 실제로 동작함을 확인(2026-09-17: `Invalid speech model: whisper-1. Use format: provider/model`, `No credentials for provider: openai` — 라우팅까지 도달).
@@ -242,7 +242,7 @@
 - date: 2026-09-17 (개발자 대행 기록, 사용자 결정 — "OmniRoute 로 할 건데")
 
 ### D-028 STT/TTS 무료 공급자 확정 — STT = Groq(whisper), TTS = Edge 사이드카(OmniRoute OpenAI 호환 노드), 유료·직접 호출 배제
-- decision: STT 는 OmniRoute 에 Groq 연결(무료 티어, 대시보드에 키) → `STT_MODEL=groq/whisper-large-v3-turbo`.
+- decision: STT 는 OmniRoute 에 Groq 연결(무료 티어, 대시보드에 키) → `STT_MODEL=groq/whisper-large-v3`(QA 실측에서 turbo 가 "짜증나"→"찾았나" 오전사, non-turbo 는 정확·+0.2초라 non-turbo 확정).
   TTS 는 compose 에 `edge-tts`(travisvn/openai-edge-tts, Microsoft Edge "Read Aloud" 음성, 키·계정 없음) 사이드카를 두고 OmniRoute 에 "OpenAI 호환" 오디오 노드(prefix `edge`, `http://edge-tts:5050/v1`)로 등록 → `TTS_MODEL=edge/tts-1`, `TTS_VOICE=ko-KR-SunHiNeural`(비우면 안 됨).
   OmniRoute `AUDIO_REMOTE_PROVIDER_NODES=true` 필수(loopback/172.x 밖 노드 허용). 연결의 API 키는 더미 문자열(비우면 OmniRoute 가 credentials 없음으로 거부).
   폴백 후보: OmniRoute 내장 `gtts/ko`(구글 번역 음성, 키 없음, 동작 확인) — MS 가 비공식 Edge API 를 막으면 콤보로 전환(별도 T).

@@ -209,9 +209,12 @@
   (2) 기본 설정으로: 5초 webm/opus 녹음(한국어) → 200 `{text, durationMs, provider:"omniroute"}` 에 말한 내용이 그대로, `daily_usage.stt_seconds` 가 올림 초로 증가. `POST /api/speech/tts` `{"text":"안녕, 반가워"}` → 200 `Content-Type: audio/mpeg`, `Cache-Control: private, max-age=3600`, 재생하면 한국어 여성 음성(SunHi), `tts_chars` 증가. `voice:"ko-KR-InJoonNeural"` 이면 남성.
       개발자 OmniRoute 레벨 실측(2026-09-17): STT "오늘 날씨 어때? 나 좀 심심해." 정확, 0.6초. TTS 0.4초, 1,000자 10초. api 경유는 로그인 쿠키가 필요해 미실측.
   (2-1) `docker compose -f docker-compose.dev.yml ps` 에 `edge-tts` 가 떠 있어야 TTS 가 된다. 내려가 있으면 502.
+  (2-2) STT 기본 모델은 `groq/whisper-large-v3`(non-turbo). QA 중 turbo 가 "진짜 짜증나"를 "진짜 찾았나"로 적어 교체(2026-09-18).
   (3) 처리 중·후 `/tmp/audio`(로컬은 `app.speech.tmp-dir`) 에 파일이 남지 않는지(성공·실패 모두).
   (4) `durationMs=60001` → 400 `AUDIO_TOO_LONG`(공급자 미호출). 1,001자 텍스트 → 400 `TEXT_TOO_LONG`. 공백 텍스트 → 400 `VALIDATION_FAILED` `details.text`. `audio` 파트 없음 → 400 `details.audio`(500 아님).
-  (5) 26MB 파일 → 413 `PAYLOAD_TOO_LARGE`(nginx 25m 과 Boot multipart 상한 정합).
+  (5) 26MB 파일 → HTTP 413. nginx(25m) 가 먼저 자르므로 본문은 **nginx HTML** 이지 JSON `PAYLOAD_TOO_LARGE` 가 아니다 — 프론트(T-010)는 상태코드만 보고 처리. Boot 직행(:8080)이면 JSON 또는 연결 리셋.
+  (5-1) 60초 최대 길이 녹음(webm/opus, 수 MB) → 200 이 `SPEECH_TIMEOUT_SECONDS`(30초) 안에 오는지. 넘기면 기본값 상향.
+  (5-2) `durationMs=abc` → 400 `VALIDATION_FAILED` `details.durationMs`(500 아님). 음수 → 400 `details.durationMs`.
   (6) 미인증 401, 정지 회원 403 `USER_SUSPENDED`.
   (7) `STT_PROVIDER=clova` 로 기동하면 부팅은 되고 호출은 502(스텁).
 - 근거 파일: D-007, D-026, D-027, API.md#speech, TASKS.md T-009, `apps/api/src/main/java/com/example/chat/speech/**`, `mapper/DailyUsageMapper.xml`
