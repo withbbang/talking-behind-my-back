@@ -1,6 +1,6 @@
 /** 필 배지 (DESIGN.md 공통 컴포넌트). 높이 20, 12px 600. 색만으로 구분하지 않도록 텍스트가 곧 의미다. */
 const KIND = {
-  owner: { label: '주인', className: 'bg-accent/12 text-accent' },
+  owner: { label: '방장', className: 'bg-accent/12 text-accent' },
   closed: { label: '닫힘', className: 'bg-danger-bg text-danger' },
 } as const;
 

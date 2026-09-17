@@ -47,10 +47,10 @@ describe('RoomView (DESIGN.md#3)', () => {
     useStreamStore.setState({ rooms: {} });
   });
 
-  it('메시지 0 이면 빈 방 상태: 하트 64 + "오늘은 누가 그랬어?"', async () => {
+  it('메시지 0 이면 빈 방 상태: 하트 64 + "오늘은 누가 짜증나게 했어?"', async () => {
     mockApi(roomDetail(10, { messageCount: 0 }));
     renderIt();
-    expect(await screen.findByText('오늘은 누가 그랬어?')).toBeInTheDocument();
+    expect(await screen.findByText('오늘은 누가 짜증나게 했어?')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'AI' })).toHaveStyle({ width: '64px' });
   });
 
@@ -59,7 +59,7 @@ describe('RoomView (DESIGN.md#3)', () => {
     useStreamStore.setState({ rooms: { 10: { streams: {}, notices: [{ id: 'n1', text: '영희 등장!', createdAt: '2026-09-16T00:00:00Z' }] } } });
     renderIt();
     expect(await screen.findByText('영희 등장!')).toBeInTheDocument();
-    expect(screen.queryByText('오늘은 누가 그랬어?')).toBeNull();
+    expect(screen.queryByText('오늘은 누가 짜증나게 했어?')).toBeNull();
   });
 
   it('404 면 "그런 방 없는데?" 안내', async () => {
@@ -73,7 +73,7 @@ describe('RoomView (DESIGN.md#3)', () => {
     renderIt();
     expect(await screen.findByText('메시지 1')).toBeInTheDocument();
     expect(screen.getByText('답 2')).toBeInTheDocument();
-    expect(screen.queryByText('오늘은 누가 그랬어?')).toBeNull();
+    expect(screen.queryByText('오늘은 누가 짜증나게 했어?')).toBeNull();
   });
 
   it('입력창: 전송 → POST + 낙관 말풍선 + 내 잡 잠금', async () => {
@@ -89,7 +89,7 @@ describe('RoomView (DESIGN.md#3)', () => {
     expect(screen.getByTestId('typing-dots')).toBeInTheDocument();
   });
 
-  it('409 → 토스트 "아직 답 쓰는 중. 좀만 기다려" + 낙관 말풍선 제거', async () => {
+  it('409 → 토스트 "아직 답 쓰는 중. 좀만 기다려줘!" + 낙관 말풍선 제거', async () => {
     mockApi(roomDetail(10), [], () => {
       throw new ApiError(409, 'ROOM_BUSY', '이미 처리 중');
     });
@@ -97,7 +97,7 @@ describe('RoomView (DESIGN.md#3)', () => {
     const box = await screen.findByRole('textbox', { name: '메시지' });
     fireEvent.change(box, { target: { value: '한 번 더' } });
     fireEvent.keyDown(box, { key: 'Enter' });
-    await waitFor(() => expect(useToastStore.getState().toast?.message).toBe('아직 답 쓰는 중. 좀만 기다려'));
+    await waitFor(() => expect(useToastStore.getState().toast?.message).toBe('아직 답 쓰는 중. 좀만 기다려줘!'));
     await waitFor(() => expect(screen.queryByText('한 번 더')).toBeNull());
     expect(screen.getByRole('textbox')).not.toBeDisabled();
   });
@@ -105,14 +105,14 @@ describe('RoomView (DESIGN.md#3)', () => {
   it('ORPHANED 방은 입력 잠김', async () => {
     mockApi(roomDetail(10, { role: 'PARTICIPANT', status: 'ORPHANED', messageCount: 1 }), [userMsg(1)]);
     renderIt();
-    expect(await screen.findByRole('textbox')).toHaveAttribute('placeholder', '주인이 도망간 방이야');
+    expect(await screen.findByRole('textbox')).toHaveAttribute('placeholder', '방장이 도망간 방이야!');
   });
 
-  it('참여자 + ORPHANED → "이용할 수 없는 채팅방입니다." 모달, "알았어" → DELETE → / (D-021)', async () => {
+  it('참여자 + ORPHANED → "이용할 수 없는 채팅방이야." 모달, "나가기" → DELETE → / (D-021)', async () => {
     mockApi(roomDetail(10, { role: 'PARTICIPANT', status: 'ORPHANED', messageCount: 1 }), [userMsg(1)]);
     renderIt();
-    const dialog = await screen.findByRole('dialog', { name: '이용할 수 없는 채팅방입니다.' });
-    expect(dialog).toHaveTextContent('주인이 도망갔어. 이 방은 여기까지.');
+    const dialog = await screen.findByRole('dialog', { name: '이용할 수 없는 채팅방이야.' });
+    expect(dialog).toHaveTextContent('방장이 도망간 방이야!');
     expect(screen.queryByRole('button', { name: '취소' })).toBeNull();
 
     // DELETE 는 마지막 호출 — mockApi 구현을 덮어 DELETE 도 받게 한다
@@ -121,7 +121,7 @@ describe('RoomView (DESIGN.md#3)', () => {
       if (path === '/auth/me') return me;
       throw new Error(`unexpected ${path}`);
     });
-    fireEvent.click(screen.getByRole('button', { name: '알았어' }));
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }));
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/10', { method: 'DELETE' }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
   });
@@ -134,7 +134,7 @@ describe('RoomView (DESIGN.md#3)', () => {
     const box = await screen.findByRole('textbox', { name: '메시지' });
     fireEvent.change(box, { target: { value: '아직 있어?' } });
     fireEvent.keyDown(box, { key: 'Enter' });
-    expect(await screen.findByRole('dialog', { name: '이용할 수 없는 채팅방입니다.' })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: '이용할 수 없는 채팅방이야.' })).toBeInTheDocument();
     expect(useToastStore.getState().toast).toBeNull();
     expect(screen.queryByText('아직 있어?')).toBeNull();
   });
@@ -142,7 +142,7 @@ describe('RoomView (DESIGN.md#3)', () => {
   it('개설자 화면에는 ORPHANED 모달이 뜨지 않는다', async () => {
     mockApi(roomDetail(10, { role: 'OWNER', status: 'ORPHANED', messageCount: 0 }));
     renderIt();
-    expect(await screen.findByText('오늘은 누가 그랬어?')).toBeInTheDocument();
+    expect(await screen.findByText('오늘은 누가 짜증나게 했어?')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 

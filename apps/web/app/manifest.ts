@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: '뒷담 친구',
     short_name: '뒷담 친구',
-    description: '뒷담화 전문 AI 친구. 말로 걸어도 되고 글로 걸어도 됨.',
+    description: '뒷담화 전문 AI 친구. 무엇이든지 이야기 해도 돼!',
     start_url: '/',
     display: 'standalone',
     orientation: 'portrait',

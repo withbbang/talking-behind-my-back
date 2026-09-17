@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { GENERIC_ERROR } from '@/lib/copy';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -9,7 +10,6 @@ import { useLogout } from '@/features/auth/useLogout';
 import { useMe } from '@/features/auth/useMe';
 import type { RoomListItem as RoomListItemData } from '@/features/rooms/types';
 import { useCreateRoom, useLeaveRoom, usePatchRoom, useRooms } from '@/features/rooms/useRooms';
-import { ApiError } from '@/lib/api';
 import { RoomListItem } from './RoomListItem';
 import { ThemePicker } from './ThemePicker';
 
@@ -57,11 +57,11 @@ export function Sidebar() {
 
       <nav aria-label="방 목록" className="min-h-0 flex-1 overflow-y-auto">
         {rooms.isPending ? (
-          <Skeleton lines={4} label="방 목록 불러오는 중" />
+          <Skeleton lines={4} label="방 목록 불러오는 중..." />
         ) : rooms.rooms.length === 0 ? (
           <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
             <Avatar kind="ai" size={40} />
-            <p className="text-[15px] text-muted break-keep">아직 방이 없네? 하나 파자.</p>
+            <p className="text-[15px] text-muted break-keep">아직 방이 없네? 하나 만들자!</p>
           </div>
         ) : (
           <ul className="flex flex-col gap-1">
@@ -102,7 +102,7 @@ function SidebarRoomItem({ room, active, now }: { room: RoomListItemData; active
   const patch = usePatchRoom(room.id);
   const leave = useLeaveRoom(room.id);
   const show = useToastStore((s) => s.show);
-  const fail = (e: unknown) => show(e instanceof ApiError ? e.message : '삐끗했다. 다시 해볼까?', 'error');
+  const fail = () => show(GENERIC_ERROR, 'error');
 
   return (
     <RoomListItem

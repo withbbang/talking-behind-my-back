@@ -42,7 +42,7 @@ describe('RootRedirect (/ 동작, D-020)', () => {
       return { items: [], nextCursor: null };
     });
     renderIt();
-    expect(await screen.findByText('아직 방이 없네? 하나 파자.')).toBeInTheDocument();
+    expect(await screen.findByText('아직 방이 없네? 하나 만들자!')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'AI' })).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '+ 새 방' }));
@@ -53,6 +53,6 @@ describe('RootRedirect (/ 동작, D-020)', () => {
     apiFetchMock.mockReturnValueOnce(new Promise(() => {}));
     renderIt();
     expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.queryByText('아직 방이 없네? 하나 파자.')).toBeNull();
+    expect(screen.queryByText('아직 방이 없네? 하나 만들자!')).toBeNull();
   });
 });

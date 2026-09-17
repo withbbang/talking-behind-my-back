@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type KeyboardEvent } from 'react';
+import { GENERIC_ERROR } from '@/lib/copy';
 import { Plus } from '@phosphor-icons/react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Input } from '@/components/ui/Input';
@@ -26,7 +27,8 @@ type Props = { room: Room; open: boolean; onClose: () => void; onInvite?: () => 
 export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
   const patch = usePatchRoom(room.id);
   const show = useToastStore((s) => s.show);
-  const fail = (e: unknown) => show(e instanceof ApiError ? e.message : '삐끗했다. 다시 해볼까?', 'error');
+  const fail = (e: unknown) =>
+    show(e instanceof ApiError && e.code === 'MODE_NOT_ALLOWED' ? '혼자서는 유저끼리 대화할 수 없어!' : GENERIC_ERROR, 'error');
 
   const [pendingMode, setPendingMode] = useState<RoomMode | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -120,7 +122,7 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
             <h3 className="text-[15px] font-semibold">모드</h3>
             <PillToggle aria-label="모드" options={MODES} value={mode} onChange={changeMode} disabled={alone || patch.isPending} />
           </div>
-          {alone && <p className="text-right text-[13px] text-muted">둘이 되면 켜져</p>}
+          {alone && <p className="text-right text-[13px] text-muted">친구 초대해봐!</p>}
         </div>
 
         <AiPromptEditor

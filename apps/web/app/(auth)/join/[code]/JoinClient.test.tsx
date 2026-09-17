@@ -52,66 +52,66 @@ describe('JoinClient (DESIGN.md#5 입장)', () => {
     apiFetchMock.mockReturnValue(new Promise(() => {}));
     renderIt();
     expect(screen.getByRole('heading', { name: '초대장 도착' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('초대장 확인 중');
+    expect(screen.getByRole('status')).toHaveTextContent('초대장 확인 중...');
   });
 
-  it('미리보기: 개설자 소개 2줄 + 꼬리 아바타 + 방 제목 + 멤버 n/2 + "들어갈래"', async () => {
+  it('미리보기: 개설자 소개 2줄 + 꼬리 아바타 + 방 제목 + 멤버 n/2 + "들어가기"', async () => {
     mockApi(preview());
     renderIt();
     expect(await screen.findByText('팀장 얘기')).toBeInTheDocument();
-    expect(screen.getByText('영희가 부른 방')).toBeInTheDocument();
-    expect(screen.getByText('들어와서 같이 씹자')).toBeInTheDocument();
+    expect(screen.getByText('영희의 방')).toBeInTheDocument();
+    expect(screen.getByText('같이 뒷담화하자!')).toBeInTheDocument();
     expect(screen.getByText('멤버 1/2')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: '영희' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '들어갈래' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '들어가기' })).toBeInTheDocument();
   });
 
-  it('이미 멤버면 버튼 "다시 들어가기"', async () => {
+  it('이미 멤버면 버튼 "들어가기"', async () => {
     mockApi(preview({ alreadyMember: true, memberCount: 2 }));
     renderIt();
-    expect(await screen.findByRole('button', { name: '다시 들어가기' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '들어가기' })).toBeInTheDocument();
   });
 
   it('입장 → POST → replace(/rooms/10)', async () => {
     mockApi(preview());
     renderIt();
-    fireEvent.click(await screen.findByRole('button', { name: '들어갈래' }));
+    fireEvent.click(await screen.findByRole('button', { name: '들어가기' }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/rooms/10'));
     expect(apiFetchMock).toHaveBeenCalledWith('/rooms/join/K7Q2M9XW', { method: 'POST' });
   });
 
-  it('미리보기 실패(알려진 코드) → 시트 안 문구 + "내 방으로" → push(/)', async () => {
+  it('미리보기 실패(알려진 코드) → 시트 안 문구 + "내 방 가기" → push(/)', async () => {
     mockApi(new ApiError(409, 'ROOM_FULL', 'x'));
     renderIt();
     expect(await screen.findByText('여긴 벌써 꽉 찼어')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '들어갈래' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '내 방으로' }));
+    expect(screen.queryByRole('button', { name: '들어가기' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '내 방 가기' }));
     expect(push).toHaveBeenCalledWith('/');
   });
 
-  it('미리보기 실패(모르는 오류) → "삐끗했다. 다시 해볼까?" + "다시" 로 재조회', async () => {
+  it('미리보기 실패(모르는 오류) → "시스템 오류. 다시 시도해줄래?" + "다시" 로 재조회', async () => {
     apiFetchMock.mockRejectedValueOnce(new Error('network'));
     renderIt();
-    expect(await screen.findByText('삐끗했다. 다시 해볼까?')).toBeInTheDocument();
+    expect(await screen.findByText('시스템 오류. 다시 시도해줄래?')).toBeInTheDocument();
     mockApi(preview());
     fireEvent.click(screen.getByRole('button', { name: '다시' }));
-    expect(await screen.findByRole('button', { name: '들어갈래' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '들어가기' })).toBeInTheDocument();
   });
 
   it('입장 단계에서 실패(알려진 코드) → 같은 오류 화면으로 전환', async () => {
     mockApi(preview(), new ApiError(409, 'ROOM_LIMIT_EXCEEDED', 'x'));
     renderIt();
-    fireEvent.click(await screen.findByRole('button', { name: '들어갈래' }));
-    expect(await screen.findByText('방이 50개 넘었어. 하나 정리하고 와')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '내 방으로' })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: '들어가기' }));
+    expect(await screen.findByText('방이 50개 넘었어. 정리하고 와!')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '내 방 가기' })).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
   });
 
   it('입장 단계에서 모르는 오류 → 토스트, 버튼은 유지', async () => {
     mockApi(preview(), new Error('network'));
     renderIt();
-    fireEvent.click(await screen.findByRole('button', { name: '들어갈래' }));
-    await waitFor(() => expect(useToastStore.getState().toast?.message).toBe('삐끗했다. 다시 해볼까?'));
-    expect(screen.getByRole('button', { name: '들어갈래' })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: '들어가기' }));
+    await waitFor(() => expect(useToastStore.getState().toast?.message).toBe('시스템 오류. 다시 시도해줄래?'));
+    expect(screen.getByRole('button', { name: '들어가기' })).toBeInTheDocument();
   });
 });

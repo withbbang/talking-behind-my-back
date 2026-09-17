@@ -156,7 +156,7 @@ function StreamingBubble({ entry, onRetry }: { entry: StreamEntry; onRetry: (rep
       <div className="relative max-w-[78%]">
         <div role="status" aria-live="polite" className="rounded-[22px] border border-ink/12 bg-bg px-4 py-2.5 text-base leading-relaxed text-ink break-words whitespace-pre-wrap">
           {entry.status === 'waiting' && (
-            <span data-testid="typing-dots" className="typing-dots inline-flex h-6 items-center gap-1" aria-label="답 쓰는 중">
+            <span data-testid="typing-dots" className="typing-dots inline-flex h-6 items-center gap-1" aria-label="생각 중...">
               <i /><i /><i />
             </span>
           )}
@@ -168,7 +168,7 @@ function StreamingBubble({ entry, onRetry }: { entry: StreamEntry; onRetry: (rep
           )}
           {entry.status === 'error' && (
             <span className="flex flex-wrap items-center gap-2">
-              삐끗했다. 다시 해볼까?
+              시스템 오류. 다시 시도해줄래?
               <button
                 type="button"
                 onClick={() => onRetry(entry.replyTo)}

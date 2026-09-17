@@ -29,6 +29,6 @@ describe('MessageBubble (DESIGN.md#3 말풍선 3종)', () => {
 
   it('VOICE 입력은 마이크 표시', () => {
     render(<MessageBubble message={userMsg(4, { inputType: 'VOICE' })} kind="mine" showMeta />);
-    expect(screen.getByRole('img', { name: '음성으로 보냄' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '음성' })).toBeInTheDocument();
   });
 });

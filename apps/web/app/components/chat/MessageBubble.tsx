@@ -46,7 +46,7 @@ export function MessageBubble({ message, kind, senderName, showMeta }: Props) {
           )}
         </div>
         <span className="flex items-center gap-1 px-1 text-xs text-muted tabular-nums">
-          {message.inputType === 'VOICE' && <Microphone size={14} weight="bold" role="img" aria-label="음성으로 보냄" />}
+          {message.inputType === 'VOICE' && <Microphone size={14} weight="bold" role="img" aria-label="음성" />}
           {time}
         </span>
       </div>

@@ -377,6 +377,23 @@
 - test: `RoomView.test.tsx` +1. 수정은 `RoomView.tsx` `empty` 판정 한 줄(`stream.notices.length === 0` 추가).
 - note: T-018 Playwright QA(2026-09-16)에서 발견. DESIGN.md#3 빈 방 문구 개정(디자이너 대행, 사용자 결정).
 
+## T-025 UI 문구 전면 개정 — 사용자 수정안 반영 (web)
+- status: REVIEW
+- owner: 개발자
+- milestone: M2
+- spec: `.agent/inbox/copy-inventory.md`(수정안 열), D-025, BRAND.md#5
+- blocked_by: T-008, T-018
+- acceptance:
+  - copy-inventory.md 의 `수정안` 이 비어 있지 않은 행은 전부 그 문구로 교체, 빈 행은 원안 유지.
+  - 공용 오류 문구 "삐끗했다. 다시 해볼까?" → "시스템 오류. 다시 시도해줄래?" 전면 교체(`lib/copy.ts` 상수 한 곳).
+  - 서버 메시지 그대로 노출하던 토스트(전송 400, PATCH·나가기·재발급 실패)는 web 문구로 덮는다. `MODE_NOT_ALLOWED` 는 전용 문구.
+  - "주인" → "방장"(배지·ORPHANED 문구). 입장 버튼은 `alreadyMember` 무관 "들어가기". 확인 모달 제목 `\n` 줄바꿈 지원.
+  - `lib/josa.ts` 는 입장 소개문이 "{닉}의 방" 으로 바뀌어 미사용 → 삭제.
+  - 기존 테스트 문구 갱신 + 신규 케이스(400 매핑, MODE_NOT_ALLOWED, 두 줄 제목). `npm test` · lint · typecheck 통과.
+- test: 기존 테스트 18파일 문구 갱신 + 신규 2(ConfirmDialog 두 줄 제목, RoomHeaderSheet 비-MODE 오류 → 공용 문구), `josa.test.ts` 삭제. 전체 240 통과 + lint 0 errors + typecheck + build(2026-09-17 로컬).
+- note: 인박스 "T-008 구현 중 판단 4건" 의 처리. BRAND.md#5 표·DESIGN.md 문구 갱신은 to-designer.md 로 요청(디자이너 write).
+  구현 메모 — JSX 속성 문자열은 `\n` 이스케이프를 안 푼다(`title="a\nb"` 는 역슬래시 n 그대로) → `title={'a\nb'}`. RTL `getByText` 는 노드 텍스트만 정규화하고 매처 문자열은 안 하므로 줄바꿈 문구는 공백으로 적어 찾는다.
+
 ## T-020 테마 수동 선택(라이트/다크/시스템) (web)
 - status: DONE
 - qa: PASS (QA_REPORT.md 2026-09-17, 단위 240 + 실브라우저 데스크톱·모바일 드로어)

@@ -3,9 +3,9 @@ import { render, screen } from '@testing-library/react';
 import { Badge } from './Badge';
 
 describe('Badge (DESIGN.md 필 배지)', () => {
-  it('owner 는 "주인"', () => {
+  it('owner 는 "방장"', () => {
     render(<Badge kind="owner" />);
-    expect(screen.getByText('주인')).toBeInTheDocument();
+    expect(screen.getByText('방장')).toBeInTheDocument();
   });
   it('closed 는 "닫힘"', () => {
     render(<Badge kind="closed" />);

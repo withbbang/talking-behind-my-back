@@ -20,7 +20,7 @@ export function RootRedirect() {
   if (rooms.isPending || first) {
     return (
       <div className="px-4 pt-4">
-        <Skeleton lines={3} label="불러오는 중" lineClassName="h-12 w-3/4" />
+        <Skeleton lines={3} label="불러오는 중..." lineClassName="h-12 w-3/4" />
       </div>
     );
   }
@@ -28,7 +28,7 @@ export function RootRedirect() {
   return (
     <div className="bubble-in flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
       <Avatar kind="ai" size={64} />
-      <p className="text-[15px] text-muted break-keep">아직 방이 없네? 하나 파자.</p>
+      <p className="text-[15px] text-muted break-keep">아직 방이 없네? 하나 만들자!</p>
       <button
         type="button"
         onClick={() => create.mutate()}

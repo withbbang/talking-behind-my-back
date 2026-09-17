@@ -19,7 +19,7 @@ type Props = {
 };
 
 /**
- * AI 성격 편집 (DESIGN.md#3, D-017). 프리셋 필 토글 + "직접 쓰기" 접이식 textarea(≤2,000, n/2000) + "프리셋으로 되돌리기".
+ * AI 성격 편집 (DESIGN.md#3, D-017). 프리셋 필 토글 + "직접 쓰기" 접이식 textarea(≤2,000, n/2000) + "되돌리기".
  * 현재 적용 문구(effectiveAiPrompt)는 항상 위에 2줄 말줄임으로 표시. 저장은 blur.
  * 부모는 aiPrompt 가 바뀌면 key 로 다시 마운트해 draft 를 동기화한다.
  */
@@ -58,7 +58,7 @@ export function AiPromptEditor({ aiPersonality, aiPrompt, effectiveAiPrompt, edi
             value={draft}
             maxLength={MAX}
             rows={4}
-            placeholder="AI 한테 어떻게 굴라고 할래?"
+            placeholder="AI 성격 어떻게 설정하고 싶어?"
             onChange={(e) => setDraft(e.target.value)}
             onBlur={save}
             className="w-full resize-none rounded-2xl border border-ink/12 bg-transparent px-4 py-3 text-[15px] leading-relaxed text-ink outline-none placeholder:text-muted focus:border-accent"
@@ -70,7 +70,7 @@ export function AiPromptEditor({ aiPersonality, aiPrompt, effectiveAiPrompt, edi
                 onClick={onReset}
                 className="text-[13px] font-medium text-muted underline underline-offset-2 outline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
               >
-                프리셋으로 되돌리기
+                되돌리기
               </button>
             ) : (
               <span />

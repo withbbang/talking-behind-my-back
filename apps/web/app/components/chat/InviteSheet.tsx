@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { GENERIC_ERROR } from '@/lib/copy';
 import { Copy } from '@phosphor-icons/react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { QrCode } from '@/components/ui/QrCode';
@@ -8,7 +9,6 @@ import { Sheet } from '@/components/ui/Sheet';
 import { useToastStore } from '@/components/ui/Toast';
 import type { Room } from '@/features/rooms/types';
 import { useRegenerateInvite } from '@/features/rooms/useInvite';
-import { ApiError } from '@/lib/api';
 
 /** "K7Q2M9XW" → "K7Q2 M9XW" (읽기용, 복사는 원문). */
 export function groupCode(code: string): string {
@@ -30,18 +30,18 @@ export function InviteSheet({ room, open, onClose }: { room: Room; open: boolean
   const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      show('복사했어. 이제 던져줘');
+      show('복사 완료');
     } catch {
-      show('삐끗했다. 다시 해볼까?', 'error');
+      show(GENERIC_ERROR, 'error');
     }
   };
   const share = () => navigator.share({ title: room.title, url }).catch(() => {}); // 사용자가 시트를 닫으면 AbortError — 무시
   const confirmRegenerate = () =>
     regenerate.mutate(undefined, {
       onSuccess: () => setConfirming(false),
-      onError: (e) => {
+      onError: () => {
         setConfirming(false);
-        show(e instanceof ApiError ? e.message : '삐끗했다. 다시 해볼까?', 'error');
+        show(GENERIC_ERROR, 'error');
       },
     });
 
@@ -100,7 +100,7 @@ export function InviteSheet({ room, open, onClose }: { room: Room; open: boolean
 
       <ConfirmDialog
         open={confirming}
-        title="옛날 코드는 바로 죽어. 새로 만들까?"
+        title={'이전 코드는 사용할 수 없어.\n새로 만들까?'}
         confirmLabel="새로 만들기"
         cancelLabel="취소"
         busy={regenerate.isPending}

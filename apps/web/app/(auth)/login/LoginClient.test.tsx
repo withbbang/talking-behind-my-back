@@ -47,7 +47,7 @@ describe('LoginClient', () => {
     render(<LoginClient error="access_denied" next={null} />);
 
     expect(refreshMock).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent('로그인을 취소했어요');
+    expect(screen.getByRole('alert')).toHaveTextContent('로그인 취소했네?');
     expect(screen.getByRole('link', { name: '카카오로 시작하기' })).toBeInTheDocument();
   });
 
@@ -73,6 +73,6 @@ describe('LoginClient', () => {
   it('알 수 없는 error 코드도 공통 메시지로 알린다', () => {
     render(<LoginClient error="oauth_failed" next={null} />);
 
-    expect(screen.getByRole('alert')).toHaveTextContent('로그인에 실패했어요');
+    expect(screen.getByRole('alert')).toHaveTextContent('로그인에 실패했네?');
   });
 });

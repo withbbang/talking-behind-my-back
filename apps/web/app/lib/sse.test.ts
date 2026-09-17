@@ -49,7 +49,7 @@ describe('reduceStreams', () => {
     let s = reduceStreams(initialStreamState, ev('mode', { mode: 'HUMAN' }), now);
     s = reduceStreams(s, ev('member', { action: 'JOINED', userId: 8, nickname: '영희', role: 'PARTICIPANT', roomStatus: 'ACTIVE' }), now);
     s = reduceStreams(s, ev('member', { action: 'LEFT', userId: 8, nickname: '영희', role: 'PARTICIPANT', roomStatus: 'ACTIVE' }), now);
-    expect(s.notices.map((n) => n.text)).toEqual(['이제 유저끼리 얘기 중 (AI는 귀 막음)', '영희 등장!', '영희 퇴장']);
+    expect(s.notices.map((n) => n.text)).toEqual(['유저끼리 대화 가능!', '영희 등장!', '영희 퇴장!']);
     expect(s.notices[0].createdAt).toBe(now);
   });
 

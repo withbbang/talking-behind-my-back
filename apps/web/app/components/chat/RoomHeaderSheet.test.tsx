@@ -46,11 +46,11 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     expect(screen.getByRole('radiogroup', { name: '모드' })).not.toHaveAttribute('aria-disabled');
   });
 
-  it('혼자면 빈 자리 + 토글 비활성 + "둘이 되면 켜져"; 개설자에 onInvite 있으면 초대 버튼', () => {
+  it('혼자면 빈 자리 + 토글 비활성 + "친구 초대해봐!"; 개설자에 onInvite 있으면 초대 버튼', () => {
     const onInvite = vi.fn();
     renderSheet(roomDetail(10), { onInvite });
     expect(screen.getByRole('radiogroup', { name: '모드' })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByText('둘이 되면 켜져')).toBeInTheDocument();
+    expect(screen.getByText('친구 초대해봐!')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '초대' }));
     expect(onInvite).toHaveBeenCalled();
   });
@@ -71,7 +71,7 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     apiFetchMock.mockRejectedValueOnce(new ApiError(400, 'MODE_NOT_ALLOWED', '혼자서는 안 돼요.'));
     renderSheet(two());
     fireEvent.click(screen.getByRole('radio', { name: '유저끼리' }));
-    await waitFor(() => expect(useToastStore.getState().toast?.message).toBe('혼자서는 안 돼요.'));
+    await waitFor(() => expect(useToastStore.getState().toast?.message).toBe('혼자서는 유저끼리 대화할 수 없어!'));
     expect(screen.getByRole('radio', { name: 'AI' })).toHaveAttribute('aria-checked', 'true');
   });
 
@@ -91,7 +91,7 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
   it('되돌리기 → PATCH aiPrompt ""', async () => {
     apiFetchMock.mockResolvedValue(two());
     renderSheet(two({ aiPrompt: '내 편만' }));
-    fireEvent.click(screen.getByRole('button', { name: '프리셋으로 되돌리기' }));
+    fireEvent.click(screen.getByRole('button', { name: '되돌리기' }));
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/10', { method: 'PATCH', body: { aiPrompt: '' } }));
   });
 
@@ -103,6 +103,13 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     fireEvent.change(input, { target: { value: '새 제목' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/10', { method: 'PATCH', body: { title: '새 제목' } }));
+  });
+
+  it('모드 변경 실패(다른 코드) → 서버 메시지 대신 공용 오류 문구 (D-025)', async () => {
+    apiFetchMock.mockRejectedValueOnce(new ApiError(500, 'INTERNAL_ERROR', '서버 오류가 발생했습니다.'));
+    renderSheet(two());
+    fireEvent.click(screen.getByRole('radio', { name: '유저끼리' }));
+    await waitFor(() => expect(useToastStore.getState().toast?.message).toBe('시스템 오류. 다시 시도해줄래?'));
   });
 
   it('참여자: 제목은 버튼 아님, 성격 토글 비활성', () => {

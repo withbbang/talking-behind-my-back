@@ -18,9 +18,9 @@ describe('Toast (DESIGN.md 토스트, D-020 스펙 통일)', () => {
 
   it('기본 3초 뒤 onClose, 닫기 버튼은 없다', () => {
     const onClose = vi.fn();
-    render(<Toast message="복사했어. 이제 던져줘" onClose={onClose} />);
+    render(<Toast message="복사 완료" onClose={onClose} />);
 
-    expect(screen.getByRole('alert')).toHaveTextContent('복사했어. 이제 던져줘');
+    expect(screen.getByRole('alert')).toHaveTextContent('복사 완료');
     expect(screen.queryByRole('button')).toBeNull();
     act(() => vi.advanceTimersByTime(2999));
     expect(onClose).not.toHaveBeenCalled();
@@ -30,7 +30,7 @@ describe('Toast (DESIGN.md 토스트, D-020 스펙 통일)', () => {
 
   it('스토어 show → ToastHost 가 알림을 띄우고 3초 뒤 지운다', () => {
     render(<ToastHost />);
-    act(() => useToastStore.getState().show('아직 답 쓰는 중. 좀만 기다려', 'error'));
+    act(() => useToastStore.getState().show('아직 답 쓰는 중. 좀만 기다려줘!', 'error'));
     expect(screen.getByRole('alert')).toHaveTextContent('아직 답 쓰는 중');
     act(() => vi.advanceTimersByTime(3000));
     expect(screen.queryByRole('alert')).toBeNull();

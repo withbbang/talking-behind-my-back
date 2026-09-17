@@ -19,8 +19,8 @@ type Props = {
 };
 
 const LEAVE_COPY = {
-  OWNER: '나가면 이 방은 끝이야. 진짜 갈래?',
-  PARTICIPANT: '나가면 여기 얘긴 못 봐. 갈래?',
+  OWNER: '나가면 이 방은 끝이야.\n진짜 나갈거야?',
+  PARTICIPANT: '나가면 이 방 대화는 앞으로 볼 수 없어.\n진짜 나갈거야?',
 } as const;
 
 /**
@@ -133,7 +133,7 @@ export function RoomListItem({ room, active, now, onRename, onLeave }: Props) {
         open={confirmLeave}
         title={LEAVE_COPY[room.role]}
         confirmLabel="나갈래"
-        cancelLabel="안 갈래"
+        cancelLabel="안 나갈래"
         onConfirm={() => {
           setConfirmLeave(false);
           onLeave();

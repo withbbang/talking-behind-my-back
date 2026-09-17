@@ -55,7 +55,7 @@ describe('MessageList (DESIGN.md#3 메시지 목록)', () => {
     expect(live.some((el) => el.getAttribute('aria-live') === 'polite')).toBe(true);
     expect(screen.getByTestId('typing-dots')).toBeInTheDocument();
     expect(screen.getByText(/안녕하/)).toHaveTextContent('안녕하▍');
-    expect(screen.getByText('삐끗했다. 다시 해볼까?')).toBeInTheDocument();
+    expect(screen.getByText('시스템 오류. 다시 시도해줄래?')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '다시' }));
     expect(onRetry).toHaveBeenCalledWith(3);
   });

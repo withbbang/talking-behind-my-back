@@ -11,13 +11,13 @@ describe('RoomListItem (DESIGN.md#2 방 목록 항목)', () => {
     render(<RoomListItem room={roomItem(1, { title: '오늘 뭐 먹지', lastMessageAt: '2026-09-16T11:15:00Z' })} active={false} now={now} {...noop} />);
     expect(screen.getByRole('link', { name: /오늘 뭐 먹지/ })).toHaveAttribute('href', '/rooms/1');
     expect(screen.getByText('45분 전')).toBeInTheDocument();
-    expect(screen.getByText('주인')).toBeInTheDocument();
+    expect(screen.getByText('방장')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'AI' })).toBeInTheDocument();
   });
 
   it('참여자면 배지 없이 보조 줄, 2명이면 사람 아바타', () => {
     render(<RoomListItem room={roomItem(2, { role: 'PARTICIPANT', memberCount: 2 })} active={false} now={now} {...noop} />);
-    expect(screen.queryByText('주인')).toBeNull();
+    expect(screen.queryByText('방장')).toBeNull();
     expect(screen.getByText('초대받은 방')).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: 'AI' })).toBeNull();
   });
@@ -85,7 +85,7 @@ describe('RoomListItem (DESIGN.md#2 방 목록 항목)', () => {
     render(<RoomListItem room={roomItem(1)} active={false} now={now} onRename={vi.fn()} onLeave={onLeave} />);
     fireEvent.click(screen.getByRole('button', { name: '방 메뉴' }));
     fireEvent.click(screen.getByRole('menuitem', { name: '나가기' }));
-    expect(screen.getByRole('dialog', { name: '나가면 이 방은 끝이야. 진짜 갈래?' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '나가면 이 방은 끝이야.\n진짜 나갈거야?' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '나갈래' }));
     expect(onLeave).toHaveBeenCalledTimes(1);
   });
@@ -95,8 +95,8 @@ describe('RoomListItem (DESIGN.md#2 방 목록 항목)', () => {
     render(<RoomListItem room={roomItem(2, { role: 'PARTICIPANT' })} active={false} now={now} onRename={vi.fn()} onLeave={onLeave} />);
     fireEvent.click(screen.getByRole('button', { name: '방 메뉴' }));
     fireEvent.click(screen.getByRole('menuitem', { name: '나가기' }));
-    expect(screen.getByRole('dialog', { name: '나가면 여기 얘긴 못 봐. 갈래?' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '안 갈래' }));
+    expect(screen.getByRole('dialog', { name: '나가면 이 방 대화는 앞으로 볼 수 없어.\n진짜 나갈거야?' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '안 나갈래' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(onLeave).not.toHaveBeenCalled();
   });

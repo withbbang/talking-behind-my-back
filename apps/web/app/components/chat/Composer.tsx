@@ -6,8 +6,8 @@ import type { RoomMode } from '@/features/rooms/types';
 
 export type ComposerLock = 'pending' | 'orphaned' | null;
 
-const PLACEHOLDER: Record<RoomMode, string> = { AI: '누구 얘기 할래?', HUMAN: 'AI 몰래 얘기하기' };
-const LOCK_PLACEHOLDER: Record<Exclude<ComposerLock, null>, string> = { pending: '답 쓰는 중… 잠깐만', orphaned: '주인이 도망간 방이야' };
+const PLACEHOLDER: Record<RoomMode, string> = { AI: '무슨 얘기 하고싶어?', HUMAN: 'AI 몰래 얘기하기' };
+const LOCK_PLACEHOLDER: Record<Exclude<ComposerLock, null>, string> = { pending: '뒷담 친구 기다리는 중...', orphaned: '방장이 도망간 방이야!' };
 const MAX = 4000;
 const MAX_LINES = 5;
 
@@ -58,7 +58,7 @@ export function Composer({ mode, lock, onSend }: { mode: RoomMode; lock: Compose
         />
         <button
           type="button"
-          aria-label="메시지 전송"
+          aria-label="전송"
           onClick={submit}
           disabled={locked || value.trim() === ''}
           className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface text-on-surface outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent active:scale-[0.96] motion-safe:transition-transform disabled:opacity-40"

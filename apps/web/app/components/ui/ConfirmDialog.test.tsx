@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { ConfirmDialog } from './ConfirmDialog';
 
 const base = {
-  title: '나가면 이 방은 끝이야. 진짜 갈래?',
+  title: '나가면 이 방은 끝이야. 진짜 나갈거야?',
   confirmLabel: '나가기',
   onConfirm: () => {},
 };
@@ -40,5 +40,12 @@ describe('ConfirmDialog (DESIGN.md 모달)', () => {
   it('열리면 주 버튼에 포커스', () => {
     render(<ConfirmDialog open {...base} />);
     expect(screen.getByRole('button', { name: '나가기' })).toHaveFocus();
+  });
+
+  it('제목의 줄바꿈 문자는 줄바꿈으로 렌더 (whitespace-pre-line, D-025)', () => {
+    render(<ConfirmDialog open {...base} title={'이전 코드는 사용할 수 없어.\n새로 만들까?'} />);
+    const heading = screen.getByRole('heading');
+    expect(heading.textContent).toBe('이전 코드는 사용할 수 없어.\n새로 만들까?');
+    expect(heading).toHaveClass('whitespace-pre-line');
   });
 });

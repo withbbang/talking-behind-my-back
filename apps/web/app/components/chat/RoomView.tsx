@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { GENERIC_ERROR } from '@/lib/copy';
 import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToastStore } from '@/components/ui/Toast';
@@ -54,14 +55,14 @@ export function RoomView({ roomId }: { roomId: number }) {
   if (room.isPending || me.isPending || messages.isPending) {
     return (
       <div className="px-4 pt-4">
-        <Skeleton lines={3} label="방 불러오는 중" lineClassName="h-12 w-3/4" />
+        <Skeleton lines={3} label="방 불러오는 중..." lineClassName="h-12 w-3/4" />
       </div>
     );
   }
   if (room.isError || me.isError || messages.isError) {
     const err = room.error ?? messages.error;
     const notFound = err instanceof ApiError && err.status === 404;
-    return <Centered>{notFound ? '그런 방 없는데?' : '삐끗했다. 다시 해볼까?'}</Centered>;
+    return <Centered>{notFound ? '그런 방 없는데?' : GENERIC_ERROR}</Centered>;
   }
 
   // 빈 방 = 메시지·스트림·시스템 라인 전부 0 (DESIGN.md#3, T-024). "영희 등장!" 만 있어도 목록으로.
@@ -75,7 +76,7 @@ export function RoomView({ roomId }: { roomId: number }) {
       {empty ? (
         <Centered>
           <Avatar kind="ai" size={64} />
-          <span>오늘은 누가 그랬어?</span>
+          <span>오늘은 누가 짜증나게 했어?</span>
         </Centered>
       ) : (
         <MessageList

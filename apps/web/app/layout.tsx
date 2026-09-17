@@ -8,7 +8,7 @@ import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: '뒷담 친구',
-  description: '뒷담화 전문 AI 친구. 말로 걸어도 되고 글로 걸어도 됨.',
+  description: '뒷담화 전문 AI 친구. 무엇이든지 이야기 해도 돼!',
   applicationName: '뒷담 친구',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: '뒷담 친구' },
 };

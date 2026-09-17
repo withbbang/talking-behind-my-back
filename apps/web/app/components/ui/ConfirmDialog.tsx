@@ -40,7 +40,7 @@ export function ConfirmDialog({ open, title, body, confirmLabel, cancelLabel, on
         aria-labelledby={titleId}
         className="bubble-in w-full max-w-[320px] rounded-3xl bg-bg p-6 text-ink"
       >
-        <h2 id={titleId} className="text-[17px] leading-snug font-semibold break-keep">
+        <h2 id={titleId} className="text-[17px] leading-snug font-semibold break-keep whitespace-pre-line">
           {title}
         </h2>
         {body && <p className="mt-2 text-[15px] leading-relaxed text-muted break-keep">{body}</p>}

@@ -68,7 +68,7 @@ describe('Sidebar (DESIGN.md#2)', () => {
   it('방이 없으면 빈 상태 문구', async () => {
     mockApi([]);
     renderSidebar();
-    expect(await screen.findByText('아직 방이 없네? 하나 파자.')).toBeInTheDocument();
+    expect(await screen.findByText('아직 방이 없네? 하나 만들자!')).toBeInTheDocument();
   });
 
   it('"+ 새 방" → POST /rooms → /rooms/{id} 이동', async () => {

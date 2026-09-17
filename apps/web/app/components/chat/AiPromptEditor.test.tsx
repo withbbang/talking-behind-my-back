@@ -52,10 +52,10 @@ describe('AiPromptEditor (DESIGN.md#3 AI 성격, D-017)', () => {
     expect(onSavePrompt).not.toHaveBeenCalled();
   });
 
-  it('커스텀 프롬프트가 있으면 "프리셋으로 되돌리기" → onReset', () => {
+  it('커스텀 프롬프트가 있으면 "되돌리기" → onReset', () => {
     const onReset = vi.fn();
     render(<AiPromptEditor {...base} aiPrompt="내 편만 들어" onReset={onReset} />);
-    fireEvent.click(screen.getByRole('button', { name: '프리셋으로 되돌리기' }));
+    fireEvent.click(screen.getByRole('button', { name: '되돌리기' }));
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 
@@ -63,7 +63,7 @@ describe('AiPromptEditor (DESIGN.md#3 AI 성격, D-017)', () => {
     render(<AiPromptEditor {...base} editable={false} aiPrompt="내 편만 들어" effectiveAiPrompt="내 편만 들어" />);
     expect(screen.getByRole('radiogroup')).toHaveAttribute('aria-disabled', 'true');
     expect(screen.queryByRole('textbox')).toBeNull();
-    expect(screen.queryByRole('button', { name: '프리셋으로 되돌리기' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '되돌리기' })).toBeNull();
     expect(screen.getByText('내 편만 들어')).toBeInTheDocument();
   });
 });

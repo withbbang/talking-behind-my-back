@@ -43,8 +43,8 @@ export type StreamState = { streams: Record<number, StreamEntry>; notices: Notic
 export const initialStreamState: StreamState = { streams: {}, notices: [] };
 
 const MODE_NOTICE: Record<RoomMode, string> = {
-  HUMAN: '이제 유저끼리 얘기 중 (AI는 귀 막음)',
-  AI: 'AI 다시 귀 열었다',
+  HUMAN: '유저끼리 대화 가능!',
+  AI: 'AI랑 대화 가능!',
 };
 
 let noticeSeq = 0;
@@ -82,7 +82,7 @@ export function reduceStreams(state: StreamState, event: RoomEvent, now: string 
       return { ...state, notices: [...state.notices, notice(MODE_NOTICE[event.data.mode], now)] };
     case 'member': {
       const { action, nickname } = event.data;
-      return { ...state, notices: [...state.notices, notice(action === 'JOINED' ? `${nickname} 등장!` : `${nickname} 퇴장`, now)] };
+      return { ...state, notices: [...state.notices, notice(action === 'JOINED' ? `${nickname} 등장!` : `${nickname} 퇴장!`, now)] };
     }
   }
 }
