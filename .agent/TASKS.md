@@ -378,7 +378,8 @@
 - note: T-018 Playwright QA(2026-09-16)에서 발견. DESIGN.md#3 빈 방 문구 개정(디자이너 대행, 사용자 결정).
 
 ## T-025 UI 문구 전면 개정 — 사용자 수정안 반영 (web)
-- status: REVIEW
+- status: DONE
+- qa: PASS (QA_REPORT.md 2026-09-17, Playwright 390 실브라우저 + 단위 240)
 - owner: 개발자
 - milestone: M2
 - spec: `.agent/inbox/copy-inventory.md`(수정안 열), D-025, BRAND.md#5
