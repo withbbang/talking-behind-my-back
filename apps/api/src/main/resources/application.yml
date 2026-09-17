@@ -118,8 +118,8 @@ app:
   speech:
     stt-provider: ${STT_PROVIDER:omniroute}   # omniroute | clova (D-027: 기본은 LLM 과 같은 OmniRoute 의 /v1/audio/*)
     tts-provider: ${TTS_PROVIDER:omniroute}
-    stt-model: ${STT_MODEL:openai/whisper-1}  # OmniRoute 규칙: provider/model 또는 대시보드 alias
-    tts-model: ${TTS_MODEL:openai/tts-1}
+    stt-model: ${STT_MODEL:groq/whisper-large-v3-turbo}   # OmniRoute 규칙 provider/model (D-028: Groq 무료 티어, 대시보드에 키)
+    tts-model: ${TTS_MODEL:edge/tts-1}                    # D-028: OmniRoute 에 등록한 OpenAI 호환 노드(prefix edge) = edge-tts 사이드카
     tmp-dir: ${SPEECH_TMP_DIR:/tmp/audio}     # compose 에서 tmpfs
     max-audio-seconds: 60
     max-tts-chars: 1000
@@ -127,5 +127,5 @@ app:
     clova-speech-secret: ${CLOVA_SPEECH_SECRET:}
     clova-voice-client-id: ${CLOVA_VOICE_CLIENT_ID:}
     clova-voice-client-secret: ${CLOVA_VOICE_CLIENT_SECRET:}
-    tts-voice: ${TTS_VOICE:alloy}
+    tts-voice: ${TTS_VOICE:ko-KR-SunHiNeural}   # 항상 보낸다 — 비우면 OmniRoute 가 alloy 를 넣어 Edge 사이드카가 500 (D-028)
     timeout-seconds: ${SPEECH_TIMEOUT_SECONDS:30}

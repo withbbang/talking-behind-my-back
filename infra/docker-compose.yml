@@ -6,7 +6,7 @@
 #          → nginx(8080) → web(3000) / api(8080)
 #   api → omniroute(20128) → 외부 LLM 공급자
 #   api → mysql(3306)
-#   api → STT/TTS: OmniRoute /v1/audio/* 경유 (D-027) / Clova 는 스텁
+#   api → STT/TTS: OmniRoute /v1/audio/* 경유 (D-027). STT = Groq(OmniRoute 대시보드 키), TTS = edge-tts 사이드카(D-028) / Clova 는 스텁
 
 name: ${APP_NAME:-talking-behind-my-back}
 
@@ -86,3 +86,18 @@ services:
     env_file: .env.omniroute
     volumes:
       - ${DATA_DIR}/omniroute:/app/data
+    depends_on:
+      - edge-tts
+
+  # TTS 사이드카 (D-028): Edge "Read Aloud" 음성을 OpenAI 호환 API 로. OmniRoute 에 "OpenAI 호환" 공급자
+  # (http://edge-tts:5050/v1)로 등록. 호스트 포트 없음. 비공식 API 라 MS 가 막으면 OmniRoute 콤보 폴백(gtts/ko)으로.
+  edge-tts:
+    image: travisvn/openai-edge-tts:latest
+    restart: unless-stopped
+    environment:
+      PORT: 5050
+      REQUIRE_API_KEY: "False"
+      DEFAULT_VOICE: ko-KR-SunHiNeural
+      DEFAULT_RESPONSE_FORMAT: mp3
+    # NAS 메모리: 파이썬 프로세스 1개, 유휴 ~60MB
+    mem_limit: 256m

@@ -50,8 +50,20 @@ services:
       HOSTNAME: 0.0.0.0
       REQUIRE_API_KEY: "false"     # 로컬은 키 없이 호출
       AUTH_COOKIE_SECURE: "false"
+      AUDIO_REMOTE_PROVIDER_NODES: "true"   # D-028: /v1/audio/* 가 localhost 밖 OpenAI 호환 노드(edge-tts 사이드카)를 쓰게 허용
     volumes:
       - omniroute-dev:/app/data
+
+  # TTS 사이드카 (D-028): Microsoft Edge "Read Aloud" 음성을 OpenAI 호환 /v1/audio/speech 로 노출. 키·계정 없이 무료.
+  # OmniRoute 내장 edgetts 어댑터는 MS DRM 토큰(Sec-MS-GEC) 미지원으로 403 이라 이 컨테이너를 OmniRoute 에
+  # "OpenAI 호환" 공급자(http://edge-tts:5050/v1)로 등록해 쓴다. 호스트 포트는 열지 않는다 — OmniRoute 만 접근.
+  edge-tts:
+    image: travisvn/openai-edge-tts:latest
+    environment:
+      PORT: 5050
+      REQUIRE_API_KEY: "False"
+      DEFAULT_VOICE: ko-KR-SunHiNeural     # 한국어 음성: ko-KR-SunHiNeural(여) / ko-KR-InJoonNeural(남) / ko-KR-HyunsuMultilingualNeural
+      DEFAULT_RESPONSE_FORMAT: mp3
 
 volumes:
   mysql-dev:

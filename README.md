@@ -133,8 +133,14 @@ OmniRoute 대시보드 `http://localhost:20128` 에서 공급자 연결 + 모델
 1. 도메인 DNS → 공유기 443 → NAS. DSM 리버스 프록시: `chat.example.com` → `http://localhost:8080`
    (인증서는 DSM Let's Encrypt). 사용자 지정 헤더에서 `X-Forwarded-For` 전달 확인.
 2. NAS에 `/volume1/docker/chat-app` 생성, `infra/*` 복사, `.env`/`.env.omniroute` 작성.
-3. `docker compose --env-file .env up -d mysql omniroute` → `http://<NAS-IP>:20128` 에서 공급자 연결,
+3. `docker compose --env-file .env up -d mysql omniroute edge-tts` → `http://<NAS-IP>:20128` 에서 공급자 연결,
    모델 alias 생성, API 키 발급 → `.env`의 `OMNIROUTE_API_KEY`, `LLM_MODEL`에 기입.
+   STT/TTS 도 여기서 (D-028, 둘 다 무료):
+   - **STT = Groq**: Providers → Groq → Add Connection 에 Groq API 키(console.groq.com/keys, 무료 티어). 저장하면 `whisper-large-v3(-turbo)` 가 자동 임포트. `.env` `STT_MODEL=groq/whisper-large-v3-turbo`.
+   - **TTS = edge-tts 사이드카**: Providers → "Add OpenAI Compatible" — Name 아무거나, **Prefix `edge`**, API Type **Audio Speech**, Base URL `http://edge-tts:5050/v1`, Model ID `tts-1` → Add.
+     생긴 노드에서 Connections → Add: API Key 는 아무 문자열(사이드카가 검사 안 함, 비우면 OmniRoute 가 "No credentials"), Default Model `tts-1` → Save → "Import from /models".
+     `.env.omniroute` 의 `AUDIO_REMOTE_PROVIDER_NODES=true` 가 없으면 OmniRoute 가 localhost 밖 노드를 거부한다. `.env` `TTS_MODEL=edge/tts-1`, `TTS_VOICE=ko-KR-SunHiNeural`.
+   - 확인: `curl -X POST http://<NAS-IP>:20128/v1/audio/speech -H 'Authorization: Bearer <OMNIROUTE_API_KEY>' -H 'Content-Type: application/json' -d '{"model":"edge/tts-1","input":"안녕","voice":"ko-KR-SunHiNeural"}' -o t.mp3`
 4. 구글/네이버/카카오 개발자 콘솔에 redirect URI 등록 → `.env`에 키 기입.
 5. GitHub Variables/Secrets 등록(deploy.yml 상단 참고) → master push → 자동 배포.
 6. iOS 홈화면 PWA에서 소셜 로그인 왕복이 되는지 실기기로 확인 (Safari로 튀어나가는 이슈).

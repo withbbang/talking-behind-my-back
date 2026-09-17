@@ -163,7 +163,7 @@ class SpeechControllerIntegrationTest {
 					.content("{\"text\":\"안녕\"}").cookie(access(me)))
 				.andExpect(status().isOk());
 
-			assertThat(tts.lastVoice).isEqualTo("alloy");
+			assertThat(tts.lastVoice).isEqualTo("ko-KR-SunHiNeural");   // application.yml 기본값 (D-028)
 		}
 
 		@Test
