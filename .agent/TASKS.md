@@ -415,7 +415,7 @@
 ## M3 음성
 
 ## T-009 STT/TTS Provider + 엔드포인트 (api)
-- status: IN_PROGRESS
+- status: REVIEW
 - owner: 개발자
 - milestone: M3
 - spec: API.md#speech, D-007
@@ -424,6 +424,12 @@
   - `speech/SttProvider`·`TtsProvider` + `openai/*` 구현 + `clova/*` 스텁. `SpeechProperties`(app.speech.*) + provider 선택 `@ConditionalOnProperty`.
   - `/speech/stt` multipart → `app.speech.tmp-dir` 저장 → 변환 → 삭제(테스트로 확인). 길이 상한 → `AUDIO_TOO_LONG`.
   - `/speech/tts` 텍스트 상한(`max-tts-chars`) → `TEXT_TOO_LONG`, `audio/mpeg` 반환. `daily_usage.stt_seconds/tts_chars` 갱신.
+- test: `speech/SpeechServiceTest`(12, fake 공급자·@TempDir 로 저장→삭제·상한·사용량·502 매핑), `openai/OpenAiSttProviderTest`(5)·`OpenAiTtsProviderTest`(3, MockWebServer),
+  `SpeechControllerIntegrationTest`(12, 실제 SecurityConfig + FakeSpeechTestConfig: 401/403/200/400×3/502·헤더·usage 행), `SpeechProviderSelectionTest`(1, clova 스텁 선택), MapperTest usage +1.
+  api 전체 278 통과(2026-09-17 로컬, compose MySQL). 실제 OpenAI 왕복은 키가 없어 미실측 — QA 체크리스트.
+- note: D-026. `durationMs` 는 클라이언트 힌트(공급자 호출 전 차단) + 공급자 보고 길이(호출 후 재검사) 이중 검사. 파일 확장자는 content-type 으로 정한다(OpenAI 가 확장자로 포맷 판별, iOS `audio/mp4` → `.mp4`).
+  `audio` 파트 누락은 `required=false` 로 받아 서비스에서 VALIDATION_FAILED(details.audio) — required 로 두면 MissingServletRequestPart 가 500 으로 샌다.
+  Clova 는 빈만 뜨는 스텁(호출 시 502). 실구현은 필요해지면 별도 T.
 
 ## T-010 듣기/말하기 버튼 + 보이스 모드 루프 (web)
 - status: TODO
