@@ -5,7 +5,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
-/** T-009 컨트롤러 테스트용: OpenAI 대신 스크립트형 fake 공급자. `@Import(FakeSpeechTestConfig.class)`. */
+/** T-009 컨트롤러 테스트용: OmniRoute 대신 스크립트형 fake 공급자. `@Import(FakeSpeechTestConfig.class)`. */
 @TestConfiguration
 public class FakeSpeechTestConfig {
 

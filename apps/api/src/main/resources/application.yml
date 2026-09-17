@@ -116,15 +116,13 @@ app:
     max-threads: ${AI_MAX_THREADS:4}
     queue-size: ${AI_QUEUE_SIZE:16}
   speech:
-    stt-provider: ${STT_PROVIDER:openai}    # openai | clova
-    tts-provider: ${TTS_PROVIDER:openai}
-    tmp-dir: ${SPEECH_TMP_DIR:/tmp/audio}   # compose 에서 tmpfs
+    stt-provider: ${STT_PROVIDER:omniroute}   # omniroute | clova (D-027: 기본은 LLM 과 같은 OmniRoute 의 /v1/audio/*)
+    tts-provider: ${TTS_PROVIDER:omniroute}
+    stt-model: ${STT_MODEL:openai/whisper-1}  # OmniRoute 규칙: provider/model 또는 대시보드 alias
+    tts-model: ${TTS_MODEL:openai/tts-1}
+    tmp-dir: ${SPEECH_TMP_DIR:/tmp/audio}     # compose 에서 tmpfs
     max-audio-seconds: 60
     max-tts-chars: 1000
-    openai-api-key: ${OPENAI_API_KEY:}
-    openai-base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}   # D-026: OmniRoute 미경유. 테스트는 MockWebServer 로 덮어씀
-    openai-stt-model: ${OPENAI_STT_MODEL:whisper-1}
-    openai-tts-model: ${OPENAI_TTS_MODEL:tts-1}
     clova-speech-invoke-url: ${CLOVA_SPEECH_INVOKE_URL:}
     clova-speech-secret: ${CLOVA_SPEECH_SECRET:}
     clova-voice-client-id: ${CLOVA_VOICE_CLIENT_ID:}

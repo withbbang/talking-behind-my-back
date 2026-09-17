@@ -1,4 +1,4 @@
-package com.example.chat.speech.openai;
+package com.example.chat.speech.omniroute;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,12 +19,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.web.reactive.function.client.WebClient;
 
-/** T-009 OpenAI `/audio/transcriptions`(verbose_json) 호출·파싱. MockWebServer 로 격리. */
-class OpenAiSttProviderTest {
+/** T-009 OmniRoute `/v1/audio/transcriptions`(OpenAI 호환, verbose_json) 호출·파싱 (D-027). MockWebServer 로 격리. WebClient 는 WebClientConfig 의 omniRouteWebClient 와 같은 모양으로 직접 만든다. */
+class OmniRouteSttProviderTest {
 
 	@TempDir Path tmp;
 	private MockWebServer server;
-	private OpenAiSttProvider provider;
+	private OmniRouteSttProvider provider;
 
 	@BeforeEach
 	void setUp() throws IOException {
@@ -38,12 +38,12 @@ class OpenAiSttProviderTest {
 		server.shutdown();
 	}
 
-	private OpenAiSttProvider newProvider(int timeoutSeconds) {
-		SpeechProperties props = new SpeechProperties("openai", "openai", tmp.toString(), 60, 1000,
-			"sk-test", server.url("/v1").toString(), "whisper-1", "tts-1", "", "", "", "", "alloy", timeoutSeconds);
-		WebClient webClient = WebClient.builder().baseUrl(props.openaiBaseUrl())
-			.defaultHeader("Authorization", "Bearer " + props.openaiApiKey()).build();
-		return new OpenAiSttProvider(webClient, props);
+	private OmniRouteSttProvider newProvider(int timeoutSeconds) {
+		SpeechProperties props = new SpeechProperties("omniroute", "omniroute", tmp.toString(), 60, 1000,
+			"openai/whisper-1", "openai/tts-1", "", "", "", "", "alloy", timeoutSeconds);
+		WebClient webClient = WebClient.builder().baseUrl(server.url("/v1").toString())
+			.defaultHeader("Authorization", "Bearer omni-test").build();
+		return new OmniRouteSttProvider(webClient, props);
 	}
 
 	private Path audioFile(String name, String content) throws IOException {
@@ -61,16 +61,16 @@ class OpenAiSttProviderTest {
 
 		assertThat(t.text()).isEqualTo("오늘 날씨 어때");
 		assertThat(t.durationMs()).isEqualTo(2_400);
-		assertThat(provider.name()).isEqualTo("openai");
+		assertThat(provider.name()).isEqualTo("omniroute");
 
 		RecordedRequest req = server.takeRequest(1, TimeUnit.SECONDS);
 		assertThat(req.getPath()).isEqualTo("/v1/audio/transcriptions");
-		assertThat(req.getHeader("Authorization")).isEqualTo("Bearer sk-test");
+		assertThat(req.getHeader("Authorization")).isEqualTo("Bearer omni-test");
 		assertThat(req.getHeader("Content-Type")).startsWith("multipart/form-data");
 		String body = req.getBody().readUtf8();
 		assertThat(body).contains("name=\"file\"; filename=\"a.webm\"");
 		assertThat(body).contains("opus-bytes");
-		assertThat(body).contains("name=\"model\"").contains("whisper-1");
+		assertThat(body).contains("name=\"model\"").contains("openai/whisper-1");
 		assertThat(body).contains("name=\"response_format\"").contains("verbose_json");
 	}
 

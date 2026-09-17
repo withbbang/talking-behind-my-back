@@ -1,4 +1,4 @@
-package com.example.chat.speech.openai;
+package com.example.chat.speech.omniroute;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -18,21 +18,21 @@ import org.springframework.web.reactive.function.client.WebClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/** T-009 OpenAI `/audio/speech` 호출. MockWebServer 로 격리. */
-class OpenAiTtsProviderTest {
+/** T-009 OmniRoute `/v1/audio/speech`(OpenAI 호환) 호출 (D-027). MockWebServer 로 격리. */
+class OmniRouteTtsProviderTest {
 
 	private MockWebServer server;
-	private OpenAiTtsProvider provider;
+	private OmniRouteTtsProvider provider;
 
 	@BeforeEach
 	void setUp() throws IOException {
 		server = new MockWebServer();
 		server.start();
-		SpeechProperties props = new SpeechProperties("openai", "openai", "/tmp/x", 60, 1000,
-			"sk-test", server.url("/v1").toString(), "whisper-1", "tts-1", "", "", "", "", "alloy", 30);
-		WebClient webClient = WebClient.builder().baseUrl(props.openaiBaseUrl())
-			.defaultHeader("Authorization", "Bearer " + props.openaiApiKey()).build();
-		provider = new OpenAiTtsProvider(webClient, props);
+		SpeechProperties props = new SpeechProperties("omniroute", "omniroute", "/tmp/x", 60, 1000,
+			"openai/whisper-1", "openai/tts-1", "", "", "", "", "alloy", 30);
+		WebClient webClient = WebClient.builder().baseUrl(server.url("/v1").toString())
+			.defaultHeader("Authorization", "Bearer omni-test").build();
+		provider = new OmniRouteTtsProvider(webClient, props);
 	}
 
 	@AfterEach
@@ -48,14 +48,14 @@ class OpenAiTtsProviderTest {
 		byte[] out = provider.synthesize("안녕, 반가워", "nova");
 
 		assertThat(out).isEqualTo(mp3);
-		assertThat(provider.name()).isEqualTo("openai");
+		assertThat(provider.name()).isEqualTo("omniroute");
 
 		RecordedRequest req = server.takeRequest(1, TimeUnit.SECONDS);
 		assertThat(req.getPath()).isEqualTo("/v1/audio/speech");
-		assertThat(req.getHeader("Authorization")).isEqualTo("Bearer sk-test");
+		assertThat(req.getHeader("Authorization")).isEqualTo("Bearer omni-test");
 		assertThat(req.getHeader("Content-Type")).startsWith("application/json");
 		JsonNode body = new ObjectMapper().readTree(req.getBody().readUtf8());
-		assertThat(body.path("model").asString()).isEqualTo("tts-1");
+		assertThat(body.path("model").asString()).isEqualTo("openai/tts-1");
 		assertThat(body.path("input").asString()).isEqualTo("안녕, 반가워");
 		assertThat(body.path("voice").asString()).isEqualTo("nova");
 		assertThat(body.path("response_format").asString()).isEqualTo("mp3");

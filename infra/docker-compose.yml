@@ -6,7 +6,7 @@
 #          → nginx(8080) → web(3000) / api(8080)
 #   api → omniroute(20128) → 외부 LLM 공급자
 #   api → mysql(3306)
-#   api → STT/TTS 외부 API (OpenAI / Clova)
+#   api → STT/TTS: OmniRoute /v1/audio/* 경유 (D-027) / Clova 는 스텁
 
 name: ${APP_NAME:-talking-behind-my-back}
 

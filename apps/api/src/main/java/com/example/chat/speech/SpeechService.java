@@ -61,8 +61,10 @@ public class SpeechService {
 			if (t.durationMs() > props.maxAudioMs()) {
 				throw new BusinessException(ErrorCode.AUDIO_TOO_LONG);
 			}
-			usage.addSttSeconds(userId, today(), ceilSeconds(t.durationMs()));
-			return new SttResult(t.text(), t.durationMs(), stt.name());
+			// 공급자가 길이를 안 주면(OmniRoute 가 verbose_json 미지원 공급자로 보낸 경우) 클라이언트 실측으로 대신한다
+			long durationMs = t.durationMs() > 0 ? t.durationMs() : (clientDurationMs != null ? clientDurationMs : 0);
+			if (durationMs > 0) usage.addSttSeconds(userId, today(), ceilSeconds(durationMs));
+			return new SttResult(t.text(), durationMs, stt.name());
 		} catch (IOException e) {
 			throw new IllegalStateException("audio tmp write failed", e);
 		} finally {

@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-/** D-007: STT_PROVIDER/TTS_PROVIDER 환경변수로 공급자 빈이 바뀐다. 기본(openai)은 다른 컨텍스트 테스트가 이미 덮는다. */
+/** D-007: STT_PROVIDER/TTS_PROVIDER 환경변수로 공급자 빈이 바뀐다. 기본(omniroute)은 다른 컨텍스트 테스트가 이미 덮는다. */
 @SpringBootTest(properties = {"app.speech.stt-provider=clova", "app.speech.tts-provider=clova"})
 class SpeechProviderSelectionTest {
 

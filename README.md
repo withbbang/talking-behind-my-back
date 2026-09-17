@@ -79,7 +79,7 @@ apps/api/src/main/java/com/example/chat/
 ├── persona/       ❌ T-019(D-017) 로 삭제 — 시스템 프롬프트는 chat_rooms.ai_personality/ai_prompt
 ├── llm/           ✅ LlmProperties                                       · T-007: OmniRouteClient, dto/
 ├── auth/          T-004: AuthController, CustomOAuth2UserService, OAuth2SuccessHandler, userinfo/, SocialAccount, RefreshToken + 매퍼
-├── speech/        T-009: SttProvider/TtsProvider, openai/, clova/, SpeechProperties, SpeechController
+├── speech/        T-009: SttProvider/TtsProvider, omniroute/, clova/, SpeechProperties, SpeechController
 └── admin/         T-011: AdminController, PersonaService, StatsService
 
 src/main/resources/

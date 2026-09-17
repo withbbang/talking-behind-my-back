@@ -5,7 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * app.speech.* (application.yml ↔ infra/.env.example 1:1). STT/TTS 는 서버 API 방식, 공급자는 환경변수로 선택 (D-007).
- * OpenAI 는 OmniRoute 를 거치지 않고 직접 부른다 (D-026) — base-url 은 테스트에서 MockWebServer 로 바꾼다.
+ * 기본 공급자 `omniroute` 는 LLM 과 같은 OmniRoute(`app.llm.base-url`·api-key)의 OpenAI 호환 `/v1/audio/*` 를 쓴다 (D-027).
+ * 모델은 OmniRoute 규칙대로 `provider/model`(예: `openai/whisper-1`) 또는 대시보드 alias.
  */
 @ConfigurationProperties(prefix = "app.speech")
 public record SpeechProperties(
@@ -14,10 +15,8 @@ public record SpeechProperties(
 	String tmpDir,
 	int maxAudioSeconds,
 	int maxTtsChars,
-	String openaiApiKey,
-	String openaiBaseUrl,
-	String openaiSttModel,
-	String openaiTtsModel,
+	String sttModel,
+	String ttsModel,
 	String clovaSpeechInvokeUrl,
 	String clovaSpeechSecret,
 	String clovaVoiceClientId,
@@ -31,9 +30,5 @@ public record SpeechProperties(
 
 	public Duration timeout() {
 		return Duration.ofSeconds(timeoutSeconds > 0 ? timeoutSeconds : 30);
-	}
-
-	public boolean hasOpenaiApiKey() {
-		return openaiApiKey != null && !openaiApiKey.isBlank();
 	}
 }

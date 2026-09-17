@@ -100,7 +100,7 @@ class SpeechServiceTest {
 		tts = new FakeTts();
 		usage = mock(DailyUsageMapper.class);
 		SpeechProperties props = new SpeechProperties("fake", "fake", tmpDir.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
-			"", "https://api.openai.com/v1", "whisper-1", "tts-1", "", "", "", "", "alloy", 30);
+			"openai/whisper-1", "openai/tts-1", "", "", "", "", "alloy", 30);
 		service = new SpeechService(stt, tts, usage, props, app);
 	}
 
@@ -148,6 +148,26 @@ class SpeechServiceTest {
 			service.stt(7L, webm(new byte[]{1}), null);
 
 			verify(usage).addSttSeconds(7L, today(), 3);
+		}
+
+		@Test
+		void 공급자가_길이를_안_주면_클라이언트_durationMs_로_사용량을_더하고_응답에도_그_값을_쓴다() {
+			stt.reply = new SttProvider.Transcript("안녕", 0);   // OmniRoute 가 다른 공급자로 보내면 duration 이 없을 수 있다
+
+			SpeechService.SttResult r = service.stt(7L, webm(new byte[]{1}), 4_200L);
+
+			assertThat(r.durationMs()).isEqualTo(4_200);
+			verify(usage).addSttSeconds(7L, today(), 5);
+		}
+
+		@Test
+		void 둘_다_없으면_사용량은_0초_그대로_더하지_않는다() {
+			stt.reply = new SttProvider.Transcript("안녕", 0);
+
+			SpeechService.SttResult r = service.stt(7L, webm(new byte[]{1}), null);
+
+			assertThat(r.durationMs()).isZero();
+			verify(usage, never()).addSttSeconds(anyLong(), any(), anyInt());
 		}
 
 		@Test
