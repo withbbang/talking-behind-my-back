@@ -287,3 +287,22 @@
 - 근거 파일: D-035, TASKS.md T-030, DESIGN.md §2·§3, `apps/web/app/components/ui/useMenu.ts`, `components/chat/{Sidebar,ChatShell,RoomListItem,MessageBubble,Composer}.tsx`.
 - date: 2026-09-18
 
+
+### [개발자 → QA] T-031·T-032 AI 모드 대화 비공개화 (api+web) 검증 요청
+- 요청/이슈: D-037(사용자 결정 4건) 구현. api `./gradlew test` 307 통과, web `npm test` 371/53 파일 + lint(기존 경고 1)·typecheck·build 통과.
+- 필요한 환경: 계정 2개(개설자 A · 참여자 B)로 같은 방에 동시 접속. 브라우저 2개(또는 시크릿 창) + 각자 SSE 연결.
+- 검증 포인트(실브라우저):
+  (1) `AI` 모드에서 A 가 보낸 질문·AI 답이 **B 화면에 전혀 안 뜬다**(말풍선도 점 3개 스트리밍도 시스템 라인도 없음). B 도 반대로.
+  (2) 새로고침(= `GET /messages` 재조회) 후에도 상대 대화가 안 보인다. 스크롤을 위로 올려 과거 페이지도 확인 — 커서 페이징에 빈 페이지가 끼지 않는지.
+  (3) `유저끼리` 모드로 바꾸고 주고받은 말풍선은 **양쪽 다** 보인다. 다시 `AI` 로 돌아와도 그 대화는 계속 보인다(과거 가시성 불변).
+  (4) `유저끼리` 에서 한 얘기를 AI 가 모른다 — `AI` 로 바꾼 뒤 "우리가 방금 무슨 얘기했어?" 물어보면 그 내용을 모른다.
+  (5) AI 가 상대 얘기를 **먼저 옮기지는 않되, 직접 물으면 알려준다** — A 가 "영희가 뭐라고 했어?" 라고 물으면 대답하고, 평범한 질문에는 상대 발언을 꺼내지 않는다(LLM 이라 100% 보장은 아님 — 경향 확인).
+  (6) 한 계정 탭 2개: 한쪽에서 보낸 메시지·델타가 **같은 계정의 다른 탭에도** 실시간으로 뜬다.
+  (7) 방 목록: 상대가 AI 와 대화하면 내 목록의 그 방 순서·메시지 수는 올라간다(내용은 안 보임) — 의도된 동작(D-037 부수 확정).
+  (8) 모드 토글 칸 호버/포커스: `AI` → "AI와 1:1, 친구는 못 봐!", `유저끼리` → "친구와 1:1, AI는 못 봐!". 혼자인 방은 칸별 문구 없이 "친구 초대해봐!" 하나만.
+  (9) 입력 잠금은 그대로 유저 단위 — A 가 AI 답 기다리는 중에도 B 는 바로 보낼 수 있다.
+- 기존 데이터: V4 백필로 예전 방의 AI 대화는 발신자(대개 개설자) 것으로 귀속된다. 2인 방에서 예전 상대 대화가 갑자기 사라져 보일 수 있다 — 의도된 결과.
+- 근거 파일: D-037, TASKS.md T-031·T-032, API.md#messages, SCHEMA.md#5, DESIGN.md §3,
+  `apps/api/src/main/resources/db/migration/V4__message_visibility.sql`, `apps/api/src/main/java/com/example/chat/message/{RoomEventBus,MessageService,AiContextBuilder,Message,MessageMapper}.java`,
+  `apps/api/src/main/resources/mapper/MessageMapper.xml`, `apps/web/app/components/ui/PillToggle.tsx`, `apps/web/app/components/chat/RoomHeaderSheet.tsx`.
+- date: 2026-09-19

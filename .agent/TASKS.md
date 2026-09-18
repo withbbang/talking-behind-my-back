@@ -49,6 +49,8 @@
 - **업로드 상한 실측 파일은 26,214,401B 이상.** "26MB" 를 26,000,000B 로 만들면 25MiB 미만이라 nginx(25m)·Boot(25MB) 를 통과해 공급자까지 갔다가 502 가 난다(T-009 QA).
 - **`MediaRecorder.stop()` 은 `stop` 이벤트가 비동기라 자동 종료 트리거가 둘(VAD·상한)이면 두 번 불려 InvalidStateError.** finish 결과 Promise 를 세션에 저장해 한 번만(T-026). 공유 Promise 에 `.finally()` 를 붙이면 거절이 한 번 더 unhandled 로 새니 `.then(after, after)` 로.
 - **React Compiler ESLint 는 훅이 돌려준 객체 안에 `xxxRef` 가 있으면 그 객체 접근 전부를 "refs during render" 로 잡는다.** 훅 반환값은 호출부에서 `const { open, menuRef } = useMenu()` 로 구조분해(T-030).
+- **MySQL 은 UPDATE 대상 테이블을 서브쿼리에서 다시 읽지 못한다**(파생 테이블로 감싸도 머지되면 1093). 백필은 `CREATE TEMPORARY TABLE … AS SELECT` 로 한 번 끊고 JOIN UPDATE(T-031 V4). 빈 DB 에서는 백필이 0행이라 "성공"만 보이니 더미 데이터를 넣어 결과를 눈으로 확인할 것.
+- **`docker exec -i mysql < file.sql` 은 한글이 깨져 1064**(클라이언트 charset 기본값). `--default-character-set=utf8mb4` 를 붙인다.
 - **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
 
 ---
@@ -603,3 +605,38 @@
 - qa: PASS (QA_REPORT.md 2026-09-18, 사용자 Chrome 실측 + 개발자 QA 대행)
 - note: React Compiler lint(`Cannot access refs during render`)는 훅이 돌려준 객체에 `*Ref` 가 있으면 객체 전체를 ref 로 본다 → 호출부에서 구조분해. 교훈 상단에 추가.
 
+
+## T-031 AI 모드 메시지 비공개화 + 유저끼리 대화 컨텍스트 제외 (api) — D-037
+- status: REVIEW
+- owner: 개발자
+- milestone: M3
+- spec: DECISIONS.md#D-037, API.md#messages, SCHEMA.md#messages
+- acceptance:
+  - V4 마이그레이션: `messages.visible_to_user_id` (NULL = 방 전원, 값 = 그 유저만) + 백필(D-037 가정 ①).
+  - 전송: `AI` 모드 USER 행은 `visible_to_user_id = 발신자`, `HUMAN` 모드는 NULL. AI 응답 행은 트리거 USER 의 발신자.
+  - `GET /rooms/{id}/messages` 는 `visible_to_user_id IS NULL OR = 나` 만 돌려준다 — 상대의 `AI` 모드 질문·답은 페이지에도 커서에도 안 나온다.
+  - SSE: `message`·`delta`·`done`·`error` 는 대상 유저에게만(그 유저의 모든 구독). `mode`·`member` 는 방 전원 브로드캐스트. `HUMAN` 모드 `message` 는 전원.
+  - AI 컨텍스트: `HUMAN` 모드 USER 행 제외, 양쪽 `AI` 모드 USER 행 + 모든 ASSISTANT 행 포함. 최근 N 창이 제외분으로 낭비되지 않게 SQL 에서 걸러진다.
+  - 시스템 프롬프트: 상대 발언을 먼저 옮기지 말고 직접 물으면 알려준다는 지시 + 마지막 발신자에게 답한다는 지시(2인 방만).
+  - `./gradlew test` 통과.
+- test: `RoomEventBusTest`(+3 publishTo 대상·구독 없는 유저·실패 emitter 제거), `MessageServiceTest` 가시성 6건(상대 AI 대화 history 제외·HUMAN 양쪽 노출·커서·컨텍스트 포함/제외·비공개 지시·최근 N 창), `AiContextBuilderTest`(+3 HUMAN 제외·비공개 지시 유무), `MapperTest`(가시성 3행 + 뷰어 필터 + findRecentForAiContext), `MessageControllerIntegrationTest`(+1 상대 AI 대화 미노출). api 전체 307 통과(2026-09-19).
+- qa: (대기)
+- note: SSE 구독 키가 `(roomId, userId)` 로 바뀌어 `bus.subscribe` 시그니처 변경(호출부 = `MessageController`, 테스트 3곳).
+  `findRecentByRoomId`(가시성 무관 원본)와 `findRecentForAiContext`(HUMAN 제외) 두 개 — 서비스는 후자만 쓴다.
+  V4 백필 2단계는 MySQL 이 UPDATE 대상 테이블을 서브쿼리에서 못 읽어 임시 테이블로 끊었다.
+
+## T-032 모드 토글 칸별 안내 툴팁 (web) — D-037
+- status: REVIEW
+- owner: 개발자
+- milestone: M3
+- spec: DECISIONS.md#D-037 (4), DESIGN.md#3
+- blocked_by: 없음 (T-031 과 독립 — 서버가 가시성을 필터하므로 렌더 로직 변경 없음)
+- acceptance:
+  - `PillToggle` 이 옵션별 `tip` 을 받아 그 칸 호버/포커스/터치 중에만 말풍선(`role="tooltip"`, 칸 `aria-describedby`).
+  - `AI` 칸 "AI와 1:1, 친구는 못 봐!", `유저끼리` 칸 "친구와 1:1, AI는 못 봐!".
+  - 혼자인 방: 토글 disabled + "친구 초대해봐!" 하나만(칸별 툴팁 없음) — 현행 유지.
+  - `npm test`·lint·typecheck 통과.
+- test: `PillToggle`(+2 칸별 tooltip·aria-describedby / tip 없으면 없음), `RoomHeaderSheet`(둘이면 칸별 2개 + "친구 초대해봐!" 없음, 혼자면 1개만). web 전체 53 파일 371 통과, lint(기존 경고 1)·typecheck·build 통과(2026-09-19).
+- qa: (대기)
+- note: `PillToggle` 옵션에 `tip?` 추가 — 툴팁 있는 칸만 `group relative` 래퍼로 감싸고, 없으면 `contents` 로 감싸 세그먼트 모양 유지.
+  혼자인 방은 `MODES_ALONE`(tip 제거)을 넘겨 기존 "친구 초대해봐!" 툴팁 하나만 남긴다.
