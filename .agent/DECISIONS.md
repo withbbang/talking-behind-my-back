@@ -284,6 +284,13 @@
 - impact: `apps/api` `LlmProperties.reasoningEffort`·`OmniRouteClient`(조건부 본문)·`application.yml`·`OmniRouteClientTest`(+1). `infra/.env.example` `LLM_MODEL`/`LLM_REASONING_EFFORT`. 배포 시 `LLM_MODEL=gemini/<model>`·`LLM_REASONING_EFFORT=none` 설정. → 파생 T-027(로컬/배포 LLM 공급자 확정) 등록.
 - date: 2026-09-18 (개발자 대행 기록, 사용자 결정 — Gemini 키 제공·"네가 해라")
 
+### D-032 채팅 LLM 무료 모델 확정 — `gemini/gemini-flash-lite-latest`, 트래픽 시 유료 전환
+- decision: 로컬/데모 기본 채팅 모델을 `gemini/gemini-flash-lite-latest` 로 고정한다(`LLM_MODEL`). 이 모델은 `reasoning_effort` 파라미터를 400 으로 거부하므로 `LLM_REASONING_EFFORT` 는 반드시 빈다(D-031 의 기능은 그대로 두되 이 모델엔 미설정). `.env.example` 기본값에 반영.
+- rationale: 실측(2026-09-18) 결과 채팅용 무료 공급자는 Gemini 무료 티어가 유일. ① 키 0개 스크래퍼는 전부 서버 egress IP 차단 — duckduckgo=418 봇차단, theoldllm=403 Vercel IP 차단, felo=400, chipotle/cloudflare=502, opencode=forbidden, uncloseai=카탈로그 빔 404. ② Groq 채팅은 Cloudflare 1010 밴(STT 전용 유지). ③ Gemini 는 모델별 RPD 가 따로라, 진단 테스트로 태운 `flash-latest` 와 달리 `flash-lite-latest` 는 quota 여유 — 비스트리밍 3/3 200(3~5초, 정상 한국어), 스트리밍 델타 정상, 빈 응답 없음(=reasoning_effort 워크어라운드 불필요).
+- 한계: 무료 티어는 토큰 총량이 아니라 요청 수(RPM/RPD) 제한. 개인/소수 데모엔 충분하나 동시 사용자 몰리면 429. 무제한·안정은 유료 키(Gemini 유료/OpenAI/Anthropic)가 유일한 답 — 트래픽 발생 시 `LLM_MODEL`+키만 교체(코드 변경 없음). 대안 레지덴셜 프록시(스크래퍼 IP 우회, 설정 부담·불안정)·AI Horde(큐 대기 수십 초, 실시간 부적합)는 보류.
+- impact: `infra/.env.example`(`LLM_MODEL` 기본값·주석). 코드 변경 없음(D-031 파이프라인 재사용). → T-027 종료 근거.
+- date: 2026-09-18 (개발자 대행 기록, 사용자 결정 — "그렇게 굳혀줘")
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)
