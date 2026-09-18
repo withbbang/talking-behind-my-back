@@ -111,6 +111,7 @@ app:
     base-url: ${OMNIROUTE_BASE_URL:http://localhost:20128/v1}
     api-key: ${OMNIROUTE_API_KEY:}          # 로컬 OmniRoute 는 REQUIRE_API_KEY=false 라 비어도 됨
     model: ${LLM_MODEL:chat-default}
+    reasoning-effort: ${LLM_REASONING_EFFORT:}   # thinking 모델(Gemini 2.5 등) 빈 응답 방지용 none. 비면 안 보냄(공급자 중립). 값 있으면 chat/completions 본문에 reasoning_effort 로 실림
     context-max-messages: ${LLM_CONTEXT_MAX_MESSAGES:30}
     timeout-seconds: ${LLM_TIMEOUT_SECONDS:120}
   ai:                                       # AI 잡 스레드풀 (D-019). 초과 시 503 AI_BUSY

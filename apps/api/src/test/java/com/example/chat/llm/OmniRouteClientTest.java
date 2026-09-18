@@ -37,7 +37,11 @@ class OmniRouteClientTest {
 	}
 
 	private OmniRouteClient newClient(int timeoutSeconds) {
-		LlmProperties props = new LlmProperties(server.url("/v1").toString(), "", "test-model", 30, timeoutSeconds);
+		return newClient(timeoutSeconds, "");
+	}
+
+	private OmniRouteClient newClient(int timeoutSeconds, String reasoningEffort) {
+		LlmProperties props = new LlmProperties(server.url("/v1").toString(), "", "test-model", 30, timeoutSeconds, reasoningEffort);
 		WebClient webClient = WebClient.builder().baseUrl(props.baseUrl()).build();
 		return new OmniRouteClient(webClient, props);
 	}
@@ -87,6 +91,20 @@ class OmniRouteClientTest {
 		assertThat(body).contains("\"include_usage\":true");
 		assertThat(body).contains("\"role\":\"system\"").contains("너는 친구다");
 		assertThat(body).contains("[개설자 철수] 안녕");
+		assertThat(body).doesNotContain("reasoning_effort");
+	}
+
+	@Test
+	void reasoning_effort_가_설정되면_요청_본문에_넣는다_thinking_모델_비활성화() throws Exception {
+		client = newClient(30, "none");
+		server.enqueue(sse(chunk("응"), "[DONE]"));
+
+		client.stream(List.of(user("안녕")), d -> {});
+
+		RecordedRequest req = server.takeRequest(1, TimeUnit.SECONDS);
+		assertThat(req).isNotNull();
+		String body = req.getBody().readUtf8();
+		assertThat(body).contains("\"reasoning_effort\":\"none\"");
 	}
 
 	@Test

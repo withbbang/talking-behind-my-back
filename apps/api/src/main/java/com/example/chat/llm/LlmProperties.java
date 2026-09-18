@@ -12,7 +12,8 @@ public record LlmProperties(
 	String apiKey,
 	String model,
 	int contextMaxMessages,
-	int timeoutSeconds
+	int timeoutSeconds,
+	String reasoningEffort
 ) {
 	public Duration timeout() {
 		return Duration.ofSeconds(timeoutSeconds > 0 ? timeoutSeconds : 120);
@@ -20,5 +21,10 @@ public record LlmProperties(
 
 	public boolean hasApiKey() {
 		return apiKey != null && !apiKey.isBlank();
+	}
+
+	/** 설정 시에만 요청 본문에 실린다. thinking 모델(Gemini 2.5 등)에서 추론을 끄는 용도 — none. 비면 안 보냄(공급자 중립). */
+	public boolean hasReasoningEffort() {
+		return reasoningEffort != null && !reasoningEffort.isBlank();
 	}
 }

@@ -1,5 +1,6 @@
 package com.example.chat.llm;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
@@ -32,11 +33,13 @@ public class OmniRouteClient implements LlmClient {
 
 	@Override
 	public Result stream(List<ChatMessage> messages, Consumer<String> onDelta) {
-		Map<String, Object> body = Map.of(
-			"model", props.model(),
-			"messages", messages,
-			"stream", true,
-			"stream_options", Map.of("include_usage", true));
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("model", props.model());
+		body.put("messages", messages);
+		body.put("stream", true);
+		body.put("stream_options", Map.of("include_usage", true));
+		// thinking 모델 비활성화(Gemini 2.5 등): 빈 응답 방지. 설정된 경우에만 — 공급자 중립(D-006).
+		if (props.hasReasoningEffort()) body.put("reasoning_effort", props.reasoningEffort());
 		StringBuilder content = new StringBuilder();
 		Integer[] tokens = new Integer[2];
 		String[] model = new String[1];

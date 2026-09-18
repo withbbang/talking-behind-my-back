@@ -275,6 +275,15 @@
 - impact: `apps/web` MessageBubble·MessageList(StreamingBubble) 꼬리 제거 + 좌하단 6px, MessageBubble 테스트 갱신. DESIGN.md#3 표·BRAND.md#1/#2 문구. 보이스 오버레이 오브(VoiceOrb)의 꼬리는 이 결정 범위 밖(별도 확인 대기).
 - date: 2026-09-18 (개발자 대행 기록, 사용자 결정)
 
+### D-031 채팅 LLM 로컬 공급자 — Gemini(AI Studio 키) + reasoning_effort=none, thinking 모델 빈 응답 방지
+- decision: 로컬 채팅 LLM 은 OmniRoute 에 개인 Gemini(Google AI Studio) 키를 연결해 쓴다. Groq 는 STT 전용(채팅은 Cloudflare 1010 UA/시그니처 밴). 무료 스크래퍼 공급자(duckduckgo·felo·theoldllm 등)는 불안정해 배제.
+  `gemini-flash-latest`(2.5 계열)는 thinking 모델이라 스트리밍에서 추론에 토큰을 다 써 본문이 비는 경우가 잦다 → api 가 요청에 `reasoning_effort: "none"` 를 실어 thinking 을 끈다. 실측: 파라미터 있으면 4.3초 정상 본문, 없으면 빈 응답.
+  `reasoning_effort` 는 `app.llm.reasoning-effort`(env `LLM_REASONING_EFFORT`) 로 옵션화 — 비면 안 보냄(공급자 중립, D-006). non-thinking 모델은 무시.
+- rationale: OmniRoute(게이트웨이)는 무료·셀프호스팅이지만 실제 추론은 공급자 몫이라 키·rate limit 이 따른다. Gemini 무료 티어는 동작하나 분당/일일 한도가 낮다(연타 테스트 시 429·빈 응답). 실사용 빈도에선 대체로 충분, 안정성이 필요하면 유료 키.
+- alternatives: Groq 채팅(Cloudflare 밴 — 기각), gemini-2.0-flash(non-thinking, 카탈로그 미등록으로 라우팅 불가), OmniRoute Compatibility 파라미터 필터(주입 불가, Blocked/Allowed 필터만) — 모두 기각. 앱에 무조건 reasoning_effort 하드코딩 — 공급자 중립 위배로 기각(옵션화).
+- impact: `apps/api` `LlmProperties.reasoningEffort`·`OmniRouteClient`(조건부 본문)·`application.yml`·`OmniRouteClientTest`(+1). `infra/.env.example` `LLM_MODEL`/`LLM_REASONING_EFFORT`. 배포 시 `LLM_MODEL=gemini/<model>`·`LLM_REASONING_EFFORT=none` 설정. → 파생 T-027(로컬/배포 LLM 공급자 확정) 등록.
+- date: 2026-09-18 (개발자 대행 기록, 사용자 결정 — Gemini 키 제공·"네가 해라")
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

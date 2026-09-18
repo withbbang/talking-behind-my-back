@@ -47,6 +47,7 @@
 - **외부 AI 호출(LLM·STT·TTS)은 전부 OmniRoute 경유가 기본.** 새 외부 API 를 붙일 때 "직접 호출" 로 설계하지 말고 OmniRoute `/v1/*` 지원부터 확인(T-009 에서 OpenAI 직접 호출로 갔다가 되돌림). 로컬 OmniRoute 에 `curl -X POST … /v1/<path>` 로 404 인지 400 인지 보면 안다.
 - **hydration 전 인라인 스크립트로 React 가 렌더한 `<meta>`/`<title>` 을 바꾸면 React 19 가 hoistable 매칭에 실패해 같은 태그를 하나 더 꽂는다**(T-020 theme-color 중복 실측). 첫 페인트 전엔 `<html>` 속성만 건드리고 메타는 마운트 후 갱신. `'use client'` 모듈의 문자열 상수를 서버 컴포넌트(layout)에서 import 하면 클라이언트 참조가 되니 상수는 지시어 없는 모듈로 분리.
 - **업로드 상한 실측 파일은 26,214,401B 이상.** "26MB" 를 26,000,000B 로 만들면 25MiB 미만이라 nginx(25m)·Boot(25MB) 를 통과해 공급자까지 갔다가 502 가 난다(T-009 QA).
+- **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
 
 ---
 
@@ -537,3 +538,10 @@
 - TTS 폴백 콤보: OmniRoute 에서 `edge/tts-1` 실패 시 `gtts/ko` 로 넘어가는 콤보 설정 + `TTS_MODEL` 을 콤보 alias 로(D-028). 비공식 Edge API 차단 대비.
 - OmniRoute `next` 이미지가 내장 edgetts 403(Sec-MS-GEC)을 고쳤는지 확인 → 고쳤으면 edge-tts 사이드카 제거(D-028).
 - 잘못된 percent-encoding 쿼리스트링(Tomcat `InvalidParameterException`) 500 → 400 `VALIDATION_FAILED` 매핑(T-006 QA 발견)
+
+## T-027 로컬/배포 LLM 공급자 확정 (infra/api)
+- status: IN_PROGRESS
+- owner: 개발자
+- milestone: M3
+- spec: D-031, D-006, D-027
+- note: 2026-09-18 착수. Gemini(AI Studio 키) 연결 + `LLM_MODEL=gemini/gemini-flash-latest` + `LLM_REASONING_EFFORT=none`(api 에 `reasoning_effort` 옵션 추가, 커밋됨). 남은 것: 배포용 `infra/.env` 값 확정, Gemini 무료 rate limit 대응(유료 키 여부는 사용자 결정), non-thinking 모델(gemini-2.0-flash 등) 카탈로그 등록 시 그걸로 교체 검토. Groq 채팅은 Cloudflare 1010 밴이라 STT 전용 유지.
