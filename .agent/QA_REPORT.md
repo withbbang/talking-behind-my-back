@@ -372,3 +372,17 @@
   - (참고) 실기기(iOS/Android) 마이크·PWA 왕복은 미실측 → T-013. HUMAN 전환 종료(2인 방 필요)는 단위 테스트로 대체.
   - (뒷정리) 테스트로 room 3668 에 남은 메시지 삭제(빈 방 복원), 임시 토큰·쿠키 파일 삭제. user 1 `daily_usage` 오늘 stt/tts 사용량은 실측값 그대로.
 - date: 2026-09-18
+
+### T-026 보이스 모드 체감 보강 — VAD 자동 종료 + 문장 단위 TTS 선재생 (web)
+- verdict: PASS — 사용자 실브라우저 실측("전부 기대대로 잘 됐음") + 개발자 로그 대조, 2026-09-18. 개발자 QA 대행(사용자 지시).
+- tests: 존재 / web `npm test` 360 passed(54 files, 신규 41), `lint` 0 error(기존 경고 1), `typecheck`·`build` 통과. 에이전트 실행(로컬).
+- checked (실측: compose + api bootRun + web dev, nginx :3000, Mac Chrome 실마이크·실 OAuth 로그인, 방 5333, 보이스 루프 2회):
+  - VAD(D-033 A1·A2): 말 끝나고 ~1초 뒤 탭 없이 transcribing 으로 자동 전환, 말 안 하면 유지 — 사용자 확인. 로그: 1회차 TTS 종료 후 탭 없이 2회차 `POST /speech/stt 200` 이 이어짐.
+  - 선재생(B1~B4): done 전에 첫 문장 소리 시작, 문장 사이 끊김·중복·순서 꼬임 없음 — 사용자 확인. 로그: 응답당 `POST /speech/tts 200` 6회가 **+0s, +1s, +5s, +8s, +8s, +9s** 간격 — 첫 문장 즉시 + 선합성 1개 + 이후 재생 속도에 맞춘 순차 호출(설계대로).
+  - 진폭(A4): 녹음 말풍선 바가 목소리 크기에 반응 — 사용자 확인.
+  - 회귀: 듣기 버튼 정상, "다시"/"끄기" 시 재생 즉시 정지 — 사용자 확인. STT 200·메시지 202·TTS 전부 200(api WARN/ERROR 없음).
+  - 계약: API 변경 없음(API.md#speech 그대로).
+- issues:
+  - (블록 아님, 범위 밖) SSE emitter 타임아웃 `AsyncRequestTimeoutException` 이 `GlobalExceptionHandler` 에 ERROR 스택으로 찍힘(재접속 `GET /rooms/{id}/events 200` 정상, 기능 영향 없음). 로그 노이즈 — 별도 T 후보(api).
+  - (참고) 로컬 api 는 `LLM_MODEL` env 없이 뜨면 기본값 `chat-default` alias 로 OmniRoute 400 → 로컬은 gitignore 된 `application-secret.yml` 에 `app.llm.model` 을 둠(운영은 infra/.env). 실기기(iOS AudioContext suspended)·소음 환경은 미실측 → T-013 체크리스트.
+- date: 2026-09-18

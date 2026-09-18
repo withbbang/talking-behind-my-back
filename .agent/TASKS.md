@@ -456,7 +456,7 @@
 - note: 2026-09-18 착수(D-029: 말풍선 오브·STT 즉시 전송·CSS 모션·토글 노출 조건·2인 방 충돌·60초 상한·iOS unlock). 체감 보강(VAD 자동 종료·문장 단위 TTS 선재생)은 → T-026 참조 (D-026). 이 태스크는 DESIGN.md#7 상태 머신까지.
 
 ## T-026 보이스 모드 체감 보강 — VAD 자동 종료 + 문장 단위 TTS 선재생 (web)
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M3
 - spec: D-026, D-033, DESIGN.md#7, API.md#speech
@@ -470,7 +470,8 @@
   순수: `features/speech/vad`(12, rmsDb·적응형 바닥·히스테리시스·hold·minSpeech·level·detectSilence), `sentenceChunker`(9, 부호+공백 경계·개행·소수점·첫 문장 즉시·40자 버퍼·flush).
   `ttsPlayer`(+8, open() 세션: 순서·선합성 1개·end/done·played·실패 시점·stop·동시 1개; 기존 stop 테스트는 선합성 1개 허용으로 갱신).
   훅: `useRecorder`(+6, vad silence 자동 종료·발화 없으면 미종료·vad 없으면 미종료·level·미터 없음·stop 이벤트 지연 시 단일 종료), `useVoiceMode`(+5, 델타→첫 문장 선재생→done 꼬리→큐 소진→녹음, 본문 불일치, 폴백 2분기, VAD 자동 완료+토스트 없음).
-  컴포넌트: `VoiceModeOverlay`(+1, `--level`). 실측 미수행: 마이크 없는 pane + OAuth 쿠키(T-010 과 동일). iOS AudioContext suspended 는 T-013 체크리스트.
+  컴포넌트: `VoiceModeOverlay`(+1, `--level`). 실측(2026-09-18, 사용자 Mac Chrome 실마이크): VAD 자동 종료·선재생·진폭·회귀 전부 기대대로. iOS AudioContext suspended 는 T-013 체크리스트.
+- qa: PASS (QA_REPORT.md 2026-09-18, 사용자 실측 + 로그 대조)
 - note: 2026-09-18 착수·구현(D-033). 상태 머신(`voiceMachine`) 변경 없음 — 선재생은 streaming 중 세션 큐, speaking 은 큐 소진 대기. 컴포저 마이크는 미터를 만들지 않는다(vad 옵션 없음).
   VAD 한계: 바닥보다 12dB 이상 큰 꾸준한 소음은 발화로 보여 자동 종료 안 됨(60초 상한/탭). done 본문이 델타 누적과 다르면 델타 뒤 꼬리만 flush(잘린 부분은 안 읽음).
 

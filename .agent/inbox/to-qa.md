@@ -241,7 +241,7 @@
 - 범위 외: VAD·문장 단위 선재생(T-026), 실기기 PWA 음성(T-013).
 - date: 2026-09-18
 
-### [개발자 → QA] T-026 보이스 모드 체감 보강 — VAD 자동 종료 + 문장 단위 TTS 선재생 (web) 검증 요청
+### [개발자 → QA] T-026 보이스 모드 체감 보강 — VAD 자동 종료 + 문장 단위 TTS 선재생 (web) 검증 요청 [처리됨 2026-09-18, QA_REPORT.md#T-026 PASS — 사용자 실측]
 - 요청/이슈: `cd apps/web && npm test`(360 passed / 54 files), `npm run lint`(0 error, 기존 경고 1: api.ts `_retry`), `npm run typecheck`, `npm run build` 통과 확인.
   신규 41건은 `app/features/speech/{vad,sentenceChunker,ttsPlayer,useRecorder,useVoiceMode}` + `components/voice/VoiceModeOverlay`. 설계 근거 D-033(사용자 결정 "추천대로"). API 변경 없음.
 - 검증 포인트(코드/테스트 리뷰 + 가능하면 실브라우저):
