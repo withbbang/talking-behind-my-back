@@ -556,3 +556,15 @@
 - note: 2026-09-18 착수. Gemini(AI Studio 키) 연결 + api `reasoning_effort` 옵션 추가(커밋됨).
 - 확정(D-032, 2026-09-18): 무료 채팅 모델 = `gemini/gemini-flash-lite-latest`(RPD 별개라 여유), `LLM_REASONING_EFFORT` 비움(이 모델은 파라미터 400 거부). `.env.example` 기본값 반영. 실측: 비스트리밍 3/3 200·스트리밍 델타 정상·빈 응답 없음. 키 0개 스크래퍼는 전부 서버 IP 차단(418/403/502…), Groq 채팅은 Cloudflare 1010 밴(STT 전용 유지). 무료 티어 요청수 한도(RPM/RPD)는 개인/데모엔 충분, 트래픽 시 유료 키로 `LLM_MODEL`+키만 교체(코드 무변경).
 - 파생: 배포용 `infra/.env` 실값 채우기·NAS 환경변수 설정은 배포 태스크에서. non-thinking Gemini 모델(gemini-2.0-flash 등) 카탈로그 등록되면 교체 검토는 선택 사항(현재 flash-lite-latest 로 충분).
+
+## T-028 SSE 셧다운 타임아웃 ERROR 로그 노이즈 제거 (api)
+- status: DONE
+- owner: 개발자
+- milestone: M3
+- spec: API.md#에러-형식, T-026 QA 부수 발견
+- acceptance:
+  - `GlobalExceptionHandler` 에 `AsyncRequestTimeoutException` 전용 핸들러 — 스택 없이 debug 로그, 503 `SERVICE_UNAVAILABLE` 응답. 단위 테스트 1건.
+  - 재기동/배포 시 열린 SSE 연결마다 찍히던 `unhandled exception` ERROR 스택이 사라진다. `RoomEventBus`·SSE 동작 변경 없음.
+- test: `GlobalExceptionHandlerTest` +1(503 매핑). api 전체 294 통과(2026-09-18, compose MySQL). 실측: 로컬 JWT 로 SSE 를 연 채 SIGTERM → graceful 30초 뒤 핸들러 DEBUG 1건, `unhandled exception` 0건(수정 전엔 ERROR 스택).
+- qa: PASS (QA_REPORT.md 2026-09-18, 개발자 QA 대행 — 단위 + 셧다운 실측)
+- note: 원인 — api 종료 시 Tomcat 이 열린 async(SSE) 요청을 강제 timeout → catch-all 핸들러가 ERROR. `SseEmitter(0L)` 은 무제한이라 평시엔 안 남. 교훈: bootRun 중 `gradlew test` 로 api 가 죽는 것 이번에도 재현(기존 교훈).

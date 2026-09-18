@@ -14,6 +14,7 @@ import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
@@ -120,6 +121,17 @@ class GlobalExceptionHandlerTest {
 		String json = ErrorResponse.of(ErrorCode.UNAUTHENTICATED, "say \"hi\" \\ bye", null).toJson();
 
 		assertThat(json).isEqualTo("{\"code\":\"UNAUTHENTICATED\",\"message\":\"say \\\"hi\\\" \\\\ bye\",\"details\":null}");
+	}
+
+	@Test
+	@DisplayName("AsyncRequestTimeoutException(셧다운 시 SSE 강제 타임아웃) 은 503 SERVICE_UNAVAILABLE — catch-all ERROR 가 아니다 (T-028)")
+	void asyncTimeout_503() {
+		ResponseEntity<ErrorResponse> res = handler.handleAsyncTimeout(new AsyncRequestTimeoutException());
+
+		assertThat(res.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+		assertThat(res.getBody()).isNotNull();
+		assertThat(res.getBody().code()).isEqualTo("SERVICE_UNAVAILABLE");
+		assertThat(res.getBody().details()).isNull();
 	}
 
 	/** MethodParameter 생성용 더미 시그니처 */

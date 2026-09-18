@@ -3,6 +3,7 @@ package com.example.chat.global.error;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -10,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -74,6 +76,17 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException e) {
 		return ResponseEntity.status(404)
 			.body(new ErrorResponse("NOT_FOUND", "존재하지 않는 경로입니다.", null));
+	}
+
+	/**
+	 * async 요청 타임아웃. 실제로는 api 종료 시 Tomcat 이 열린 SSE(SseEmitter 무제한)를 강제 timeout 할 때 온다 — 응답은 이미 커밋돼
+	 * 본문은 안 나가고, catch-all 로 가면 연결마다 ERROR 스택이 찍힌다(T-028). 일반 async 요청이면 Spring 기본과 같은 503.
+	 */
+	@ExceptionHandler(AsyncRequestTimeoutException.class)
+	public ResponseEntity<ErrorResponse> handleAsyncTimeout(AsyncRequestTimeoutException e) {
+		log.debug("async request timed out: {}", e.getMessage());
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(new ErrorResponse("SERVICE_UNAVAILABLE", "요청 처리 시간이 초과되었습니다.", null));
 	}
 
 	@ExceptionHandler(Exception.class)

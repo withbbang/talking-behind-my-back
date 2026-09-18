@@ -386,3 +386,13 @@
   - (블록 아님, 범위 밖) SSE emitter 타임아웃 `AsyncRequestTimeoutException` 이 `GlobalExceptionHandler` 에 ERROR 스택으로 찍힘(재접속 `GET /rooms/{id}/events 200` 정상, 기능 영향 없음). 로그 노이즈 — 별도 T 후보(api).
   - (참고) 로컬 api 는 `LLM_MODEL` env 없이 뜨면 기본값 `chat-default` alias 로 OmniRoute 400 → 로컬은 gitignore 된 `application-secret.yml` 에 `app.llm.model` 을 둠(운영은 infra/.env). 실기기(iOS AudioContext suspended)·소음 환경은 미실측 → T-013 체크리스트.
 - date: 2026-09-18
+
+### T-028 SSE 셧다운 타임아웃 ERROR 로그 노이즈 제거 (api)
+- verdict: PASS — 개발자 QA 대행(사용자 지시 "ㄱㄱ"), 2026-09-18.
+- tests: 존재 / api `./gradlew test` 294 통과(compose MySQL), `GlobalExceptionHandlerTest` +1(`AsyncRequestTimeoutException` → 503 `SERVICE_UNAVAILABLE`, details null).
+- checked (실측: bootRun + nginx :3000, 로컬 기본 JWT_SECRET 으로 user 95 access 토큰 서명 → `curl -N` 으로 room 5333 SSE 를 연 채 api SIGTERM):
+  - 수정 전(15:24): 종료 ~27초 뒤 `GlobalExceptionHandler : unhandled exception` + `AsyncRequestTimeoutException` 스택 + `Ignoring exception, response committed` WARN.
+  - 수정 후: graceful 30초 대기 → "Graceful shutdown aborted with one or more requests still active" 직전에 핸들러 DEBUG `async request timed out` 1건, ERROR 0건, 스택 없음(`--logging.level.com.example.chat.global.error=DEBUG` 로 호출 확인).
+  - SSE 동작 회귀 없음: 구독 즉시 `:connected`, 브라우저 재접속 정상. `RoomEventBus` 무변경.
+- issues: 없음. 로컬 재현 시 lsof 가 Docker 경유 커넥션을 못 세므로 SSE 열림 여부는 `:connected` 수신으로 확인할 것.
+- date: 2026-09-18

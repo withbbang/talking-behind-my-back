@@ -32,6 +32,7 @@
 | 413 | `PAYLOAD_TOO_LARGE` | nginx `client_max_body_size` 초과 |
 | 502 | `LLM_UPSTREAM_ERROR`, `SPEECH_UPSTREAM_ERROR` | 외부 API 실패 |
 | 503 | `AI_BUSY` | AI 잡 스레드풀 포화(T-007) |
+| 503 | `SERVICE_UNAVAILABLE` | async 요청 타임아웃(사실상 api 종료 시 SSE 정리 — 응답 커밋 후라 본문은 안 나감, T-028) |
 | 500 | `INTERNAL_ERROR` | 그 외 |
 
 ## auth

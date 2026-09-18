@@ -255,3 +255,8 @@
 - 근거 파일: D-033, TASKS.md T-026, `apps/web/app/features/speech/**`, `apps/web/app/components/voice/VoiceModeOverlay.tsx`, `apps/web/app/globals.css`.
 - 범위 외: barge-in(백로그), DESIGN.md#7 문서 갱신(to-designer), 실기기 PWA 음성(T-013).
 - date: 2026-09-18
+
+### [개발자 → QA] T-028 SSE 셧다운 타임아웃 ERROR 로그 노이즈 제거 (api) 검증 요청 [처리됨 2026-09-18, QA_REPORT.md#T-028 PASS — 개발자 QA 대행]
+- 요청/이슈: `GlobalExceptionHandler.handleAsyncTimeout` 추가(503, debug 로그). api 294 테스트 통과. 셧다운 실측은 QA_REPORT 참조.
+- 근거 파일: TASKS.md T-028, API.md#에러-형식(503 행), `apps/api/.../global/error/GlobalExceptionHandler.java`
+- date: 2026-09-18
