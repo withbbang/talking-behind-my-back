@@ -24,8 +24,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 메시지 전송·AI 잡·과거 조회 (API.md#messages, D-018, D-019).
- * 전송: 멤버 검증 → (AI 모드) 큐 예약(409/503) → [tx: USER 저장 + touch + 자동 제목 + usage] → `message` 브로드캐스트 → 잡 시작 → 202.
+ * 전송: 멤버 검증 → (AI 모드) 큐 예약(409/503) → [tx: USER 저장 + touch + 자동 제목 + usage] → `message` 발행 → 잡 시작 → 202.
  * 잡: 방 재확인(HUMAN 이면 skip) → 컨텍스트 조립 → 스트림(`delta`) → [tx: ASSISTANT 저장 + touch + 토큰 usage] → `done`.
+ * 가시성(D-037): `AI` 모드 대화는 물어본 유저 것 — 저장 행에 `visibleToUserId` 를 박고 이벤트도 그 유저에게만 보낸다.
+ * `HUMAN` 모드 대화는 방 전원이 보고, AI 컨텍스트에는 들어가지 않는다.
  * 스트리밍 중에는 트랜잭션을 열지 않는다(CONVENTIONS). 상류 실패는 `error` 이벤트, 부분 응답 폐기.
  */
 @Service
@@ -59,12 +61,15 @@ public class MessageService {
 		this.tx = tx;
 	}
 
-	/** 과거 메시지, id DESC. 커서는 (createdAt|id) 불투명 문자열이나 판정은 id 만 쓴다. 비멤버 404. */
+	/**
+	 * 과거 메시지, id DESC. 커서는 (createdAt|id) 불투명 문자열이나 판정은 id 만 쓴다. 비멤버 404.
+	 * 내가 볼 수 있는 행만 — 상대의 `AI` 모드 질문·답은 페이지에도 커서 계산에도 안 들어간다(D-037).
+	 */
 	public CursorPage<MessageResponse> history(Long userId, Long roomId, String cursor, Integer size) {
 		requireActiveMember(roomId, userId);
 		Long cursorId = cursor == null ? null : CursorCodec.decode(cursor).id();
 		int pageSize = CursorCodec.clampSize(size);
-		List<Message> rows = messages.findByRoomId(roomId, cursorId, pageSize + 1);
+		List<Message> rows = messages.findByRoomId(roomId, userId, cursorId, pageSize + 1);
 		return CursorPage.of(rows, pageSize, m -> MessageResponse.of(m, appProps.zoneId()),
 			m -> CursorCodec.encode(m.getCreatedAt(), m.getId()));
 	}
@@ -93,7 +98,10 @@ public class MessageService {
 			if (ticket != null) ticket.cancel();
 			throw e;
 		}
-		bus.publish(roomId, "message", MessageResponse.of(saved, appProps.zoneId()));
+		// AI 모드 = 물어본 사람만, HUMAN 모드 = 방 전원 (D-037)
+		MessageResponse payload = MessageResponse.of(saved, appProps.zoneId());
+		if (ai) bus.publishTo(roomId, userId, "message", payload);
+		else bus.publish(roomId, "message", payload);
 		if (ticket != null) {
 			Long messageId = saved.getId();
 			ticket.start(() -> runAiJob(roomId, messageId, userId));
@@ -110,41 +118,43 @@ public class MessageService {
 		}
 		ChatRoom room = found.get();
 		List<RoomMember> allMembers = members.findAllByRoomId(roomId);
-		List<Message> recent = messages.findRecentByRoomId(roomId, llmProps.contextMaxMessages());
+		List<Message> recent = messages.findRecentForAiContext(roomId, llmProps.contextMaxMessages());
 		List<LlmClient.ChatMessage> context = AiContextBuilder.build(room, allMembers, recent);
 
 		LlmClient.Result result;
 		try {
-			result = llm.stream(context, text -> bus.publish(roomId, "delta", Map.of("replyTo", userMessageId, "text", text)));
+			result = llm.stream(context,
+				text -> bus.publishTo(roomId, senderUserId, "delta", Map.of("replyTo", userMessageId, "text", text)));
 		} catch (LlmException e) {
 			log.warn("AI job failed room={} reply_to={}: {}", roomId, userMessageId, e.getMessage());
-			publishError(roomId, userMessageId);
+			publishError(roomId, senderUserId, userMessageId);
 			return;
 		}
 		if (result.content() == null || result.content().isBlank()) {
 			log.warn("AI job empty response room={} reply_to={}", roomId, userMessageId);
-			publishError(roomId, userMessageId);
+			publishError(roomId, senderUserId, userMessageId);
 			return;
 		}
 
 		int promptTokens = result.promptTokens() == null ? 0 : result.promptTokens();
 		int completionTokens = result.completionTokens() == null ? 0 : result.completionTokens();
 		Message saved = tx.execute(status -> {
-			Message m = Message.assistant(roomId, result.content(), result.model(), result.promptTokens(), result.completionTokens());
+			Message m = Message.assistant(roomId, senderUserId, result.content(), result.model(),
+				result.promptTokens(), result.completionTokens());
 			messages.insert(m);
 			rooms.touchOnNewMessage(roomId);
 			usage.addTokens(senderUserId, today(), promptTokens, completionTokens);
 			return messages.findById(m.getId()).orElseThrow();
 		});
-		bus.publish(roomId, "done", Map.of(
+		bus.publishTo(roomId, senderUserId, "done", Map.of(
 			"message", MessageResponse.of(saved, appProps.zoneId()),
 			"replyTo", userMessageId,
 			"promptTokens", promptTokens,
 			"completionTokens", completionTokens));
 	}
 
-	private void publishError(Long roomId, Long userMessageId) {
-		bus.publish(roomId, "error", Map.of(
+	private void publishError(Long roomId, Long senderUserId, Long userMessageId) {
+		bus.publishTo(roomId, senderUserId, "error", Map.of(
 			"replyTo", userMessageId,
 			"code", ErrorCode.LLM_UPSTREAM_ERROR.name(),
 			"message", ErrorCode.LLM_UPSTREAM_ERROR.getDefaultMessage()));

@@ -92,6 +92,19 @@ class MessageControllerIntegrationTest {
 	class History {
 
 		@Test
+		void 상대의_AI_모드_질문과_답은_안_내려온다() throws Exception {
+			memberMapper.insert(RoomMember.participant(room.getId(), other.getId()));
+			messageMapper.insert(Message.user(room.getId(), other.getId(), "상대의 비밀 질문", Message.InputType.TEXT, RoomMode.AI));
+			messageMapper.insert(Message.assistant(room.getId(), other.getId(), "상대에게 준 답", "m", 1, 1));
+			messageMapper.insert(Message.user(room.getId(), owner.getId(), "내 질문", Message.InputType.TEXT, RoomMode.AI));
+
+			mvc.perform(get(messagesPath()).cookie(access(owner)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items.length()").value(1))
+				.andExpect(jsonPath("$.items[0].content").value("내 질문"));
+		}
+
+		@Test
 		void 최신_먼저_커서_페이지_시간은_UTC_Z() throws Exception {
 			for (int i = 0; i < 3; i++) {
 				messageMapper.insert(Message.user(room.getId(), owner.getId(), "m" + i, Message.InputType.TEXT, RoomMode.AI));
@@ -120,8 +133,9 @@ class MessageControllerIntegrationTest {
 		@Test
 		void 나간_멤버의_메시지도_senderNickname_유지_ASSISTANT_는_null() throws Exception {
 			memberMapper.insert(RoomMember.participant(room.getId(), other.getId()));
-			messageMapper.insert(Message.user(room.getId(), other.getId(), "남이 한 말", Message.InputType.TEXT, RoomMode.AI));
-			messageMapper.insert(Message.assistant(room.getId(), "AI 답", "m", 1, 1));
+			// HUMAN 모드 = 방 전원 공개, AI 답은 개설자 것 — 둘 다 개설자에게 보인다(D-037)
+			messageMapper.insert(Message.user(room.getId(), other.getId(), "남이 한 말", Message.InputType.TEXT, RoomMode.HUMAN));
+			messageMapper.insert(Message.assistant(room.getId(), owner.getId(), "AI 답", "m", 1, 1));
 			memberMapper.leave(room.getId(), other.getId());
 
 			mvc.perform(get(messagesPath()).cookie(access(owner)))

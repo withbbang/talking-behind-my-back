@@ -63,6 +63,6 @@ public class MessageController {
 	@GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public SseEmitter events(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable Long roomId) {
 		members.findActive(roomId, principal.userId()).orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
-		return bus.subscribe(roomId);
+		return bus.subscribe(roomId, principal.userId());
 	}
 }

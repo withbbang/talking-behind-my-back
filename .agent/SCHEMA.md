@@ -2,7 +2,8 @@
 
 > **Write: 개발자 | Read: 전원**
 > TL;DR: MySQL 8.4, utf8mb4. 테이블 7개. V1(T-003) = 초기 7개. **V2(T-006) = 2인 채팅방 요건** — `chat_rooms` 소유/초대/성격/모드/상태,
-> `room_members` 신설, `messages.sender_user_id/mode`. **V3(T-019, D-017) = `chat_rooms.ai_prompt` 추가 + `personas` DROP.** Flyway `V{n}__*.sql`만 DDL 을 소유한다(D-009).
+> `room_members` 신설, `messages.sender_user_id/mode`. **V3(T-019, D-017) = `chat_rooms.ai_prompt` 추가 + `personas` DROP.**
+> **V4(T-031, D-037) = `messages.visible_to_user_id`** — `AI` 모드 대화는 발신자에게만 보인다. Flyway `V{n}__*.sql`만 DDL 을 소유한다(D-009).
 
 ## 공통 규칙
 - 이름: 테이블·컬럼 snake_case, 테이블은 복수형.
@@ -98,15 +99,19 @@
 | role | VARCHAR(20) | NOT NULL | USER / ASSISTANT |
 | content | MEDIUMTEXT | NOT NULL | |
 | input_type | VARCHAR(20) | NULL | USER만: TEXT / VOICE |
-| mode | VARCHAR(20) | NULL | 발신 당시 방 모드 AI / HUMAN (V2). 컨텍스트 라벨링·통계용 |
+| mode | VARCHAR(20) | NULL | 발신 당시 방 모드 AI / HUMAN (V2). 컨텍스트 필터·라벨링·통계용 |
+| visible_to_user_id | BIGINT UNSIGNED | FK users, NULL | **NULL = 방 전원, 값 = 그 유저만 볼 수 있다** (V4, D-037) |
 | model | VARCHAR(100) | NULL | ASSISTANT만: OmniRoute가 실제 사용한 모델 |
 | prompt_tokens | INT UNSIGNED | NULL | ASSISTANT만 |
 | completion_tokens | INT UNSIGNED | NULL | ASSISTANT만 |
 | created_at | DATETIME(3) | NOT NULL | |
 
-- INDEX `(room_id, id)`, `(sender_user_id)`. 메시지 개별 삭제 없음. 방 이탈해도 메시지는 남는다.
-- HUMAN 모드 대화도 저장되며 AI 컨텍스트에 포함된다(발신자 라벨 부착, T-007).
+- INDEX `(room_id, id)`, `(sender_user_id)`, `(room_id, visible_to_user_id, id)`(V4 — 뷰어 필터가 붙은 커서 페이징용). 메시지 개별 삭제 없음. 방 이탈해도 메시지는 남는다.
+- **가시성(V4, D-037)**: `mode='AI'` USER 행은 `visible_to_user_id = sender_user_id`, 그 응답 ASSISTANT 행은 트리거 USER 의 발신자. `mode='HUMAN'` USER 행은 NULL(방 전원).
+  조회는 언제나 `visible_to_user_id IS NULL OR visible_to_user_id = :viewer`. 모드가 바뀌어도 이미 저장된 행의 가시성은 변하지 않는다.
+- **AI 컨텍스트(D-037)**: `role='ASSISTANT' OR mode='AI'` 만 넣는다 — `HUMAN` 모드 USER 행은 영구 제외. `AI` 모드 행은 **양쪽 유저 것을 전부** 넣는다(가시성과 무관).
 - V2 백필: 기존 USER 행은 `sender_user_id = 방 owner_id`, `mode='AI'`(V1 은 1인 방). ASSISTANT 는 둘 다 NULL 유지.
+- V4 백필: `mode='AI'` USER 행 → `visible_to_user_id = sender_user_id`. ASSISTANT 행 → 직전 `AI` 모드 USER 행의 발신자(없으면 NULL). `HUMAN` USER 행 → NULL.
 - 오디오 관련 컬럼 없음 — 원본을 저장하지 않는다(D-007).
 
 ## 6. ~~personas~~ — V3 에서 DROP (D-017)

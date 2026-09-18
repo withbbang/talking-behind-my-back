@@ -10,7 +10,7 @@ import com.example.chat.llm.LlmClient.ChatMessage;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** T-007 컨텍스트 조립 (D-017 유효 프롬프트 + D-019 가중 지시 + 최근 N 라벨). 순수 로직 — 스프링 없음. */
+/** T-007 컨텍스트 조립 (D-017 유효 프롬프트 + D-019 가중 지시 + 최근 N 라벨) + T-031 비공개 규칙(D-037). 순수 로직 — 스프링 없음. */
 class AiContextBuilderTest {
 
 	private static final long OWNER = 1L;
@@ -33,7 +33,7 @@ class AiContextBuilderTest {
 	}
 
 	private static Message assistant(long id, String content) {
-		Message m = Message.assistant(10L, content, "m", 1, 1);
+		Message m = Message.assistant(10L, OWNER, content, "m", 1, 1);
 		m.setId(id);
 		return m;
 	}
@@ -51,15 +51,43 @@ class AiContextBuilderTest {
 
 		List<ChatMessage> ctx = AiContextBuilder.build(room("너는 고양이다"), twoMembers, recentDesc);
 
-		assertThat(ctx).hasSize(4);
+		assertThat(ctx).hasSize(3);
 		assertThat(ctx.get(0).role()).isEqualTo("system");
 		assertThat(ctx.get(0).content()).startsWith("너는 고양이다");
 		assertThat(ctx.get(0).content()).contains("개설자 철수").contains("참여자 영희")
 			.contains("개설자의 요청과 취향 그리고 개설자 편향 적으로 80%, 참여자를 20% 비중으로 반영해 답한다.")
 			.contains("[이름]");
 		assertThat(ctx.get(1)).isEqualTo(new ChatMessage("user", "[개설자 철수] 안녕"));
-		assertThat(ctx.get(2)).isEqualTo(new ChatMessage("user", "[참여자 영희] 나도 안녕"));   // HUMAN 모드 대화도 포함
-		assertThat(ctx.get(3)).isEqualTo(new ChatMessage("assistant", "반가워요"));
+		assertThat(ctx.get(2)).isEqualTo(new ChatMessage("assistant", "반가워요"));
+	}
+
+	@Test
+	void HUMAN_모드_USER_대화는_컨텍스트에서_빠진다() {
+		List<Message> recentDesc = List.of(
+			user(3, GUEST, "AI 몰래 한 말", RoomMode.HUMAN),
+			user(2, OWNER, "나도 몰래", RoomMode.HUMAN),
+			user(1, OWNER, "AI 랑 한 말", RoomMode.AI));
+
+		List<ChatMessage> ctx = AiContextBuilder.build(room(null), twoMembers, recentDesc);
+
+		assertThat(ctx).hasSize(2);
+		assertThat(ctx.get(1)).isEqualTo(new ChatMessage("user", "[개설자 철수] AI 랑 한 말"));
+	}
+
+	@Test
+	void 두_사람_방이면_비공개_지시가_붙는다() {
+		String system = AiContextBuilder.build(room(null), twoMembers, List.of()).get(0).content();
+
+		assertThat(system).contains(AiContextBuilder.PRIVACY_INSTRUCTION);
+	}
+
+	@Test
+	void 혼자인_방은_비공개_지시도_없다() {
+		List<RoomMember> onlyOwner = List.of(member(OWNER, RoomMember.Role.OWNER, "철수"));
+
+		String system = AiContextBuilder.build(room(null), onlyOwner, List.of()).get(0).content();
+
+		assertThat(system).doesNotContain(AiContextBuilder.PRIVACY_INSTRUCTION);
 	}
 
 	@Test

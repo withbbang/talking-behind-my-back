@@ -294,7 +294,7 @@ class MapperTest {
 			User me = newUser("me");
 			ChatRoom r = newRoom(me.getId(), "방");
 			Message m1 = Message.user(r.getId(), me.getId(), "안녕", Message.InputType.VOICE, RoomMode.AI);
-			Message m2 = Message.assistant(r.getId(), "안녕하세요!", "chat-default", 12, 5);
+			Message m2 = Message.assistant(r.getId(), me.getId(), "안녕하세요!", "chat-default", 12, 5);
 			Message m3 = Message.user(r.getId(), me.getId(), "뭐해", Message.InputType.TEXT, RoomMode.HUMAN);
 			messageMapper.insert(m1);
 			messageMapper.insert(m2);
@@ -305,7 +305,7 @@ class MapperTest {
 			assertThat(messageMapper.findById(-1L)).isEmpty();
 
 			// 최신부터 2개
-			List<Message> first = messageMapper.findByRoomId(r.getId(), null, 2);
+			List<Message> first = messageMapper.findByRoomId(r.getId(), me.getId(), null, 2);
 			assertThat(first).extracting(Message::getId).containsExactly(m3.getId(), m2.getId());
 			assertThat(first.get(0).getSenderUserId()).isEqualTo(me.getId());
 			assertThat(first.get(0).getMode()).isEqualTo(RoomMode.HUMAN);
@@ -317,13 +317,27 @@ class MapperTest {
 			assertThat(first.get(1).getInputType()).isNull();
 
 			// 커서 이후
-			List<Message> next = messageMapper.findByRoomId(r.getId(), m2.getId(), 2);
+			List<Message> next = messageMapper.findByRoomId(r.getId(), me.getId(), m2.getId(), 2);
 			assertThat(next).extracting(Message::getId).containsExactly(m1.getId());
 			assertThat(next.get(0).getInputType()).isEqualTo(Message.InputType.VOICE);
 
 			// LLM 컨텍스트: 최근 N개 (DESC)
 			assertThat(messageMapper.findRecentByRoomId(r.getId(), 2))
 				.extracting(Message::getId).containsExactly(m3.getId(), m2.getId());
+
+			// 가시성 (V4, D-037): AI 모드 행은 발신자에게만, HUMAN 행은 NULL
+			assertThat(messageMapper.findById(m1.getId()).orElseThrow().getVisibleToUserId()).isEqualTo(me.getId());
+			assertThat(messageMapper.findById(m2.getId()).orElseThrow().getVisibleToUserId()).isEqualTo(me.getId());
+			assertThat(messageMapper.findById(m3.getId()).orElseThrow().getVisibleToUserId()).isNull();
+
+			// 다른 유저는 HUMAN 행만 본다
+			User you = newUser("you");
+			assertThat(messageMapper.findByRoomId(r.getId(), you.getId(), null, 10))
+				.extracting(Message::getId).containsExactly(m3.getId());
+
+			// AI 컨텍스트용: HUMAN 모드 USER 행 제외
+			assertThat(messageMapper.findRecentForAiContext(r.getId(), 10))
+				.extracting(Message::getId).containsExactly(m2.getId(), m1.getId());
 		}
 	}
 

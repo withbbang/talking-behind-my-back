@@ -32,8 +32,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * T-007 전송·AI 잡·컨텍스트·사용량·과거 조회. 실제 매퍼 위에서 @Transactional 롤백.
+ * T-007 전송·AI 잡·컨텍스트·사용량·과거 조회 + T-031 가시성(D-037). 실제 매퍼 위에서 @Transactional 롤백.
  * AI 잡은 SyncAiTestConfig 로 동기 실행(같은 트랜잭션), OmniRoute 는 FakeLlm. SSE 는 EventRecorder 로 수신 확인.
+ * `events` = 개설자 구독, `guestEvents` = 참여자 구독 — AI 모드 이벤트가 상대에게 새지 않는지 본다.
  */
 @SpringBootTest
 @Import(SyncAiTestConfig.class)
@@ -54,6 +55,7 @@ class MessageServiceTest {
 	private User guest;
 	private ChatRoom room;
 	private EventRecorder events;
+	private EventRecorder guestEvents;
 
 	@BeforeEach
 	void setUp() {
@@ -62,7 +64,9 @@ class MessageServiceTest {
 		guest = newUser("영희");
 		room = newRoom(owner.getId(), null);
 		events = new EventRecorder();
-		bus.subscribe(room.getId(), events.emitter);
+		guestEvents = new EventRecorder();
+		bus.subscribe(room.getId(), owner.getId(), events.emitter);
+		bus.subscribe(room.getId(), guest.getId(), guestEvents.emitter);
 	}
 
 	private User newUser(String nickname) {
@@ -151,8 +155,10 @@ class MessageServiceTest {
 			assertThat(saved.getSenderUserId()).isEqualTo(guest.getId());
 			assertThat(saved.getMode()).isEqualTo(RoomMode.HUMAN);
 			assertThat(saved.getInputType()).isEqualTo(Message.InputType.VOICE);
+			assertThat(saved.getVisibleToUserId()).isNull();   // 방 전원 공개 (D-037)
 
-			assertThat(events.names()).containsExactly("message");
+			assertThat(events.names()).containsExactly("message");          // 상대(개설자)도 받는다
+			assertThat(guestEvents.names()).containsExactly("message");     // 발신자 자신도 받는다
 			MessageResponse m = (MessageResponse) events.last().data();
 			assertThat(m.id()).isEqualTo(id);
 			assertThat(m.content()).isEqualTo("사람끼리");
@@ -198,6 +204,9 @@ class MessageServiceTest {
 			assertThat(saved.getCompletionTokens()).isEqualTo(18);
 			assertThat(messageMapper.countByRoomId(room.getId())).isEqualTo(2);
 			assertThat(roomMapper.findById(room.getId()).orElseThrow().getMessageCount()).isEqualTo(2);
+			assertThat(messageMapper.findById(userId).orElseThrow().getVisibleToUserId()).isEqualTo(owner.getId());
+			assertThat(saved.getVisibleToUserId()).isEqualTo(owner.getId());   // AI 응답도 물어본 사람 것 (D-037)
+			assertThat(guestEvents.events).isEmpty();                          // 상대 화면엔 아무것도 안 뜬다
 
 			DailyUsage usage = usageMapper.find(owner.getId(), today()).orElseThrow();
 			assertThat(usage.getMessageCount()).isEqualTo(1);
@@ -253,6 +262,7 @@ class MessageServiceTest {
 			assertThat(err.get("message")).isEqualTo(ErrorCode.LLM_UPSTREAM_ERROR.getDefaultMessage());
 			assertThat(messageMapper.countByRoomId(room.getId())).isEqualTo(1);
 			assertThat(usageMapper.find(owner.getId(), today()).orElseThrow().getPromptTokens()).isZero();
+			assertThat(guestEvents.events).isEmpty();   // error 도 물어본 사람에게만 (D-037)
 		}
 
 		@Test
@@ -281,6 +291,94 @@ class MessageServiceTest {
 	}
 
 	@Nested
+	@DisplayName("가시성 (D-037)")
+	class Visibility {
+
+		@Test
+		void 상대의_AI_모드_질문과_답은_내_history_에_안_나온다() {
+			joinGuest();
+			llm.reply("내 답").reply("상대 답");
+			Long mine = service.send(owner.getId(), room.getId(), "내 질문", Message.InputType.TEXT);
+			Long yours = service.send(guest.getId(), room.getId(), "상대 질문", Message.InputType.TEXT);
+
+			List<MessageResponse> ownerSees = service.history(owner.getId(), room.getId(), null, 20).items();
+			assertThat(ownerSees).extracting(MessageResponse::content).containsExactly("내 답", "내 질문");
+			assertThat(ownerSees).extracting(MessageResponse::id).doesNotContain(yours);
+
+			List<MessageResponse> guestSees = service.history(guest.getId(), room.getId(), null, 20).items();
+			assertThat(guestSees).extracting(MessageResponse::content).containsExactly("상대 답", "상대 질문");
+			assertThat(guestSees).extracting(MessageResponse::id).doesNotContain(mine);
+		}
+
+		@Test
+		void HUMAN_모드_대화는_양쪽_history_에_다_나온다() {
+			setHuman();
+			service.send(owner.getId(), room.getId(), "둘만 아는 얘기", Message.InputType.TEXT);
+
+			assertThat(service.history(guest.getId(), room.getId(), null, 20).items())
+				.extracting(MessageResponse::content).containsExactly("둘만 아는 얘기");
+			assertThat(service.history(owner.getId(), room.getId(), null, 20).items())
+				.extracting(MessageResponse::content).containsExactly("둘만 아는 얘기");
+		}
+
+		@Test
+		void 커서_페이징은_내가_볼_수_있는_것만_세서_이어진다() {
+			joinGuest();
+			for (int i = 0; i < 4; i++) {
+				messageMapper.insert(Message.user(room.getId(), owner.getId(), "내 " + i, Message.InputType.TEXT, RoomMode.AI));
+				messageMapper.insert(Message.user(room.getId(), guest.getId(), "상대 " + i, Message.InputType.TEXT, RoomMode.AI));
+			}
+
+			CursorPage<MessageResponse> p1 = service.history(owner.getId(), room.getId(), null, 2);
+			assertThat(p1.items()).extracting(MessageResponse::content).containsExactly("내 3", "내 2");
+			CursorPage<MessageResponse> p2 = service.history(owner.getId(), room.getId(), p1.nextCursor(), 2);
+			assertThat(p2.items()).extracting(MessageResponse::content).containsExactly("내 1", "내 0");
+			assertThat(p2.nextCursor()).isNull();
+		}
+
+		@Test
+		void AI_컨텍스트는_상대의_AI_대화는_넣고_HUMAN_대화는_뺀다() {
+			joinGuest();
+			messageMapper.insert(Message.user(room.getId(), guest.getId(), "상대의 AI 질문", Message.InputType.TEXT, RoomMode.AI));
+			messageMapper.insert(Message.user(room.getId(), guest.getId(), "AI 몰래 한 말", Message.InputType.TEXT, RoomMode.HUMAN));
+			messageMapper.insert(Message.user(room.getId(), owner.getId(), "나도 몰래", Message.InputType.TEXT, RoomMode.HUMAN));
+			llm.reply("ok");
+
+			service.send(owner.getId(), room.getId(), "내 질문", Message.InputType.TEXT);
+
+			List<ChatMessage> ctx = llm.calls.get(0);
+			assertThat(ctx).extracting(ChatMessage::content)
+				.contains("[참여자 영희] 상대의 AI 질문", "[개설자 철수] 내 질문")
+				.noneMatch(c -> c.contains("몰래"));
+		}
+
+		@Test
+		void 시스템_프롬프트에_비공개_지시가_붙는다() {
+			joinGuest();
+			llm.reply("ok");
+
+			service.send(owner.getId(), room.getId(), "안녕", Message.InputType.TEXT);
+
+			assertThat(llm.calls.get(0).get(0).content()).contains(AiContextBuilder.PRIVACY_INSTRUCTION);
+		}
+
+		@Test
+		void HUMAN_모드에서_잘라낸_행은_최근_N_창을_먹지_않는다() {
+			joinGuest();
+			for (int i = 0; i < 40; i++) {
+				messageMapper.insert(Message.user(room.getId(), guest.getId(), "몰래 " + i, Message.InputType.TEXT, RoomMode.HUMAN));
+			}
+			messageMapper.insert(Message.user(room.getId(), owner.getId(), "오래된 AI 질문", Message.InputType.TEXT, RoomMode.AI));
+			llm.reply("ok");
+
+			service.send(owner.getId(), room.getId(), "새 질문", Message.InputType.TEXT);
+
+			assertThat(llm.calls.get(0)).extracting(ChatMessage::content)
+				.containsExactly(llm.calls.get(0).get(0).content(), "[개설자 철수] 오래된 AI 질문", "[개설자 철수] 새 질문");
+		}
+	}
+
+	@Nested
 	@DisplayName("history")
 	class History {
 
@@ -289,7 +387,8 @@ class MessageServiceTest {
 			setHuman();
 			Long[] ids = new Long[5];
 			for (int i = 0; i < 5; i++) {
-				Message m = Message.user(room.getId(), owner.getId(), "m" + i, Message.InputType.TEXT, RoomMode.AI);
+				// HUMAN 모드 = 방 전원 공개 — 참여자 시점으로 페이징을 본다(D-037)
+				Message m = Message.user(room.getId(), owner.getId(), "m" + i, Message.InputType.TEXT, RoomMode.HUMAN);
 				messageMapper.insert(m);
 				ids[i] = m.getId();
 			}

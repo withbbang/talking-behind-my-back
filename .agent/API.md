@@ -103,7 +103,7 @@ Room:
 
 | Method | Path | 설명 |
 |---|---|---|
-| GET | `/rooms/{id}/messages?cursor&size` | 과거 메시지, `id` 내림차순(최신 먼저). 프론트가 역순 렌더. 멤버만(비멤버 404). |
+| GET | `/rooms/{id}/messages?cursor&size` | 과거 메시지, `id` 내림차순(최신 먼저). 프론트가 역순 렌더. 멤버만(비멤버 404). **내가 볼 수 있는 메시지만** — 상대의 `AI` 모드 질문·답은 제외(D-037). |
 | POST | `/rooms/{id}/messages` | 메시지 전송. **202** + `{ "messageId": 101 }`. 결과는 방 이벤트 스트림으로 수신 (D-018). |
 | GET | `/rooms/{id}/events` | 방 이벤트 SSE 구독(멤버만, 비멤버 404). `text/event-stream`, 타임아웃 없음, 20초마다 `: ping` 주석 (D-019). |
 
@@ -114,38 +114,42 @@ POST body:
 `inputType` = `TEXT` \| `VOICE`(생략 시 TEXT). `content` 공백 불가, 상한 4,000자(400 `details.content`).
 
 POST 판정 순서: 400 검증(바인딩) → 401 → 404(비멤버·나간 멤버) → 410 `ROOM_ORPHANED` → (AI 모드) 409 `ROOM_BUSY` / 503 `AI_BUSY`.
-- USER 메시지는 요청 안에서 저장·커밋되고 `message` 이벤트로 브로드캐스트된다. `HUMAN` 모드면 여기서 끝(AI 응답 없음).
+- USER 메시지는 요청 안에서 저장·커밋되고 `message` 이벤트로 발행된다. `HUMAN` 모드면 방 전원, **`AI` 모드면 발신자에게만**(D-037). `HUMAN` 모드는 여기서 끝(AI 응답 없음).
 - `AI` 모드면 방당 직렬 큐에 잡을 넣는다. 같은 유저의 잡이 진행·대기 중이면 409(저장 전에 판정 — 중복 저장 없음). 풀 포화면 503(그 방에 이미 도는 잡이 있으면 다른 유저의 대기는 허용).
 - 제목이 아직 "새 대화"이고 방의 첫 메시지면 앞 30자로 자동 제목(`ChatRoom.autoTitle`).
 - `daily_usage`: 전송 시 발신자 `message_count +1`, AI 완료 시 트리거 메시지 발신자에게 토큰 귀속.
 
 `GET /rooms/{id}/events` 이벤트 (T-007 확정, D-019):
 ```
-event: message                      # USER 메시지 저장 직후 (양쪽 멤버 모두 받음 — 낙관적 렌더 치환용)
+event: message                      # USER 메시지 저장 직후. HUMAN 모드 = 양쪽 멤버, AI 모드 = 발신자만 (D-037)
 data: {"id":101,"role":"USER","senderUserId":7,"senderNickname":"영선","content":"안녕","inputType":"TEXT","mode":"AI","createdAt":"..."}
 
-event: delta                        # AI 응답 조각. replyTo = 트리거 USER 메시지 id
+event: delta                        # AI 응답 조각. replyTo = 트리거 USER 메시지 id. 트리거한 유저에게만 (D-037)
 data: {"replyTo":101,"text":"안녕하"}
 
-event: done                         # AI 응답 저장 완료. message 는 ASSISTANT Message
+event: done                         # AI 응답 저장 완료. message 는 ASSISTANT Message. 트리거한 유저에게만
 data: {"replyTo":101,"message":{"id":102,"role":"ASSISTANT","senderUserId":null,"senderNickname":null,"content":"안녕하세요!","inputType":null,"mode":null,"createdAt":"..."},"promptTokens":320,"completionTokens":18}
 
-event: error                        # OmniRoute 실패/타임아웃/빈 응답 — ASSISTANT 미저장, 부분 델타 폐기
+event: error                        # OmniRoute 실패/타임아웃/빈 응답 — ASSISTANT 미저장, 부분 델타 폐기. 트리거한 유저에게만
 data: {"replyTo":101,"code":"LLM_UPSTREAM_ERROR","message":"AI 응답에 실패했습니다."}
 
-event: mode                         # PATCH mode / 참여자 나가기로 AI 복귀
+event: mode                         # PATCH mode / 참여자 나가기로 AI 복귀. 방 전원
 data: {"mode":"HUMAN"}
 
-event: member                       # 입장·나가기. roomStatus 는 이벤트 시점 방 상태(개설자 나가기 → ORPHANED)
+event: member                       # 입장·나가기. 방 전원. roomStatus 는 이벤트 시점 방 상태(개설자 나가기 → ORPHANED)
 data: {"action":"JOINED","userId":8,"nickname":"영희","role":"PARTICIPANT","roomStatus":"ACTIVE"}
 
 : connected                         # 구독 직후 1회 (헤더 즉시 커밋용, EventSource 는 무시)
 : ping                              # 20초 하트비트 (EventSource 는 무시)
 ```
+- **발행 대상(D-037)**: `message`(`AI` 모드)·`delta`·`done`·`error` 는 그 대화의 주인 한 명에게만 — 그 유저의 모든 구독(탭)에 간다. `mode`·`member`·`message`(`HUMAN` 모드) 는 방 전원. 그래서 구독은 `(roomId, userId)` 로 등록된다.
 - 구독자가 0명이어도 잡은 완주·저장한다(D-018). 재연결 시 놓친 이벤트는 `GET /rooms/{id}/messages` 로 보충(프론트 T-008).
 - 잡 시작 시점에 방이 `HUMAN` 이면 건너뛴다(이벤트 없음). 이미 스트리밍 중인 잡은 완주.
 - 한 방에 잡이 2건까지 쌓일 수 있다(개설자·참여자 각 1건). 직렬이라 델타는 섞이지 않지만 프론트는 `replyTo` 로 구분한다.
-- AI 컨텍스트 = `effectiveAiPrompt`(D-017) + 가중 지시(참여자가 있던 방만, D-019 문구) + 최근 N(`LLM_CONTEXT_MAX_MESSAGES`, 기본 30)개 시간순. USER 는 `[개설자 닉]`/`[참여자 닉]` 라벨(나간 멤버 포함, HUMAN 모드 대화 포함), ASSISTANT 는 `assistant` 역할.
+- AI 컨텍스트 = `effectiveAiPrompt`(D-017) + 가중 지시(참여자가 있던 방만, D-019 문구) + **비공개 지시**(2인 방만, D-037) + 최근 N(`LLM_CONTEXT_MAX_MESSAGES`, 기본 30)개 시간순. USER 는 `[개설자 닉]`/`[참여자 닉]` 라벨(나간 멤버 포함), ASSISTANT 는 `assistant` 역할.
+- **컨텍스트 범위(D-037)**: `AI` 모드 USER 행은 **양쪽 유저 것 전부** + 모든 ASSISTANT 행. `HUMAN` 모드 USER 행은 영구 제외(최근 N 창도 그 행을 세지 않는다 — SQL 에서 제외).
+- **비공개 지시(D-037)**: "두 사람은 서로의 `AI` 모드 대화를 못 본다 → 상대 발언을 먼저 옮기지 말고 참고만. 단 상대가 무슨 말을 했는지 **직접 물으면 알려준다**. 마지막 메시지를 보낸 사람에게 답한다."
+- 방 목록의 `lastMessageAt`·`messageCount` 는 상대의 비공개 `AI` 대화로도 갱신된다(내용은 비공개, 활동만 드러남 — D-037 부수 확정).
 - 인스턴스 1대 in-memory 버스. 수평 확장 시 Redis pub/sub 로 교체.
 
 Message:
@@ -198,3 +202,4 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 - 2026-09-16 T-023(D-022): 입장 409 `PAIR_ROOM_EXISTS` 추가, 판정 순서에 PAIR(FULL 앞). **API 변경 — web `joinErrorMessage` 한 줄, 같은 커밋.**
 - 2026-09-16 T-022(D-021): `GET /oauth2/authorization/{provider}?next=` 추가, 콜백 성공 시 `APP_BASE_URL{next}`. `GET /rooms/join/{code}` 에 `alreadyMember`. **API 변경 — T-018 acceptance 반영됨.**
 - 2026-09-16 T-007 구현: **messages 확정** — POST 202 `{messageId}`, `/rooms/{id}/events` 이벤트 6종 + `: ping`, `delta`/`done`/`error` 에 `replyTo`, 503 `AI_BUSY` 추가, 비멤버 404·ORPHANED 410. `mode`/`member` 이벤트는 rooms PATCH/leave/join 에서 발행. **API 변경 — T-008 `lib/sse.ts` 리듀서·acceptance 에 반영 필요.**
+- 2026-09-19 T-031(D-037): **`AI` 모드 대화 비공개화** — `GET /rooms/{id}/messages` 는 내가 볼 수 있는 행만, SSE `message`(AI 모드)·`delta`·`done`·`error` 는 대화 주인에게만(구독 키 `(roomId, userId)`), AI 컨텍스트에서 `HUMAN` 모드 대화 영구 제외 + 비공개 지시 추가. 응답 스키마·경로·상태코드 변경 없음. **계약 변경 없음(가시성만) — web 렌더 로직 변경 불필요, T-032 는 툴팁만.**

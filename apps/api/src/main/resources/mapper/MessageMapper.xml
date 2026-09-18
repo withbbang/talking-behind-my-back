@@ -11,6 +11,7 @@
     <result property="content"          column="content"/>
     <result property="inputType"        column="input_type"/>
     <result property="mode"             column="mode"/>
+    <result property="visibleToUserId"  column="visible_to_user_id"/>
     <result property="model"            column="model"/>
     <result property="promptTokens"     column="prompt_tokens"/>
     <result property="completionTokens" column="completion_tokens"/>
@@ -19,7 +20,7 @@
 
   <!-- 조회는 users LEFT JOIN 으로 sender_nickname 을 채운다(T-021, D-023). 나간 멤버도 users 행이 있으면 이름 유지. -->
   <sql id="columns">
-    m.id, m.room_id, m.sender_user_id, u.nickname AS sender_nickname, m.role, m.content, m.input_type, m.mode, m.model, m.prompt_tokens, m.completion_tokens, m.created_at
+    m.id, m.room_id, m.sender_user_id, u.nickname AS sender_nickname, m.role, m.content, m.input_type, m.mode, m.visible_to_user_id, m.model, m.prompt_tokens, m.completion_tokens, m.created_at
   </sql>
   <sql id="fromJoined">
     FROM messages m
@@ -27,8 +28,8 @@
   </sql>
 
   <insert id="insert" parameterType="com.example.chat.message.Message" useGeneratedKeys="true" keyProperty="id">
-    INSERT INTO messages (room_id, sender_user_id, role, content, input_type, mode, model, prompt_tokens, completion_tokens)
-    VALUES (#{roomId}, #{senderUserId}, #{role}, #{content}, #{inputType}, #{mode}, #{model}, #{promptTokens}, #{completionTokens})
+    INSERT INTO messages (room_id, sender_user_id, role, content, input_type, mode, visible_to_user_id, model, prompt_tokens, completion_tokens)
+    VALUES (#{roomId}, #{senderUserId}, #{role}, #{content}, #{inputType}, #{mode}, #{visibleToUserId}, #{model}, #{promptTokens}, #{completionTokens})
   </insert>
 
   <select id="findById" resultMap="messageMap">
@@ -37,11 +38,13 @@
     WHERE m.id = #{id}
   </select>
 
+  <!-- 가시성 필터 (V4, D-037): 상대의 AI 모드 질문·답은 페이지에도 커서에도 안 나온다. -->
   <select id="findByRoomId" resultMap="messageMap">
     SELECT <include refid="columns"/>
     <include refid="fromJoined"/>
     <where>
       m.room_id = #{roomId}
+      AND (m.visible_to_user_id IS NULL OR m.visible_to_user_id = #{viewerId})
       <if test="cursorId != null">AND m.id &lt; #{cursorId}</if>
     </where>
     ORDER BY m.id DESC
@@ -52,6 +55,16 @@
     SELECT <include refid="columns"/>
     <include refid="fromJoined"/>
     WHERE m.room_id = #{roomId}
+    ORDER BY m.id DESC
+    LIMIT #{limit}
+  </select>
+
+  <!-- AI 컨텍스트 (D-037): HUMAN 모드 USER 행은 제외. 가시성은 보지 않는다 — AI 는 두 유저 대화를 다 읽는다. -->
+  <select id="findRecentForAiContext" resultMap="messageMap">
+    SELECT <include refid="columns"/>
+    <include refid="fromJoined"/>
+    WHERE m.room_id = #{roomId}
+      AND (m.role = 'ASSISTANT' OR m.mode = 'AI')
     ORDER BY m.id DESC
     LIMIT #{limit}
   </select>

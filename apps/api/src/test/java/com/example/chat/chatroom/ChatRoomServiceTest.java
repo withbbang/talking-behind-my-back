@@ -647,7 +647,7 @@ class ChatRoomServiceTest {
 		void subscribe() {
 			room = service.create(owner.getId(), null);
 			events = new EventRecorder();
-			bus.subscribe(room.id(), events.emitter);
+			bus.subscribe(room.id(), owner.getId(), events.emitter);   // mode/member 는 방 전원 브로드캐스트(D-037)
 		}
 
 		@Test
