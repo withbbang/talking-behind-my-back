@@ -48,6 +48,7 @@
 - **hydration 전 인라인 스크립트로 React 가 렌더한 `<meta>`/`<title>` 을 바꾸면 React 19 가 hoistable 매칭에 실패해 같은 태그를 하나 더 꽂는다**(T-020 theme-color 중복 실측). 첫 페인트 전엔 `<html>` 속성만 건드리고 메타는 마운트 후 갱신. `'use client'` 모듈의 문자열 상수를 서버 컴포넌트(layout)에서 import 하면 클라이언트 참조가 되니 상수는 지시어 없는 모듈로 분리.
 - **업로드 상한 실측 파일은 26,214,401B 이상.** "26MB" 를 26,000,000B 로 만들면 25MiB 미만이라 nginx(25m)·Boot(25MB) 를 통과해 공급자까지 갔다가 502 가 난다(T-009 QA).
 - **`MediaRecorder.stop()` 은 `stop` 이벤트가 비동기라 자동 종료 트리거가 둘(VAD·상한)이면 두 번 불려 InvalidStateError.** finish 결과 Promise 를 세션에 저장해 한 번만(T-026). 공유 Promise 에 `.finally()` 를 붙이면 거절이 한 번 더 unhandled 로 새니 `.then(after, after)` 로.
+- **React Compiler ESLint 는 훅이 돌려준 객체 안에 `xxxRef` 가 있으면 그 객체 접근 전부를 "refs during render" 로 잡는다.** 훅 반환값은 호출부에서 `const { open, menuRef } = useMenu()` 로 구조분해(T-030).
 - **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
 
 ---
@@ -568,3 +569,37 @@
 - test: `GlobalExceptionHandlerTest` +1(503 매핑). api 전체 294 통과(2026-09-18, compose MySQL). 실측: 로컬 JWT 로 SSE 를 연 채 SIGTERM → graceful 30초 뒤 핸들러 DEBUG 1건, `unhandled exception` 0건(수정 전엔 ERROR 스택).
 - qa: PASS (QA_REPORT.md 2026-09-18, 개발자 QA 대행 — 단위 + 셧다운 실측)
 - note: 원인 — api 종료 시 Tomcat 이 열린 async(SSE) 요청을 강제 timeout → catch-all 핸들러가 ERROR. `SseEmitter(0L)` 은 무제한이라 평시엔 안 남. 교훈: bootRun 중 `gradlew test` 로 api 가 죽는 것 이번에도 재현(기존 교훈).
+
+## T-029 채팅 UI 정리 13건 (web) — D-034
+- status: REVIEW
+- owner: 개발자
+- milestone: M3
+- spec: DECISIONS.md#D-034, DESIGN.md#2·#3·#7
+- acceptance:
+  - 상단 바: 제목(평문) + 우측 햄버거만. 보이스 토글은 컴포저 마이크·전송 사이(AI 모드·ACTIVE 에서만).
+  - 사이드바 우측(데스크톱 고정·모바일 드로어 우측). 하단 로그아웃 왼쪽 톱니 "설정" → 설정 시트(제목·멤버 줄 가운데, 모드, 테마, AI 성격). 사이드바 하단 테마 필 제거.
+  - 혼자면 `유저끼리` 호버/포커스에 "친구 초대해봐!" 툴팁. 직접 쓰기 textarea 취소/저장 버튼(blur 저장 없음).
+  - AI 말풍선 듣기 버튼 없음. 스트림 오류 말풍선은 문구만("다시" 없음).
+  - 방 목록 … 메뉴 바깥 클릭/Escape/포커스 이탈로 닫힘.
+  - 보이스 오버레이: 단일 오브 + 라벨 + 우측 상단 X("끄기") + 하단 "다시". 기존 상태 머신·훅 변경 없음.
+  - 활성 버튼·링크 cursor pointer. `npm test`·lint·typecheck 통과.
+- test: `VoiceModeOverlay`(9, 단일 오브·X·다시), `Composer`(+1 토글 순서 마이크→음성→전송), `ChatShell`(설정 시트 방 안/밖·드로어·우측 햄버거), `Sidebar`(톱니·테마 없음), `RoomHeaderSheet`(툴팁·가운데·테마 줄·저장 버튼), `AiPromptEditor`(취소/저장/비활성), `RoomListItem`(+2 바깥 클릭·↑↓), `MessageBubble`(듣기 없음), `MessageList`(다시 없음). web 전체 53 파일 365 통과, lint(기존 경고 1)·typecheck·build 통과(2026-09-18).
+- qa: (사용자 Chrome 실측 대기 — 개발자 브라우저 자동 로그인은 권한 정책으로 불가)
+- note: `ListenButton` 삭제. 사이드바 톱니는 방 밖에서도 보이며 그때 시트는 "테마" 줄만(D-034 가정). 오류 말풍선은 스트림 스토어에만 있어 새로고침하면 사라진다(서버 미저장, 기존과 동일).
+
+## T-030 채팅 UI 정리 2차 4건 (web) — D-035
+- status: REVIEW
+- owner: 개발자
+- milestone: M3
+- spec: DECISIONS.md#D-035, DESIGN.md#2·#3
+- blocked_by: T-029 (같은 파일, 순차)
+- acceptance:
+  - 드로어에 닫기 X 없음. 딤 탭·Escape 로 닫힘.
+  - 사이드바 하단 우측 프로필 버튼(아바타+닉네임, `aria-haspopup="menu"`) → 메뉴 "설정"(onOpenSettings 있을 때) · "로그아웃". 바깥 클릭·Escape·포커스 이탈로 닫힘, 열리면 첫 항목 포커스.
+  - 말풍선에 VOICE 마이크 아이콘 없음.
+  - 컴포저: 글자가 있으면 "지우기" X 버튼, 비면 없음. 탭 → 값 비움 + 포커스 유지.
+  - `npm test`·lint·typecheck 통과.
+- test: `useMenu` 추출(RoomListItem 기존 2건이 회귀 커버), `Sidebar`(+3 프로필 메뉴·바깥 클릭/Escape·로그아웃 POST), `ChatShell`(드로어 X 없음·Escape·딤), `MessageBubble`(VOICE 아이콘 없음), `Composer`(+1 지우기 순서·포커스). web 전체 53 파일 368 통과, lint(기존 경고 1)·typecheck·build 통과(2026-09-18).
+- qa: (사용자 Chrome 실측 대기)
+- note: React Compiler lint(`Cannot access refs during render`)는 훅이 돌려준 객체에 `*Ref` 가 있으면 객체 전체를 ref 로 본다 → 호출부에서 구조분해. 교훈 상단에 추가.
+

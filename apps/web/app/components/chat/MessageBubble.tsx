@@ -1,6 +1,4 @@
-import { Microphone } from '@phosphor-icons/react';
 import { Avatar } from '@/components/ui/Avatar';
-import { ListenButton } from '@/components/voice/ListenButton';
 import type { Message } from '@/features/messages/types';
 import { formatClock } from '@/lib/time';
 
@@ -16,7 +14,7 @@ type Props = {
 
 /**
  * 말풍선 3종 (DESIGN.md#3). 나 = 우측 surface/on-surface 라운드 22(우하단 6). 상대 = 좌측 bg + ink 12% 테두리, 위 닉네임.
- * AI = 상대(other) 말풍선과 완전히 같은 모양(면·모서리) + 하트 아바타 + 시간 줄 앞 듣기 버튼. 꼬리 없음(2026-09-18 사용자 요청). 최대 폭 78%.
+ * AI = 상대(other) 말풍선과 완전히 같은 모양(면·모서리) + 하트 아바타. 꼬리 없음, 듣기 버튼 없음(D-030·D-034 8), VOICE 마이크 아이콘 없음(D-035 3). 최대 폭 78%.
  */
 export function MessageBubble({ message, kind, senderName, showMeta }: Props) {
   const mine = kind === 'mine';
@@ -40,11 +38,7 @@ export function MessageBubble({ message, kind, senderName, showMeta }: Props) {
             {message.content}
           </p>
         </div>
-        <span className="flex items-center gap-1.5 px-1 text-xs text-muted tabular-nums">
-          {kind === 'ai' && <ListenButton messageId={message.id} text={message.content} />}
-          {message.inputType === 'VOICE' && <Microphone size={14} weight="bold" role="img" aria-label="음성" />}
-          {time}
-        </span>
+        <span className="px-1 text-xs text-muted tabular-nums">{time}</span>
       </div>
     </li>
   );

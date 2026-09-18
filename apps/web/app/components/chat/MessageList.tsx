@@ -5,6 +5,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import type { Message } from '@/features/messages/types';
 import type { RoomMember } from '@/features/rooms/types';
 import type { StreamEntry, StreamState } from '@/lib/sse';
+import { GENERIC_ERROR } from '@/lib/copy';
 import { formatDateChip, isSameKstDay } from '@/lib/time';
 import { MessageBubble, type BubbleKind } from './MessageBubble';
 
@@ -16,7 +17,6 @@ type Props = {
   hasOlder: boolean;
   isLoadingOlder: boolean;
   onLoadOlder: () => void;
-  onRetry: (replyTo: number) => void;
 };
 
 type Row =
@@ -65,7 +65,7 @@ export const isNearBottom = (scrollTop: number, scrollHeight: number, clientHeig
  * 메시지 목록 (DESIGN.md#3). 날짜 칩 · 시스템 라인 · 말풍선 3종(연속 발신자 메타 생략) · 스트리밍 말풍선.
  * 상단 도달 시 이전 페이지(IO, 폴백 버튼). 이전 페이지가 앞에 붙어도 스크롤 위치 유지, 하단 근처면 새 메시지에 붙어 내려간다.
  */
-export function MessageList({ messages, meId, members, stream, hasOlder, isLoadingOlder, onLoadOlder, onRetry }: Props) {
+export function MessageList({ messages, meId, members, stream, hasOlder, isLoadingOlder, onLoadOlder }: Props) {
   const rows = buildRows(messages, stream.notices, meId, members);
   const streams = Object.values(stream.streams).sort((a, b) => (a.startedAt < b.startedAt ? -1 : 1));
   const scroller = useRef<HTMLDivElement>(null);
@@ -139,15 +139,18 @@ export function MessageList({ messages, meId, members, stream, hasOlder, isLoadi
           ),
         )}
         {streams.map((s) => (
-          <StreamingBubble key={s.replyTo} entry={s} onRetry={onRetry} />
+          <StreamingBubble key={s.replyTo} entry={s} />
         ))}
       </ol>
     </div>
   );
 }
 
-/** AI 응답 자리. 대기 = 점 3개(700ms 루프, reduced-motion 은 정적 …), 진행 = 델타 + ▍, 오류 = 문구 + "다시". */
-function StreamingBubble({ entry, onRetry }: { entry: StreamEntry; onRetry: (replyTo: number) => void }) {
+/**
+ * AI 응답 자리. 대기 = 점 3개(700ms 루프, reduced-motion 은 정적 …), 진행 = 델타 + ▍, 오류 = 문구만(D-034 9 — "다시" 없음).
+ * 오류 말풍선은 그 자리에 남아 유저/AI 말풍선이 번갈아 보이도록 한다. 다시 보내려면 입력창에서 새로 보낸다.
+ */
+function StreamingBubble({ entry }: { entry: StreamEntry }) {
   return (
     <li data-kind="ai" data-streaming={entry.status} className="bubble-in mt-3 flex justify-start gap-2">
       <span className="w-7 shrink-0 self-end">
@@ -166,18 +169,7 @@ function StreamingBubble({ entry, onRetry }: { entry: StreamEntry; onRetry: (rep
               <span aria-hidden="true">▍</span>
             </>
           )}
-          {entry.status === 'error' && (
-            <span className="flex flex-wrap items-center gap-2">
-              시스템 오류. 다시 시도해줄래?
-              <button
-                type="button"
-                onClick={() => onRetry(entry.replyTo)}
-                className="text-[15px] font-semibold text-accent underline underline-offset-2 outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
-              >
-                다시
-              </button>
-            </span>
-          )}
+          {entry.status === 'error' && GENERIC_ERROR}
         </div>
       </div>
     </li>

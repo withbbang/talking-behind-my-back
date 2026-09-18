@@ -8,7 +8,7 @@ const members = [
   { userId: 1, nickname: '영선', role: 'OWNER' as const },
   { userId: 2, nickname: '영희', role: 'PARTICIPANT' as const },
 ];
-const base = { meId: 1, members, stream: initialStreamState, onLoadOlder: vi.fn(), hasOlder: false, isLoadingOlder: false, onRetry: vi.fn() };
+const base = { meId: 1, members, stream: initialStreamState, onLoadOlder: vi.fn(), hasOlder: false, isLoadingOlder: false };
 
 describe('MessageList (DESIGN.md#3 메시지 목록)', () => {
   it('3종 구분 + 같은 발신자 연속은 메타 생략', () => {
@@ -40,8 +40,7 @@ describe('MessageList (DESIGN.md#3 메시지 목록)', () => {
     expect(texts.findIndex((t) => t.includes('영희 등장!'))).toBeLessThan(texts.findIndex((t) => t.includes('메시지 2')));
   });
 
-  it('스트리밍: 대기 = 점 3개(aria-live), 진행 = 텍스트 + 커서, 오류 = 문구 + "다시" → onRetry(replyTo)', () => {
-    const onRetry = vi.fn();
+  it('스트리밍: 대기 = 점 3개(aria-live), 진행 = 텍스트 + 커서, 오류 = 문구만("다시" 버튼 없음, D-034 9)', () => {
     const stream: StreamState = {
       notices: [],
       streams: {
@@ -50,14 +49,13 @@ describe('MessageList (DESIGN.md#3 메시지 목록)', () => {
         3: { replyTo: 3, senderUserId: 1, text: '', status: 'error', errorMessage: 'x', startedAt: '2026-09-16T12:03:00Z' },
       },
     };
-    render(<MessageList {...base} stream={stream} onRetry={onRetry} messages={[userMsg(1), userMsg(2), userMsg(3)]} />);
+    render(<MessageList {...base} stream={stream} messages={[userMsg(1), userMsg(2), userMsg(3)]} />);
     const live = screen.getAllByRole('status');
     expect(live.some((el) => el.getAttribute('aria-live') === 'polite')).toBe(true);
     expect(screen.getByTestId('typing-dots')).toBeInTheDocument();
     expect(screen.getByText(/안녕하/)).toHaveTextContent('안녕하▍');
     expect(screen.getByText('시스템 오류. 다시 시도해줄래?')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '다시' }));
-    expect(onRetry).toHaveBeenCalledWith(3);
+    expect(screen.queryByRole('button', { name: '다시' })).toBeNull();
   });
 
   it('상단 센티널: hasOlder 면 "이전 대화" 버튼(IO 폴백)', () => {

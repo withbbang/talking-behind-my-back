@@ -52,17 +52,60 @@ describe('Sidebar (DESIGN.md#2)', () => {
     expect(await screen.findByRole('link', { name: /오늘 뭐 먹지/ })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: '방 목록' })).toBeInTheDocument();
     expect(await screen.findByText('영선')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '로그아웃' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '영선 메뉴' })).toBeInTheDocument();
   });
 
-  it('하단에 테마 선택 필 토글(시스템 | 라이트 | 다크) — T-020', async () => {
+  it('하단 우측 프로필 버튼 → 메뉴 "설정" · "로그아웃" (D-035 2). 톱니·테마 필·상시 로그아웃 없음', async () => {
+    mockApi([]);
+    const onOpenSettings = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <Sidebar onOpenSettings={onOpenSettings} />
+      </QueryClientProvider>,
+    );
+    const profile = await screen.findByRole('button', { name: '영선 메뉴' });
+    expect(profile).toHaveAttribute('aria-haspopup', 'menu');
+    expect(profile.parentElement?.className).toMatch(/justify-end/);
+    expect(screen.queryByRole('radiogroup', { name: '테마 선택' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '설정' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '로그아웃' })).toBeNull();
+
+    fireEvent.click(profile);
+    const items = screen.getAllByRole('menuitem').map((el) => el.textContent);
+    expect(items).toEqual(['설정', '로그아웃']);
+    expect(screen.getByRole('menuitem', { name: '설정' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('menuitem', { name: '설정' }));
+    expect(onOpenSettings).toHaveBeenCalled();
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('프로필 메뉴는 바깥 클릭·Escape 로 닫힌다; onOpenSettings 없으면 "로그아웃"만', async () => {
     mockApi([]);
     renderSidebar();
-    expect(await screen.findByText('영선')).toBeInTheDocument();
-    const group = screen.getByRole('radiogroup', { name: '테마 선택' });
-    expect(group).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: '시스템' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.queryByText('화면')).not.toBeInTheDocument();
+    const profile = await screen.findByRole('button', { name: '영선 메뉴' });
+    fireEvent.click(profile);
+    expect(screen.getAllByRole('menuitem').map((el) => el.textContent)).toEqual(['로그아웃']);
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('menu')).toBeNull();
+    fireEvent.click(profile);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(profile).toHaveFocus();
+  });
+
+  it('메뉴 "로그아웃" → 로그아웃 요청', async () => {
+    mockApi([]);
+    apiFetchMock.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path === '/auth/me') return me;
+      if (path.startsWith('/rooms?')) return { items: [], nextCursor: null };
+      if (path === '/auth/logout') return undefined;
+      throw new Error(`unexpected ${init?.method ?? 'GET'} ${path}`);
+    });
+    renderSidebar();
+    fireEvent.click(await screen.findByRole('button', { name: '영선 메뉴' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '로그아웃' }));
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/auth/logout', expect.objectContaining({ method: 'POST' })));
   });
 
   it('방이 없으면 빈 상태 문구', async () => {

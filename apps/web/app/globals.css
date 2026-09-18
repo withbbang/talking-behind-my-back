@@ -72,6 +72,16 @@ body {
   /* safe-area 는 각 화면이 직접 처리한다 — 로그인 pb, (chat) 셸은 h-dvh + 하단 요소 padding (DESIGN.md#원칙) */
 }
 
+/* 기능 버튼·링크는 전부 손가락 커서 (D-034 10). Tailwind preflight 는 button 을 cursor:default 로 둔다. 비활성은 제외. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  summary {
+    cursor: pointer;
+  }
+}
+
 /* 로그인 말풍선 1회 등장. 시스템이 모션 줄이기면 즉시 표시. */
 @keyframes bubble-in {
   from {
@@ -128,38 +138,43 @@ body {
   }
 }
 
-/* 보이스 모드 오브 (DESIGN.md#7, D-029). recording = 세로 바 5개 등락, speaking = 펄스. 모션 줄이기면 정지. */
-.voice-bars {
+/* 보이스 모드 오브 (DESIGN.md#7, D-034 12). 단일 오브: recording 은 진폭(--level 0~1)으로 커지고 숨쉬기, speaking 은 펄스, streaming 은 회전 광택. 모션 줄이기면 정지. */
+.voice-orb {
   --level: 0;
+  background:
+    radial-gradient(circle at 32% 28%, color-mix(in oklab, var(--accent) 55%, white) 0%, transparent 42%),
+    radial-gradient(circle at 70% 75%, color-mix(in oklab, var(--surface) 70%, var(--accent)) 0%, transparent 55%),
+    var(--surface);
+  transform: scale(calc(1 + 0.18 * var(--level)));
+  transition: transform 90ms linear;
 }
-.voice-bars i {
-  display: inline-block;
-  width: 4px;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--accent);
-  animation: voice-bar 700ms ease-in-out infinite;
-  /* 실제 마이크 진폭(--level 0~1, D-033 A4): 조용하면 40%, 크면 100% 높이 */
-  transform-origin: bottom;
-  transform: scaleY(calc(0.4 + 0.6 * var(--level)));
-  transition: transform 80ms linear;
+.voice-orb[data-phase="recording"] {
+  animation: orb-breathe 2400ms ease-in-out infinite;
 }
-.voice-bars i:nth-child(2) { animation-delay: 90ms; }
-.voice-bars i:nth-child(3) { animation-delay: 180ms; }
-.voice-bars i:nth-child(4) { animation-delay: 270ms; }
-.voice-bars i:nth-child(5) { animation-delay: 360ms; }
-@keyframes voice-bar {
-  0%, 100% { height: 8px; }
-  50% { height: 24px; }
-}
-.orb-pulse {
+.voice-orb[data-phase="speaking"] {
   animation: orb-pulse 900ms ease-in-out infinite;
 }
+.voice-orb[data-phase="streaming"],
+.voice-orb[data-phase="transcribing"] {
+  animation: orb-spin 3200ms linear infinite;
+}
+.voice-orb[data-phase="idle"],
+.voice-orb[data-phase="denied"],
+.voice-orb[data-phase="error"] {
+  opacity: 0.45;
+}
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(calc(1 + 0.18 * var(--level))); }
+  50% { transform: scale(calc(1.04 + 0.18 * var(--level))); }
+}
 @keyframes orb-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.12); opacity: 1; }
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+@keyframes orb-spin {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(20deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .voice-bars i { animation: none; height: 14px; transition: none; }
-  .orb-pulse { animation: none; }
+  .voice-orb { animation: none !important; transition: none; transform: none; }
 }

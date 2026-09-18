@@ -3,6 +3,7 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { ArrowUp, Check, Microphone, X } from '@phosphor-icons/react';
 import { useToastStore } from '@/components/ui/Toast';
+import { VoiceButton } from '@/components/voice/VoiceButton';
 import type { InputType } from '@/features/messages/types';
 import type { RoomMode } from '@/features/rooms/types';
 import { formatElapsed } from '@/features/speech/format';
@@ -21,11 +22,19 @@ const MAX_LINES = 5;
 type VoiceUi = 'idle' | 'recording' | 'transcribing';
 
 /**
- * 입력창 (DESIGN.md#3·#7). 하단 고정 라운드 24 캡슐: textarea(자동 높이, 최대 5줄) · 마이크(원 40, 테두리) · 전송(원 40, surface).
+ * 입력창 (DESIGN.md#3·#7). 하단 고정 라운드 24 캡슐: textarea(자동 높이, 최대 5줄) · 지우기 X(글자가 있을 때만, D-035 4) · 마이크(원 40, 테두리) · 보이스 모드 토글(D-034 1, AI 모드·ACTIVE 일 때만) · 전송(원 40, surface).
  * Enter 전송 / Shift+Enter 줄바꿈 / IME 조합 중 Enter 무시. 내 잡 대기 중(pending)·주인 없는 방(orphaned)이면 잠김 — 상대는 계속 입력 가능.
  * 마이크: 탭 시작 → 캡슐이 녹음 줄(듣는 중 + m:ss + 취소/완료)로 → 완료 시 STT → 결과를 확인 없이 VOICE 로 즉시 전송(D-029 3=b). 60초면 자동 완료.
  */
-export function Composer({ mode, lock, onSend }: { mode: RoomMode; lock: ComposerLock; onSend: (content: string, inputType?: InputType) => void }) {
+type Props = {
+  mode: RoomMode;
+  lock: ComposerLock;
+  /** 보이스 모드 토글을 붙일 방 id. null 이면 토글 없음(HUMAN 모드·ORPHANED·잠김) — 조건은 RoomView 가 판단. */
+  voiceRoomId?: number | null;
+  onSend: (content: string, inputType?: InputType) => void;
+};
+
+export function Composer({ mode, lock, voiceRoomId = null, onSend }: Props) {
   const [value, setValue] = useState('');
   const [voice, setVoice] = useState<VoiceUi>('idle');
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -81,6 +90,13 @@ export function Composer({ mode, lock, onSend }: { mode: RoomMode; lock: Compose
     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
     e.preventDefault();
     submit();
+  };
+  const clear = () => {
+    setValue('');
+    if (ref.current) {
+      ref.current.style.height = '';
+      ref.current.focus();
+    }
   };
   const autosize = (el: HTMLTextAreaElement) => {
     el.style.height = '';
@@ -145,6 +161,16 @@ export function Composer({ mode, lock, onSend }: { mode: RoomMode; lock: Compose
           onKeyDown={onKey}
           className="max-h-40 min-h-7 flex-1 resize-none self-center bg-transparent py-1 text-base leading-6 text-ink outline-none placeholder:text-muted disabled:cursor-not-allowed"
         />
+        {value !== '' && !locked && (
+          <button
+            type="button"
+            aria-label="지우기"
+            onClick={clear}
+            className="relative flex size-6 shrink-0 items-center justify-center self-center rounded-full bg-ink/12 text-ink outline-offset-2 after:absolute after:-inset-2.5 after:content-[''] hover:bg-ink/20 focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <X size={12} weight="bold" />
+          </button>
+        )}
         {!locked && (
           <button
             type="button"
@@ -155,6 +181,7 @@ export function Composer({ mode, lock, onSend }: { mode: RoomMode; lock: Compose
             <Microphone size={20} weight="bold" />
           </button>
         )}
+        {!locked && voiceRoomId !== null && <VoiceButton roomId={voiceRoomId} />}
         <button
           type="button"
           aria-label="전송"

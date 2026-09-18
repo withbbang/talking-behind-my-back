@@ -307,6 +307,35 @@
 - impact: `apps/web` `features/speech/{vad,sentenceChunker}` 신설, `useRecorder`(AnalyserNode·`onAutoStop(rec, reason)`)·`ttsPlayer`(세션 큐)·`useVoiceMode`·`VoiceOrb` 확장. API 변경 없음. DESIGN.md#7 갱신은 to-designer. iOS AudioContext 실기기 확인은 T-013 체크리스트.
 - date: 2026-09-18 (개발자 대행 기록, 사용자 결정 — "T-010 그대로 두고 착수하자. 추천대로")
 
+### D-034 채팅 UI 정리 13건 — 설정 진입점 이동·보이스 토글 컴포저 이동·사이드바 우측·보이스 오버레이 단일 오브
+- decision (사용자 지시 13건, 그대로 확정):
+  (1) 상단 바 보이스 토글을 컴포저 캡슐 안 마이크와 전송 사이로 이동. 노출 조건(AI 모드·ACTIVE)은 유지.
+  (2) 방 제목 탭 → 방 정보 시트 폐지. 사이드바 하단 로그아웃 왼쪽에 톱니(`aria-label` "설정") → 같은 시트(라벨 "설정"). 제목은 평문.
+  (3) 설정 시트: 방 제목 가운데 정렬. (5) 멤버(방장·초대) 줄도 가운데 정렬.
+  (4) 혼자일 때 "친구 초대해봐!"는 상시 문구 대신 `유저끼리` 호버/포커스 시 말풍선 툴팁(`role="tooltip"`).
+  (6) "직접 쓰기" textarea 에 취소/저장 버튼. blur 저장 폐지(취소 클릭이 blur 를 먼저 일으키는 충돌).
+  (7) 테마 선택(시스템/라이트/다크)은 설정 시트의 모드 다음 줄 "테마"로 이동, 사이드바 하단에서 제거(D-024 위치 변경).
+  (8) AI 말풍선 듣기 버튼 제거(`ListenButton` 삭제). 재생은 보이스 모드에서만.
+  (9) 스트림 `error` 말풍선은 "시스템 오류. 다시 시도해줄래?" 문구만, "다시" 버튼 제거 — 유저/AI 말풍선이 항상 번갈아 보이도록 오류 말풍선을 그 자리에 남긴다.
+  (10) 모든 활성 버튼·링크 `cursor: pointer`(globals.css base).
+  (11) 방 목록 … 메뉴는 바깥 클릭·Escape·포커스 이탈로 닫힘. 열리면 첫 항목 포커스, ↑↓ 이동.
+  (12) 보이스 모드 오버레이는 ChatGPT 보이스 모드처럼 중앙 단일 오브(진폭·단계 연동) + 아래 상태 라벨, 우측 상단 X(`aria-label` "끄기")로 종료. 하단은 "다시" 원형 버튼 하나. D-029 의 뒤집히는 말풍선 2개 폐지.
+  (13) 사이드바를 우측으로(데스크톱 우측 고정, 모바일 드로어 우측에서 등장), 햄버거는 상단 바 우측.
+- rationale: 사용자 실사용 피드백. 설정·테마를 한 곳에 모으고, 상단 바는 제목만 남겨 단순화.
+- impact: `apps/web` `ChatShell`·`Sidebar`·`RoomListItem`·`RoomHeaderSheet`·`AiPromptEditor`·`Composer`·`MessageBubble`·`MessageList`·`RoomView`·`VoiceModeOverlay`·`VoiceOrb`·`globals.css`, `ListenButton` 삭제. API 변경 없음. DESIGN.md §2·§3·§7, BRAND.md aria 목록 갱신(디자이너 대행).
+  가정: 톱니는 방 밖(`/`)에서도 보이고 그때 시트는 "테마"만 — 테마 접근 경로가 사라지지 않게(사용자 미언급, 개발자 판단). 보이스 오버레이의 응답 델타 미리보기는 라벨 아래 작은 글씨로 유지.
+- date: 2026-09-18 (개발자 대행 기록, 사용자 결정 — 디자인 작업 13건 지시)
+
+### D-035 채팅 UI 정리 2차 4건 — 드로어 X 제거·프로필 메뉴·VOICE 마이크 아이콘 제거·입력 지우기
+- decision (사용자 지시 4건, 그대로 확정):
+  (1) 모바일 드로어 우상단 닫기 X 제거. 닫기는 딤 탭·Escape·경로 이동.
+  (2) 사이드바 하단 톱니·로그아웃 버튼 제거 → 아바타+닉네임을 하단 **우측** 버튼으로(처음 지시는 가운데, 이어서 "우측에 배치"로 정정). 탭하면 위로 뜨는 메뉴(`role="menu"`)에 "설정" · "로그아웃". 닫힘 규칙은 방 목록 … 메뉴와 동일(바깥 클릭·Escape·포커스 이탈, ↑↓ 이동) — 공용 훅 `useMenu` 로 통일.
+  (3) 말풍선 시간 줄의 VOICE 마이크 아이콘 제거(입력 방식은 화면에 표시하지 않는다. 데이터 `inputType` 은 유지).
+  (4) 컴포저 textarea 에 글자가 하나라도 있으면 캡슐 안에 지우기 X(`aria-label` "지우기") 노출, 비면 숨김. 탭하면 전체 삭제 + textarea 포커스 유지.
+- rationale: 사용자 실사용 피드백(D-034 후속). 하단 프로필 한 곳에 계정 액션을 모아 사이드바를 더 비운다.
+- impact: `apps/web` `ChatShell`·`Sidebar`·`RoomListItem`(훅 추출)·`MessageBubble`·`Composer`, `components/ui/useMenu.ts` 신설. API 변경 없음. DESIGN.md §2·§3, BRAND.md aria 목록 갱신(디자이너 대행).
+- date: 2026-09-18 (개발자 대행 기록, 사용자 결정 — 디자인 작업 2차 4건 지시)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
+import { useMenu } from '@/components/ui/useMenu';
 import type { RoomListItem as RoomListItemData } from '@/features/rooms/types';
 import { relativeTime } from '@/lib/time';
 
@@ -25,10 +26,11 @@ const LEAVE_COPY = {
 
 /**
  * 방 목록 항목 (DESIGN.md#2). 높이 64: 아바타 · 제목/보조 줄 · 상대 시간. … 메뉴로 제목 수정(개설자)·나가기.
+ * … 메뉴(D-034 11): 공용 `useMenu` — 열리면 첫 항목 포커스, ↑↓ 이동, 바깥 클릭·Escape·포커스 이탈로 닫힘.
  * 목록 API 는 members 를 내려주지 않아(API.md) 참여자 보조 줄은 상대 닉네임 대신 "초대받은 방".
  */
 export function RoomListItem({ room, active, now, onRename, onLeave }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { open: menuOpen, toggle: toggleMenu, close: closeMenu, menuRef, triggerRef, menuProps } = useMenu();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(room.title);
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -38,7 +40,7 @@ export function RoomListItem({ room, active, now, onRename, onLeave }: Props) {
 
   const startEdit = () => {
     setDraft(room.title);
-    setMenuOpen(false);
+    closeMenu();
     setEditing(true);
   };
   const onEditKey = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -92,11 +94,12 @@ export function RoomListItem({ room, active, now, onRename, onLeave }: Props) {
 
       {!editing && (
         <button
+          ref={triggerRef}
           type="button"
           aria-label="방 메뉴"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((v) => !v)}
+          onClick={toggleMenu}
           className="absolute top-1/2 right-1 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-muted outline-offset-[-3px] hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
         >
           <DotsThree size={24} weight="bold" />
@@ -105,13 +108,18 @@ export function RoomListItem({ room, active, now, onRename, onLeave }: Props) {
 
       {menuOpen && (
         <div
-          role="menu"
+          ref={menuRef}
+          {...menuProps}
           aria-label="방 메뉴"
-          onKeyDown={(e) => e.key === 'Escape' && setMenuOpen(false)}
-          className="absolute top-14 right-2 z-10 flex w-40 flex-col rounded-2xl border border-ink/12 bg-bg p-1"
+          className="bubble-in absolute top-14 right-2 z-10 flex w-40 flex-col rounded-2xl border border-ink/12 bg-bg p-1"
         >
           {isOwner && !orphaned && (
-            <button type="button" role="menuitem" onClick={startEdit} className="h-11 rounded-xl px-3 text-left text-[15px] text-ink hover:bg-ink/6">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={startEdit}
+              className="h-11 rounded-xl px-3 text-left text-[15px] text-ink outline-offset-[-2px] hover:bg-ink/6 focus-visible:outline-2 focus-visible:outline-accent"
+            >
               제목 수정
             </button>
           )}
@@ -119,10 +127,10 @@ export function RoomListItem({ room, active, now, onRename, onLeave }: Props) {
             type="button"
             role="menuitem"
             onClick={() => {
-              setMenuOpen(false);
+              closeMenu();
               setConfirmLeave(true);
             }}
-            className="h-11 rounded-xl px-3 text-left text-[15px] text-danger hover:bg-ink/6"
+            className="h-11 rounded-xl px-3 text-left text-[15px] text-danger outline-offset-[-2px] hover:bg-ink/6 focus-visible:outline-2 focus-visible:outline-accent"
           >
             나가기
           </button>

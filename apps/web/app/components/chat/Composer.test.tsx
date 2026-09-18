@@ -57,3 +57,29 @@ describe('Composer (DESIGN.md#3 입력창)', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 });
+
+describe('Composer 보이스 모드 토글 (D-034 1)', () => {
+  it('voiceRoomId 가 있으면 마이크와 전송 사이에 "음성" 토글, 없거나 잠기면 없음', () => {
+    const { rerender } = render(<Composer mode="AI" lock={null} voiceRoomId={10} onSend={vi.fn()} />);
+    const buttons = screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'));
+    expect(buttons).toEqual(['마이크', '음성', '전송']);
+    rerender(<Composer mode="AI" lock={null} onSend={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: '음성' })).toBeNull();
+    rerender(<Composer mode="AI" lock="pending" voiceRoomId={10} onSend={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: '음성' })).toBeNull();
+  });
+
+  it('글자가 있을 때만 "지우기" X, 탭하면 전부 지우고 포커스 유지 (D-035 4)', () => {
+    render(<Composer mode="AI" lock={null} voiceRoomId={10} onSend={vi.fn()} />);
+    const box = screen.getByRole('textbox', { name: '메시지' });
+    expect(screen.queryByRole('button', { name: '지우기' })).toBeNull();
+    fireEvent.change(box, { target: { value: '그 사람이' } });
+    const clear = screen.getByRole('button', { name: '지우기' });
+    const order = screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'));
+    expect(order).toEqual(['지우기', '마이크', '음성', '전송']);
+    fireEvent.click(clear);
+    expect(box).toHaveValue('');
+    expect(box).toHaveFocus();
+    expect(screen.queryByRole('button', { name: '지우기' })).toBeNull();
+  });
+});

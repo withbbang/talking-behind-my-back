@@ -46,13 +46,32 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     expect(screen.getByRole('radiogroup', { name: '모드' })).not.toHaveAttribute('aria-disabled');
   });
 
-  it('혼자면 빈 자리 + 토글 비활성 + "친구 초대해봐!"; 개설자에 onInvite 있으면 초대 버튼', () => {
+  it('혼자면 빈 자리 + 토글 비활성 + 토글에 "친구 초대해봐!" 툴팁(D-034 4); 개설자에 onInvite 있으면 초대 버튼', () => {
     const onInvite = vi.fn();
     renderSheet(roomDetail(10), { onInvite });
-    expect(screen.getByRole('radiogroup', { name: '모드' })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByText('친구 초대해봐!')).toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: '모드' });
+    expect(group).toHaveAttribute('aria-disabled', 'true');
+    const tip = screen.getByRole('tooltip');
+    expect(tip).toHaveTextContent('친구 초대해봐!');
+    expect(group).toHaveAttribute('aria-describedby', tip.id);
     fireEvent.click(screen.getByRole('button', { name: '초대' }));
     expect(onInvite).toHaveBeenCalled();
+  });
+
+  it('둘이면 툴팁 없음', () => {
+    renderSheet(two());
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(screen.queryByText('친구 초대해봐!')).toBeNull();
+  });
+
+  it('시트 라벨 "설정", 제목·멤버 줄 가운데 정렬, 모드 다음 줄에 "테마"(시스템/라이트/다크) — D-034 2·3·5·7', () => {
+    renderSheet(two());
+    expect(screen.getByRole('dialog', { name: '설정' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '방 10' }).className).toMatch(/text-center/);
+    expect(screen.getByRole('list', { name: '멤버' }).className).toMatch(/justify-center/);
+    const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+    expect(headings).toEqual(['모드', '테마', 'AI 성격']);
+    expect(screen.getByRole('radiogroup', { name: '테마 선택' })).toBeInTheDocument();
   });
 
   it('참여자는 초대 버튼 없음', () => {
@@ -75,7 +94,7 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     expect(screen.getByRole('radio', { name: 'AI' })).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('개설자: 프리셋 선택 → PATCH aiPersonality, 직접 쓰기 blur → PATCH aiPrompt, 되돌리기 → aiPrompt ""', async () => {
+  it('개설자: 프리셋 선택 → PATCH aiPersonality, 직접 쓰기 "저장" → PATCH aiPrompt (D-034 6)', async () => {
     apiFetchMock.mockResolvedValue(two({ aiPrompt: '내 편만' }));
     renderSheet(two());
     fireEvent.click(screen.getByRole('radio', { name: '공감형' }));
@@ -84,7 +103,7 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     fireEvent.click(screen.getByRole('button', { name: '직접 쓰기' }));
     const ta = screen.getByRole('textbox', { name: '직접 쓰기' });
     fireEvent.change(ta, { target: { value: '내 편만' } });
-    fireEvent.blur(ta);
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/10', { method: 'PATCH', body: { aiPrompt: '내 편만' } }));
   });
 
@@ -95,11 +114,12 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/10', { method: 'PATCH', body: { aiPrompt: '' } }));
   });
 
-  it('개설자: 제목 탭 → 입력 → Enter → PATCH title', async () => {
+  it('개설자: 제목 탭 → 입력(가운데) → Enter → PATCH title', async () => {
     apiFetchMock.mockResolvedValueOnce(two({ title: '새 제목' }));
     renderSheet(two({ title: '옛 제목' }));
     fireEvent.click(screen.getByRole('button', { name: '제목 수정: 옛 제목' }));
     const input = screen.getByRole('textbox', { name: '방 제목' });
+    expect(input.className).toMatch(/text-center/);
     fireEvent.change(input, { target: { value: '새 제목' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith('/rooms/10', { method: 'PATCH', body: { title: '새 제목' } }));

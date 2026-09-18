@@ -100,4 +100,44 @@ describe('RoomListItem (DESIGN.md#2 방 목록 항목)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(onLeave).not.toHaveBeenCalled();
   });
+
+  it('… 메뉴는 바깥 클릭·Escape·포커스 이탈로 닫힌다 (D-034 11)', () => {
+    render(
+      <div>
+        <p>바깥</p>
+        <RoomListItem room={roomItem(1)} active={false} now={now} {...noop} />
+      </div>,
+    );
+    const trigger = screen.getByRole('button', { name: '방 메뉴' });
+    fireEvent.click(trigger);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: '제목 수정' })).toHaveFocus();
+    fireEvent.pointerDown(screen.getByText('바깥'));
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(trigger);
+    fireEvent.pointerDown(screen.getByRole('menuitem', { name: '나가기' }));
+    expect(screen.getByRole('menu')).toBeInTheDocument(); // 메뉴 안 클릭은 유지
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(trigger).toHaveFocus();
+
+    fireEvent.click(trigger);
+    fireEvent.blur(screen.getByRole('menu'), { relatedTarget: screen.getByText('바깥') });
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('… 메뉴 ↑↓ 로 항목 이동', () => {
+    render(<RoomListItem room={roomItem(1)} active={false} now={now} {...noop} />);
+    fireEvent.click(screen.getByRole('button', { name: '방 메뉴' }));
+    const menu = screen.getByRole('menu');
+    expect(screen.getByRole('menuitem', { name: '제목 수정' })).toHaveFocus();
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(screen.getByRole('menuitem', { name: '나가기' })).toHaveFocus();
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(screen.getByRole('menuitem', { name: '제목 수정' })).toHaveFocus();
+    fireEvent.keyDown(menu, { key: 'ArrowUp' });
+    expect(screen.getByRole('menuitem', { name: '나가기' })).toHaveFocus();
+  });
 });

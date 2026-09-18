@@ -10,13 +10,14 @@ type Props<T extends string> = {
   onChange: (value: T) => void;
   disabled?: boolean;
   'aria-label': string;
+  'aria-describedby'?: string;
 };
 
 /**
  * 필 토글 (DESIGN.md 공통 컴포넌트). 높이 32, 라운드 9999, 세그먼트. 활성 칸 surface/on-surface, 비활성 ink 12% 테두리.
  * 비활성화 시 60% 투명 + aria-disabled. 활성 표시는 색 + 굵기(600) 둘 다 — 색만으로 구분하지 않는다.
  */
-export function PillToggle<T extends string>({ options, value, onChange, disabled, 'aria-label': label }: Props<T>) {
+export function PillToggle<T extends string>({ options, value, onChange, disabled, 'aria-label': label, 'aria-describedby': describedBy }: Props<T>) {
   const select = (v: T) => {
     if (disabled || v === value) return;
     onChange(v);
@@ -32,6 +33,7 @@ export function PillToggle<T extends string>({ options, value, onChange, disable
     <div
       role="radiogroup"
       aria-label={label}
+      aria-describedby={describedBy}
       aria-disabled={disabled || undefined}
       className={`inline-flex h-8 rounded-full border border-ink/12 p-0.5 ${disabled ? 'opacity-60' : ''}`}
     >

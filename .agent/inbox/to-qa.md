@@ -260,3 +260,30 @@
 - 요청/이슈: `GlobalExceptionHandler.handleAsyncTimeout` 추가(503, debug 로그). api 294 테스트 통과. 셧다운 실측은 QA_REPORT 참조.
 - 근거 파일: TASKS.md T-028, API.md#에러-형식(503 행), `apps/api/.../global/error/GlobalExceptionHandler.java`
 - date: 2026-09-18
+
+### [개발자 → QA] T-029 채팅 UI 정리 13건 (web) 검증 요청
+- 요청/이슈: D-034(사용자 지시 13건) 구현. `cd apps/web && npm test`(365 passed / 53 files), `npm run lint`(0 error, 기존 경고 1), `npm run typecheck`, `npm run build` 통과.
+- 검증 포인트(실브라우저 http://localhost:3000, 라이트/다크 둘 다):
+  (1) 컴포저: [마이크][음성][전송] 순서. AI 모드·ACTIVE 에서만 "음성" 보임, HUMAN·잠김(pending/orphaned) 에선 없음. 상단 바에는 제목만.
+  (2) 사이드바가 우측(데스크톱 고정 / 모바일 우측 드로어). 햄버거 우상단, 드로어 X 가 같은 자리, "+ 새 방" 과 안 겹침.
+  (3) 사이드바 하단 [아바타 닉네임 … ⚙ 로그아웃]. ⚙ → 설정 시트: 제목 가운데(개설자 탭 → 가운데 정렬 Input), 멤버 줄 가운데, 모드 → 테마 → AI 성격 순. 방 밖(`/`)에선 테마 줄만. 드로어에서 ⚙ 누르면 드로어 닫힘.
+  (4) 혼자인 방: `유저끼리` 에 마우스 올리면 "친구 초대해봐!" 말풍선. 둘이면 없음. 상시 문구는 사라졌는지.
+  (5) 직접 쓰기: 취소(초안 버리고 접힘) / 저장(비었거나 그대로면 비활성). blur 만으로는 저장되지 않음. 되돌리기는 커스텀 있을 때만.
+  (6) AI 말풍선에 듣기 버튼 없음. 스트림 오류 말풍선은 문구만, "다시" 없음(재전송은 입력창).
+  (7) 모든 활성 버튼·링크 hover 시 손가락 커서, 비활성 전송 버튼은 기본 커서.
+  (8) 방 목록 … 메뉴: 바깥 클릭·Escape·탭 이탈로 닫힘. 열리면 "제목 수정" 에 포커스, ↑↓ 이동.
+  (9) 보이스 모드: 중앙 오브 1개(듣는 중엔 목소리 크기에 따라 커짐, 말하는 중 펄스), 아래 라벨, 우상단 X 로 종료, 하단 "다시" 원 버튼. 오브 탭 = 녹음 완료. 권한 거부/오류는 카드. reduced-motion 이면 정지.
+- 미수행(사유): 브라우저 자동화는 소셜 로그인 쿠키가 없어 미실측(로컬 토큰 발급은 권한 정책으로 차단). 위 9개는 사용자 Chrome 실측 요망.
+- 근거 파일: D-034, TASKS.md T-029, DESIGN.md §2·§3·§7, BRAND.md §5, `apps/web/app/components/{chat,voice}/**`, `apps/web/app/globals.css`.
+- date: 2026-09-18
+
+### [개발자 → QA] T-030 채팅 UI 정리 2차 4건 (web) 검증 요청
+- 요청/이슈: D-035(사용자 지시 4건 + "이름은 우측") 구현. `npm test`(368 passed / 53 files), lint(0 error, 기존 경고 1), typecheck, build 통과.
+- 검증 포인트(실브라우저, 모바일 폭 포함):
+  (1) 드로어에 X 없음. 딤 탭·Escape 로 닫힘, 방 이동 시 자동 닫힘.
+  (2) 사이드바 하단 우측 [아바타 닉네임 ^] 버튼 → 위로 메뉴 "설정 / 로그아웃". 바깥 클릭·Escape 로 닫힘, 열리면 "설정"에 포커스, ↑↓ 이동. 드로어에서도 동일. 로그아웃 → /login.
+  (3) 내가 음성으로 보낸 말풍선에 마이크 아이콘 없음(시간만).
+  (4) 입력창에 한 글자라도 치면 textarea 오른쪽에 작은 X. 탭 → 전부 지워지고 커서 유지. 비면 X 사라짐. 잠김 상태에선 X 없음.
+- 근거 파일: D-035, TASKS.md T-030, DESIGN.md §2·§3, `apps/web/app/components/ui/useMenu.ts`, `components/chat/{Sidebar,ChatShell,RoomListItem,MessageBubble,Composer}.tsx`.
+- date: 2026-09-18
+

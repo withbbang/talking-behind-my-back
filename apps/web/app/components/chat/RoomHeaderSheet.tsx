@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type KeyboardEvent } from 'react';
+import { useId, useState, type KeyboardEvent } from 'react';
 import { GENERIC_ERROR } from '@/lib/copy';
 import { Plus } from '@phosphor-icons/react';
 import { Avatar } from '@/components/ui/Avatar';
@@ -12,6 +12,7 @@ import type { Room, RoomMode } from '@/features/rooms/types';
 import { usePatchRoom } from '@/features/rooms/useRooms';
 import { ApiError } from '@/lib/api';
 import { AiPromptEditor } from './AiPromptEditor';
+import { ThemeRow } from './ThemePicker';
 
 const MODES = [
   { value: 'AI', label: 'AI' },
@@ -21,14 +22,15 @@ const MODES = [
 type Props = { room: Room; open: boolean; onClose: () => void; onInvite?: () => void };
 
 /**
- * 방 헤더 시트 (DESIGN.md#3). 상단 바 제목 탭 → 멤버 줄 · 모드 토글 · AI 성격 · 제목 수정(개설자).
- * 초대 시트 진입(onInvite)은 T-018 이 연결한다. 모드는 낙관적으로 바꾸고 실패 시 토스트 + 되돌림.
+ * 설정 시트 (DESIGN.md#3, D-034 2~7). 사이드바 톱니 → 제목(가운데, 개설자는 탭해 수정) · 멤버 줄(가운데) · 모드 · 테마 · AI 성격.
+ * 혼자면 모드 토글 비활성 + 호버/포커스 시 "친구 초대해봐!" 말풍선 툴팁. 초대 시트 진입(onInvite)은 T-018. 모드는 낙관적으로 바꾸고 실패 시 토스트 + 되돌림.
  */
 export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
   const patch = usePatchRoom(room.id);
   const show = useToastStore((s) => s.show);
   const fail = (e: unknown) =>
     show(e instanceof ApiError && e.code === 'MODE_NOT_ALLOWED' ? '혼자서는 유저끼리 대화할 수 없어!' : GENERIC_ERROR, 'error');
+  const tipId = useId();
 
   const [pendingMode, setPendingMode] = useState<RoomMode | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -53,7 +55,7 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
   };
 
   return (
-    <Sheet open={open} onClose={onClose} label="방 정보">
+    <Sheet open={open} onClose={onClose} label="설정">
       <div className="flex flex-col gap-6">
         {editingTitle ? (
           <Input
@@ -64,9 +66,10 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
             onChange={(e) => setTitleDraft(e.target.value)}
             onKeyDown={onTitleKey}
             onBlur={() => setEditingTitle(false)}
+            className="text-center"
           />
         ) : (
-          <h2 className="text-[17px] leading-snug font-semibold break-keep">
+          <h2 className="text-center text-[17px] leading-snug font-semibold break-keep">
             {isOwner ? (
               <button
                 type="button"
@@ -75,7 +78,7 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
                   setTitleDraft(room.title);
                   setEditingTitle(true);
                 }}
-                className="rounded-lg text-left outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+                className="max-w-full rounded-lg px-2 py-0.5 text-center outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
               >
                 {room.title}
               </button>
@@ -85,7 +88,7 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
           </h2>
         )}
 
-        <ul aria-label="멤버" className="flex items-center gap-4">
+        <ul aria-label="멤버" className="flex items-center justify-center gap-5">
           {room.members.map((m) => (
             <li key={m.userId} className="flex items-center gap-2 text-[15px]">
               <Avatar name={m.nickname} size={32} />
@@ -117,13 +120,30 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
           )}
         </ul>
 
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-[15px] font-semibold">모드</h3>
-            <PillToggle aria-label="모드" options={MODES} value={mode} onChange={changeMode} disabled={alone || patch.isPending} />
-          </div>
-          {alone && <p className="text-right text-[13px] text-muted">친구 초대해봐!</p>}
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-[15px] font-semibold">모드</h3>
+          <span className="group relative inline-flex">
+            <PillToggle
+              aria-label="모드"
+              aria-describedby={alone ? tipId : undefined}
+              options={MODES}
+              value={mode}
+              onChange={changeMode}
+              disabled={alone || patch.isPending}
+            />
+            {alone && (
+              <span
+                role="tooltip"
+                id={tipId}
+                className="pointer-events-none absolute right-0 bottom-full mb-2 rounded-full rounded-br-[4px] bg-surface px-3 py-1.5 text-xs font-medium whitespace-nowrap text-on-surface opacity-0 motion-safe:transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 group-active:opacity-100"
+              >
+                친구 초대해봐!
+              </span>
+            )}
+          </span>
         </div>
+
+        <ThemeRow />
 
         <AiPromptEditor
           key={room.aiPrompt ?? ''}

@@ -27,7 +27,7 @@ describe('AiPromptEditor (DESIGN.md#3 AI 성격, D-017)', () => {
     expect(onSelectPreset).toHaveBeenCalledWith('EMOTIONAL');
   });
 
-  it('직접 쓰기 접이식: 열면 textarea + n/2000 카운터, blur 시 onSavePrompt(trim)', () => {
+  it('직접 쓰기 접이식: 열면 textarea + n/2000 카운터 + 취소/저장, "저장" 으로 onSavePrompt(trim) — blur 는 저장 안 함 (D-034 6)', () => {
     const onSavePrompt = vi.fn();
     render(<AiPromptEditor {...base} onSavePrompt={onSavePrompt} />);
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -38,17 +38,32 @@ describe('AiPromptEditor (DESIGN.md#3 AI 성격, D-017)', () => {
     fireEvent.change(ta, { target: { value: ' 내 편만 들어 ' } });
     expect(screen.getByText('9/2000')).toBeInTheDocument();
     fireEvent.blur(ta);
+    expect(onSavePrompt).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
     expect(onSavePrompt).toHaveBeenCalledWith('내 편만 들어');
   });
 
-  it('내용이 바뀌지 않았거나 비어 있으면 blur 에 저장 안 함', () => {
+  it('"취소" 는 저장 없이 textarea 를 닫고 초안을 버린다', () => {
+    const onSavePrompt = vi.fn();
+    render(<AiPromptEditor {...base} onSavePrompt={onSavePrompt} />);
+    fireEvent.click(screen.getByRole('button', { name: '직접 쓰기' }));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '버릴 초안' } });
+    fireEvent.click(screen.getByRole('button', { name: '취소' }));
+    expect(onSavePrompt).not.toHaveBeenCalled();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '직접 쓰기' }));
+    expect(screen.getByRole('textbox')).toHaveValue('');
+  });
+
+  it('내용이 바뀌지 않았거나 비어 있으면 저장 버튼 비활성', () => {
     const onSavePrompt = vi.fn();
     render(<AiPromptEditor {...base} aiPrompt="원래 문구" onSavePrompt={onSavePrompt} />);
     const ta = screen.getByRole('textbox', { name: '직접 쓰기' }); // aiPrompt 있으면 기본 펼침
     expect(ta).toHaveValue('원래 문구');
-    fireEvent.blur(ta);
+    expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
     fireEvent.change(ta, { target: { value: '   ' } });
-    fireEvent.blur(ta);
+    expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
     expect(onSavePrompt).not.toHaveBeenCalled();
   });
 

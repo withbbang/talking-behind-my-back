@@ -25,6 +25,7 @@ import { OrphanedDialog } from './OrphanedDialog';
  * 채팅방 본문 (DESIGN.md#3). 방 상세 + 메시지 + 이벤트 구독 + 스트리밍 + 입력창.
  * 내 AI 잡이 대기·진행 중이면 입력 잠금(상대는 가능).
  * ORPHANED 방(참여자): 잠금 + 주인 없는 방 모달(DESIGN.md#6). 보이스 모드 오버레이(DESIGN.md#7)도 여기서 그린다. 트리거는 캐시 status 하나 — 목록 탭(상세 GET)·SSE member·전송 410 모두 여기로 모인다(D-021).
+ * 컴포저의 보이스 토글은 AI 모드·ACTIVE 일 때만(voiceRoomId, D-034 1). 스트림 오류 말풍선은 그 자리에 남고 재전송 버튼은 없다(D-034 9).
  */
 export function RoomView({ roomId }: { roomId: number }) {
   const room = useRoom(roomId);
@@ -32,7 +33,6 @@ export function RoomView({ roomId }: { roomId: number }) {
   const messages = useMessages(roomId);
   useRoomEvents(roomId);
   const stream = useStreamStore((s) => s.rooms[roomId]) ?? initialStreamState;
-  const removeStream = useStreamStore((s) => s.remove);
   const meId = me.data?.id ?? 0;
   const myPending = Object.values(stream.streams).some((e) => e.senderUserId === meId && e.status !== 'error');
   const show = useToastStore((s) => s.show);
@@ -45,18 +45,9 @@ export function RoomView({ roomId }: { roomId: number }) {
     [show],
   );
 
-  const retry = useCallback(
-    (replyTo: number) => {
-      const original = messages.messages.find((m) => m.id === replyTo);
-      removeStream(roomId, replyTo);
-      if (!original) return;
-      send.mutate({ content: original.content, inputType: original.inputType ?? 'TEXT' }, { onError: toastSendError });
-    },
-    [messages.messages, removeStream, roomId, send, toastSendError],
-  );
   const onSend = (content: string, inputType: InputType = 'TEXT') => send.mutate({ content, inputType }, { onError: toastSendError });
 
-  // 보이스 모드 (T-010, D-029): 상단 바 토글이 이 방을 가리키고 AI 모드·ACTIVE 일 때만 활성. HUMAN 으로 바뀌면 닫고 안내.
+  // 보이스 모드 (T-010, D-029): 컴포저 토글이 이 방을 가리키고 AI 모드·ACTIVE 일 때만 활성. HUMAN 으로 바뀌면 닫고 안내.
   const voiceRoomId = useVoiceStore((s) => s.roomId);
   const closeVoice = useVoiceStore((s) => s.close);
   const voiceAllowed = room.data?.mode === 'AI' && room.data?.status !== 'ORPHANED';
@@ -105,10 +96,9 @@ export function RoomView({ roomId }: { roomId: number }) {
           hasOlder={messages.hasNextPage}
           isLoadingOlder={messages.isFetchingNextPage}
           onLoadOlder={() => void messages.fetchNextPage()}
-          onRetry={retry}
         />
       )}
-      <Composer mode={room.data.mode} lock={lock} onSend={onSend} />
+      <Composer mode={room.data.mode} lock={lock} voiceRoomId={voiceAllowed ? roomId : null} onSend={onSend} />
     </div>
   );
 }

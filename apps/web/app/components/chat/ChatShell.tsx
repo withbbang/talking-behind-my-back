@@ -2,18 +2,19 @@
 
 import { useParams, usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
-import { List, X } from '@phosphor-icons/react';
+import { List } from '@phosphor-icons/react';
+import { Sheet } from '@/components/ui/Sheet';
 import { useRoom } from '@/features/rooms/useRooms';
-import { VoiceButton } from '@/components/voice/VoiceButton';
 import { InviteSheet } from './InviteSheet';
 import { RoomHeaderSheet } from './RoomHeaderSheet';
 import { Sidebar } from './Sidebar';
+import { ThemeRow } from './ThemePicker';
 
 /**
- * 채팅 셸 (DESIGN.md#2). 모바일: 상단 바 56 + 햄버거 드로어(300, ink 40% 딤). 데스크톱(≥1024): 사이드바 280 고정.
- * 상단 바 제목은 현재 방 제목(방 밖이면 앱 이름). 방 안에서 제목 탭 → 방 헤더 시트 → "초대" → 초대 공유 시트(T-018).
- * 초대 시트는 친구가 들어오면(memberCount 2) 저절로 닫힌다 — 뒤에 "영희 등장!" 시스템 라인이 보이도록.
- * 상단 바 우측 보이스 토글은 AI 모드이고 ORPHANED 아닐 때만(T-010, D-029). 오버레이 자체는 RoomView 가 그린다.
+ * 채팅 셸 (DESIGN.md#2, D-034·D-035). 모바일: 상단 바 56 = 중앙 제목(평문) + 우측 햄버거 → 우측 드로어(300, ink 40% 딤, 닫기 버튼 없음 — 딤 탭·Escape·경로 이동으로 닫힘). 데스크톱(≥1024): 우측 사이드바 280 고정.
+ * 설정 시트는 사이드바 하단 톱니(로그아웃 왼쪽)로 연다 — 방 안이면 방 설정(제목·멤버·모드·테마·AI 성격), 방 밖이면 테마만.
+ * 설정 시트 "초대" → 초대 공유 시트(T-018). 초대 시트는 친구가 들어오면(memberCount 2) 저절로 닫힌다 — 뒤에 "영희 등장!" 시스템 라인이 보이도록.
+ * 보이스 토글은 컴포저(RoomView)로 옮겨졌다(D-034 1).
  */
 export function ChatShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -24,10 +25,14 @@ export function ChatShell({ children }: { children: ReactNode }) {
   const [openPath, setOpenPath] = useState<string | null>(null);
   const open = openPath === pathname;
   const setOpen = (v: boolean) => setOpenPath(v ? pathname : null);
-  const [headerOpen, setHeaderOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const openSettings = () => {
+    setOpen(false);
+    setSettingsOpen(true);
+  };
   const openInvite = () => {
-    setHeaderOpen(false);
+    setSettingsOpen(false);
     setInviteOpen(true);
   };
 
@@ -35,43 +40,33 @@ export function ChatShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-bg text-ink">
-      <aside className="hidden w-[280px] shrink-0 border-r border-ink/8 lg:block">
-        <Sidebar />
-      </aside>
-
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-2 px-2 pt-[env(safe-area-inset-top)]">
+          <span className="size-11 shrink-0 lg:hidden" aria-hidden="true" />
+          <h1 className="min-w-0 flex-1 truncate px-2 text-center text-base font-semibold">{title}</h1>
           <button
             type="button"
             aria-label="메뉴"
             onClick={() => setOpen(true)}
-            className="flex size-11 items-center justify-center rounded-full outline-offset-[-3px] focus-visible:outline-2 focus-visible:outline-accent lg:invisible"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full outline-offset-[-3px] focus-visible:outline-2 focus-visible:outline-accent lg:hidden"
           >
             <List size={24} weight="bold" />
           </button>
-          <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold">
-            {room.data ? (
-              <button
-                type="button"
-                onClick={() => setHeaderOpen(true)}
-                className="max-w-full truncate rounded-lg px-2 py-1 outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
-              >
-                {title}
-              </button>
-            ) : (
-              title
-            )}
-          </h1>
-          {roomId !== null && room.data?.mode === 'AI' && room.data.status !== 'ORPHANED' ? (
-            <VoiceButton roomId={roomId} />
-          ) : (
-            <span className="size-11" aria-hidden="true" />
-          )}
         </header>
         <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </div>
 
-      {room.data && <RoomHeaderSheet room={room.data} open={headerOpen} onClose={() => setHeaderOpen(false)} onInvite={openInvite} />}
+      <aside className="hidden w-[280px] shrink-0 border-l border-ink/8 lg:block">
+        <Sidebar onOpenSettings={openSettings} />
+      </aside>
+
+      {room.data ? (
+        <RoomHeaderSheet room={room.data} open={settingsOpen} onClose={() => setSettingsOpen(false)} onInvite={openInvite} />
+      ) : (
+        <Sheet open={settingsOpen} onClose={() => setSettingsOpen(false)} label="설정">
+          <ThemeRow />
+        </Sheet>
+      )}
       {room.data?.inviteCode && (
         <InviteSheet room={room.data} open={inviteOpen && room.data.memberCount < 2} onClose={() => setInviteOpen(false)} />
       )}
@@ -79,16 +74,16 @@ export function ChatShell({ children }: { children: ReactNode }) {
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div aria-hidden="true" onClick={() => setOpen(false)} className="absolute inset-0 bg-ink/40" />
-          <div role="dialog" aria-modal="true" aria-label="방 목록" className="bubble-in absolute inset-y-0 left-0 w-[300px] max-w-[85vw] bg-bg">
-            <button
-              type="button"
-              aria-label="닫기"
-              onClick={() => setOpen(false)}
-              className="absolute top-2 right-2 z-10 flex size-11 items-center justify-center rounded-full text-muted outline-offset-[-3px] focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              <X size={22} weight="bold" />
-            </button>
-            <Sidebar />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="방 목록"
+            tabIndex={-1}
+            ref={(el) => el?.focus()}
+            onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+            className="bubble-in absolute inset-y-0 right-0 w-[300px] max-w-[85vw] bg-bg pt-[env(safe-area-inset-top)] outline-none"
+          >
+            <Sidebar onOpenSettings={openSettings} />
           </div>
         </div>
       )}

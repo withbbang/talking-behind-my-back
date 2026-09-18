@@ -19,17 +19,22 @@ type Props = {
 };
 
 /**
- * AI 성격 편집 (DESIGN.md#3, D-017). 프리셋 필 토글 + "직접 쓰기" 접이식 textarea(≤2,000, n/2000) + "되돌리기".
- * 현재 적용 문구(effectiveAiPrompt)는 항상 위에 2줄 말줄임으로 표시. 저장은 blur.
+ * AI 성격 편집 (DESIGN.md#3, D-017, D-034 6). 프리셋 필 토글 + "직접 쓰기" 접이식 textarea(≤2,000, n/2000) + 취소/저장 버튼 + "되돌리기".
+ * 현재 적용 문구(effectiveAiPrompt)는 항상 위에 2줄 말줄임으로 표시. 저장은 "저장" 버튼만(blur 저장 없음 — 취소 클릭이 blur 를 먼저 일으켜 충돌).
  * 부모는 aiPrompt 가 바뀌면 key 로 다시 마운트해 draft 를 동기화한다.
  */
 export function AiPromptEditor({ aiPersonality, aiPrompt, effectiveAiPrompt, editable, onSelectPreset, onSavePrompt, onReset }: Props) {
   const [openCustom, setOpenCustom] = useState(aiPrompt !== null);
   const [draft, setDraft] = useState(aiPrompt ?? '');
 
+  const text = draft.trim();
+  const dirty = text !== '' && text !== (aiPrompt ?? '');
   const save = () => {
-    const text = draft.trim();
-    if (text && text !== (aiPrompt ?? '')) onSavePrompt(text);
+    if (dirty) onSavePrompt(text);
+  };
+  const cancel = () => {
+    setDraft(aiPrompt ?? '');
+    setOpenCustom(false);
   };
 
   return (
@@ -60,11 +65,10 @@ export function AiPromptEditor({ aiPersonality, aiPrompt, effectiveAiPrompt, edi
             rows={4}
             placeholder="AI 성격 어떻게 설정하고 싶어?"
             onChange={(e) => setDraft(e.target.value)}
-            onBlur={save}
             className="w-full resize-none rounded-2xl border border-ink/12 bg-transparent px-4 py-3 text-[15px] leading-relaxed text-ink outline-none placeholder:text-muted focus:border-accent"
           />
-          <div className="flex items-center justify-between">
-            {aiPrompt !== null ? (
+          <div className="flex items-center gap-3">
+            {aiPrompt !== null && (
               <button
                 type="button"
                 onClick={onReset}
@@ -72,12 +76,25 @@ export function AiPromptEditor({ aiPersonality, aiPrompt, effectiveAiPrompt, edi
               >
                 되돌리기
               </button>
-            ) : (
-              <span />
             )}
-            <span className="text-xs text-muted tabular-nums" aria-live="polite">
+            <span className="flex-1 text-right text-xs text-muted tabular-nums" aria-live="polite">
               {draft.length}/{MAX}
             </span>
+            <button
+              type="button"
+              onClick={cancel}
+              className="h-9 rounded-xl border border-ink/12 px-3 text-[13px] font-medium outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent active:scale-[0.98] motion-safe:transition-transform"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={!dirty}
+              className="h-9 rounded-xl bg-surface px-3 text-[13px] font-semibold text-on-surface outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent active:scale-[0.98] motion-safe:transition-transform disabled:opacity-40"
+            >
+              저장
+            </button>
           </div>
         </div>
       )}

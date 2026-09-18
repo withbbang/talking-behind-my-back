@@ -8,7 +8,7 @@ import { createTtsPlayer, type TtsPlayer } from './ttsPlayer';
 
 /**
  * 듣기 재생 상태 (D-029). 재생기는 앱 전역 1개 — 동시 재생 1개, 새 play 가 이전 것을 멈춘다.
- * playingId = 지금 읽는 메시지 id(ListenButton 이 "정지" 로 바뀐다). 실패는 공용 오류 토스트.
+ * playingId = 지금 읽는 메시지 id(목록 듣기 버튼은 D-034 로 제거 — play/stop 은 보이스 모드 밖 재생용 API 로 남긴다). 실패는 공용 오류 토스트.
  */
 type TtsState = {
   playingId: number | null;
