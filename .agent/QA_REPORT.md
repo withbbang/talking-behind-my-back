@@ -408,6 +408,6 @@
 - verdict: PASS — 사용자 Chrome 실측 + 개발자 QA 대행(사용자 지시 "태스크 종료"), 2026-09-18.
 - tests: 존재 / T-029 와 같은 실행에 포함(368 통과). `useMenu` 추출은 `RoomListItem` 기존 2건이 회귀 커버, `Sidebar` +3(프로필 메뉴·바깥 클릭/Escape·로그아웃 POST), `ChatShell`(드로어 X 없음·Escape·딤), `MessageBubble`(VOICE 아이콘 없음), `Composer` +1(지우기 순서·포커스).
 - checked: 드로어 X 없음·딤/Escape 닫힘, 하단 우측 프로필 버튼 → 메뉴 "설정/로그아웃", 말풍선 VOICE 아이콘 없음, 입력창 지우기 X 노출/삭제/포커스 유지 — 사용자 실측 승인.
-- issues: 없음. 후속 결정 대기: 보이스 오버레이 "다시" 버튼 처리(카드에서만 유지 / 자동 복귀 / barge-in) — inbox/to-ceo.md.
+- issues: 없음. 보이스 오버레이 "다시" 버튼은 D-036 으로 보류(현행 유지).
 - date: 2026-09-18
 
