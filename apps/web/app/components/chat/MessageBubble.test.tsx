@@ -21,10 +21,20 @@ describe('MessageBubble (DESIGN.md#3 말풍선 3종)', () => {
     expect(screen.queryByRole('img')).toBeNull();
   });
 
-  it('AI: 하트 아바타 + 꼬리', () => {
+  it('AI: 하트 아바타, 상대(유저) 말풍선과 같은 모양(꼬리 없음, 좌하단 6)', () => {
     render(<MessageBubble message={aiMsg(3)} kind="ai" showMeta />);
     expect(screen.getByRole('img', { name: 'AI' })).toBeInTheDocument();
-    expect(screen.getByTestId('bubble-tail')).toBeInTheDocument();
+    // 사용자 요청(2026-09-18): AI 말풍선을 유저 말풍선과 동일하게 — svg 꼬리 제거
+    expect(screen.queryByTestId('bubble-tail')).toBeNull();
+  });
+
+  it('AI 와 상대(other) 말풍선의 면·모서리 클래스가 동일하다', () => {
+    const { container: ai } = render(<MessageBubble message={aiMsg(5, { content: '같은모양' })} kind="ai" showMeta />);
+    const aiP = ai.querySelector('p');
+    const { container: other } = render(<MessageBubble message={userMsg(6, { senderUserId: 2, content: '같은모양' })} kind="other" senderName="영희" showMeta />);
+    const otherP = other.querySelector('p');
+    const norm = (el: Element | null) => [...(el?.classList ?? [])].filter((c) => c.startsWith('rounded') || c.startsWith('border') || c.startsWith('bg-') || c.startsWith('text-')).sort().join(' ');
+    expect(norm(aiP)).toBe(norm(otherP));
   });
 
   it('VOICE 입력은 마이크 표시', () => {

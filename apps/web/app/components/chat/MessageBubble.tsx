@@ -16,7 +16,7 @@ type Props = {
 
 /**
  * 말풍선 3종 (DESIGN.md#3). 나 = 우측 surface/on-surface 라운드 22(우하단 6). 상대 = 좌측 bg + ink 12% 테두리, 위 닉네임.
- * AI = 상대와 같은 면 + 좌하단 꼬리(로그인 말풍선과 같은 형태 언어) + 하트 아바타 + 시간 줄 앞 듣기 버튼(T-010). 최대 폭 78%.
+ * AI = 상대(other) 말풍선과 완전히 같은 모양(면·모서리) + 하트 아바타 + 시간 줄 앞 듣기 버튼. 꼬리 없음(2026-09-18 사용자 요청). 최대 폭 78%.
  */
 export function MessageBubble({ message, kind, senderName, showMeta }: Props) {
   const mine = kind === 'mine';
@@ -35,16 +35,10 @@ export function MessageBubble({ message, kind, senderName, showMeta }: Props) {
           <p
             className={`rounded-[22px] px-4 py-2.5 text-base leading-relaxed break-words whitespace-pre-wrap ${
               mine ? 'rounded-br-[6px] bg-surface text-on-surface' : 'border border-ink/12 bg-bg text-ink'
-            } ${kind === 'other' ? 'rounded-bl-[6px]' : ''}`}
+            } ${!mine ? 'rounded-bl-[6px]' : ''}`}
           >
             {message.content}
           </p>
-          {kind === 'ai' && (
-            <svg data-testid="bubble-tail" viewBox="0 0 14 10" aria-hidden="true" className="absolute -bottom-[7px] left-3 h-2.5 w-3.5">
-              <path d="M0 0h14c-3 1.5-6 5-7 10C6 5 3 1.5 0 0z" className="fill-ink/12" />
-              <path d="M1.5 0.9h11c-2.5 1.3-4.8 4.2-5.5 7.6C6.3 5.1 4 2.2 1.5 0.9z" className="fill-bg" />
-            </svg>
-          )}
         </div>
         <span className="flex items-center gap-1.5 px-1 text-xs text-muted tabular-nums">
           {kind === 'ai' && <ListenButton messageId={message.id} text={message.content} />}

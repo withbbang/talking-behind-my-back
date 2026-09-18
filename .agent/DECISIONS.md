@@ -268,6 +268,13 @@
 - impact: DESIGN.md#7 개정, BRAND.md#5 표에 신규 문구 행, `apps/web` `features/speech/*`·`components/voice/*`·Composer·MessageBubble·ChatShell·RoomView. API 변경 없음.
 - date: 2026-09-18 (개발자 대행 기록, 사용자 결정 — "1=2B, 3=b, 나머지 승인")
 
+### D-030 AI 말풍선을 상대(USER) 말풍선과 완전히 같은 모양으로 — 꼬리 제거
+- decision: 채팅 AI(ASSISTANT) 말풍선의 좌하단 svg 꼬리를 없애고, 상대(USER, other) 말풍선과 동일한 면·모서리(`bg` + `ink` 12% 테두리, 라운드 22 + 좌하단 6px)를 쓴다. AI 는 하트 아바타와 시간 줄 앞 듣기 버튼으로만 구분한다. 스트리밍 AI 말풍선(StreamingBubble)도 동일.
+- rationale: 사용자 요청(2026-09-18, "AI말풍선도 유저 말풍선과 똑같이 만들어"). 말풍선 방향은 좌/우 + 한쪽 6px 모서리로 충분히 전달되고, 꼬리 하나만 예외라 시각적으로 어긋나 보였다.
+- alternatives: 상대 말풍선에도 꼬리를 달아 통일(기각 — 요청은 반대 방향), 유지(기각 — 사용자 지적).
+- impact: `apps/web` MessageBubble·MessageList(StreamingBubble) 꼬리 제거 + 좌하단 6px, MessageBubble 테스트 갱신. DESIGN.md#3 표·BRAND.md#1/#2 문구. 보이스 오버레이 오브(VoiceOrb)의 꼬리는 이 결정 범위 밖(별도 확인 대기).
+- date: 2026-09-18 (개발자 대행 기록, 사용자 결정)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

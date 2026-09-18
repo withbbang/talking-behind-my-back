@@ -154,7 +154,7 @@ function StreamingBubble({ entry, onRetry }: { entry: StreamEntry; onRetry: (rep
         <Avatar kind="ai" />
       </span>
       <div className="relative max-w-[78%]">
-        <div role="status" aria-live="polite" className="rounded-[22px] border border-ink/12 bg-bg px-4 py-2.5 text-base leading-relaxed text-ink break-words whitespace-pre-wrap">
+        <div role="status" aria-live="polite" className="rounded-[22px] rounded-bl-[6px] border border-ink/12 bg-bg px-4 py-2.5 text-base leading-relaxed text-ink break-words whitespace-pre-wrap">
           {entry.status === 'waiting' && (
             <span data-testid="typing-dots" className="typing-dots inline-flex h-6 items-center gap-1" aria-label="생각 중...">
               <i /><i /><i />
@@ -179,10 +179,6 @@ function StreamingBubble({ entry, onRetry }: { entry: StreamEntry; onRetry: (rep
             </span>
           )}
         </div>
-        <svg viewBox="0 0 14 10" aria-hidden="true" className="absolute -bottom-[7px] left-3 h-2.5 w-3.5">
-          <path d="M0 0h14c-3 1.5-6 5-7 10C6 5 3 1.5 0 0z" className="fill-ink/12" />
-          <path d="M1.5 0.9h11c-2.5 1.3-4.8 4.2-5.5 7.6C6.3 5.1 4 2.2 1.5 0.9z" className="fill-bg" />
-        </svg>
       </div>
     </li>
   );
