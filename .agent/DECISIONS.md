@@ -291,6 +291,22 @@
 - impact: `infra/.env.example`(`LLM_MODEL` 기본값·주석). 코드 변경 없음(D-031 파이프라인 재사용). → T-027 종료 근거.
 - date: 2026-09-18 (개발자 대행 기록, 사용자 결정 — "그렇게 굳혀줘")
 
+### D-033 T-026 보이스 모드 체감 보강 확정 — 적응형 VAD·보이스 모드 한정·진폭 연동 포함·문장 선재생 청크/폴백 정책
+- decision:
+  (A1) VAD 판정은 적응형: 무음 구간 dB 의 느린 EMA 로 노이즈 바닥을 추정, 바닥+12dB 초과면 발화·바닥+6dB 미만이면 무음(히스테리시스). 고정 임계값 아님.
+  (A2) 발화가 한 번이라도 있은 뒤 무음 1,000ms 지속이면 녹음 자동 종료 → transcribing(토스트 없음). 발화가 없으면 VAD 는 종료하지 않고 60초 상한(T-010)이 잡는다.
+  (A3) VAD 는 보이스 모드 오버레이에서만. 컴포저 마이크는 D-029(3) 탭 시작/탭 종료 유지.
+  (A4) D-029(2)가 미룬 진폭 연동 포함: AnalyserNode 레벨(0~1)을 `VoiceOrb` recording 바 높이에 CSS 변수로 연결.
+  (B1) 문장 선재생 청크: 첫 문장은 경계가 나오는 즉시 합성, 이후는 40자 이상 모이면 합성(Edge TTS 호출 수 억제). `done` 후 꼬리 flush.
+  (B2) 경계는 `splitForTts` 와 같은 부호(`. ! ? …`)+개행이되, 스트리밍이라 부호 뒤 공백/개행/끝이 와야 경계(`3.14` 오분할 방지).
+  (B3) 폴백: 첫 오디오 재생 전 실패 → 전체 텍스트 `player.play`(T-010 경로). 재생 후 실패 → `TTS_FAIL`(error + "다시").
+  (B4) 상태 머신 phase 는 유지. streaming 중 세션 큐에 문장을 넣고 STREAM_DONE → speaking 에서 큐 소진 후 TTS_END → recording. 오버레이 UI 변경 없음.
+  T-010 은 REVIEW(문구 확정 대기) 상태로 두고 T-026 착수(blocked 해제).
+- rationale: 고정 임계값은 마이크·환경 편차에 취약. 발화 전 자동 종료를 막아야 "말 안 했는데 끝남"이 없다. 컴포저는 사용자가 이미 탭/탭을 골랐다(D-029). 진폭 연동은 AnalyserNode 가 어차피 생겨 비용이 작다. 청크 40자 버퍼는 지연(첫 문장 즉시)과 호출 수(Edge TTS 0.4초/호출)의 절충.
+- alternatives: 고정 -45dBFS, hold 700/1,500ms, 컴포저에도 VAD, 진폭 연동 별도 T, 문장마다 호출, 실패 청크 건너뛰기 — 모두 기각(추천안 승인).
+- impact: `apps/web` `features/speech/{vad,sentenceChunker}` 신설, `useRecorder`(AnalyserNode·`onAutoStop(rec, reason)`)·`ttsPlayer`(세션 큐)·`useVoiceMode`·`VoiceOrb` 확장. API 변경 없음. DESIGN.md#7 갱신은 to-designer. iOS AudioContext 실기기 확인은 T-013 체크리스트.
+- date: 2026-09-18 (개발자 대행 기록, 사용자 결정 — "T-010 그대로 두고 착수하자. 추천대로")
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

@@ -47,6 +47,7 @@
 - **외부 AI 호출(LLM·STT·TTS)은 전부 OmniRoute 경유가 기본.** 새 외부 API 를 붙일 때 "직접 호출" 로 설계하지 말고 OmniRoute `/v1/*` 지원부터 확인(T-009 에서 OpenAI 직접 호출로 갔다가 되돌림). 로컬 OmniRoute 에 `curl -X POST … /v1/<path>` 로 404 인지 400 인지 보면 안다.
 - **hydration 전 인라인 스크립트로 React 가 렌더한 `<meta>`/`<title>` 을 바꾸면 React 19 가 hoistable 매칭에 실패해 같은 태그를 하나 더 꽂는다**(T-020 theme-color 중복 실측). 첫 페인트 전엔 `<html>` 속성만 건드리고 메타는 마운트 후 갱신. `'use client'` 모듈의 문자열 상수를 서버 컴포넌트(layout)에서 import 하면 클라이언트 참조가 되니 상수는 지시어 없는 모듈로 분리.
 - **업로드 상한 실측 파일은 26,214,401B 이상.** "26MB" 를 26,000,000B 로 만들면 25MiB 미만이라 nginx(25m)·Boot(25MB) 를 통과해 공급자까지 갔다가 502 가 난다(T-009 QA).
+- **`MediaRecorder.stop()` 은 `stop` 이벤트가 비동기라 자동 종료 트리거가 둘(VAD·상한)이면 두 번 불려 InvalidStateError.** finish 결과 Promise 를 세션에 저장해 한 번만(T-026). 공유 Promise 에 `.finally()` 를 붙이면 거절이 한 번 더 unhandled 로 새니 `.then(after, after)` 로.
 - **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
 
 ---
@@ -455,16 +456,23 @@
 - note: 2026-09-18 착수(D-029: 말풍선 오브·STT 즉시 전송·CSS 모션·토글 노출 조건·2인 방 충돌·60초 상한·iOS unlock). 체감 보강(VAD 자동 종료·문장 단위 TTS 선재생)은 → T-026 참조 (D-026). 이 태스크는 DESIGN.md#7 상태 머신까지.
 
 ## T-026 보이스 모드 체감 보강 — VAD 자동 종료 + 문장 단위 TTS 선재생 (web)
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M3
-- spec: D-026, DESIGN.md#7, API.md#speech
-- blocked_by: T-010
+- spec: D-026, D-033, DESIGN.md#7, API.md#speech
+- blocked_by: ~~T-010~~ (D-033: T-010 REVIEW 상태로 두고 착수)
 - acceptance:
   - VAD: `AnalyserNode` RMS 기반 무음 감지 순수 함수(`detectSilence(frames, thresholdDb, holdMs)`) + 테스트. 발화 종료 후 N ms 무음이면 녹음 자동 종료 → transcribing. 최대 길이(60초)도 자동 종료.
   - 문장 단위 TTS: SSE 델타를 문장 경계(`. ! ? …` + 개행)로 자르는 순수 함수 + 테스트. 첫 문장이 완성되면 `/speech/tts` 를 먼저 호출해 재생 큐에 넣고, 이후 문장은 순서대로 이어 재생. `done` 이후 남은 꼬리 처리.
   - 재생 큐가 비고 스트림도 끝나면 speaking → recording 자동 전환(T-010 상태 머신 확장).
   - 기존 API 변경 없음. 실패 시 T-010 의 전체 문장 TTS 로 폴백.
+- test: 신규 web 41건(전체 `npm test` 360 passed / 54 files, lint 0 error·기존 경고 1, typecheck·build 통과).
+  순수: `features/speech/vad`(12, rmsDb·적응형 바닥·히스테리시스·hold·minSpeech·level·detectSilence), `sentenceChunker`(9, 부호+공백 경계·개행·소수점·첫 문장 즉시·40자 버퍼·flush).
+  `ttsPlayer`(+8, open() 세션: 순서·선합성 1개·end/done·played·실패 시점·stop·동시 1개; 기존 stop 테스트는 선합성 1개 허용으로 갱신).
+  훅: `useRecorder`(+6, vad silence 자동 종료·발화 없으면 미종료·vad 없으면 미종료·level·미터 없음·stop 이벤트 지연 시 단일 종료), `useVoiceMode`(+5, 델타→첫 문장 선재생→done 꼬리→큐 소진→녹음, 본문 불일치, 폴백 2분기, VAD 자동 완료+토스트 없음).
+  컴포넌트: `VoiceModeOverlay`(+1, `--level`). 실측 미수행: 마이크 없는 pane + OAuth 쿠키(T-010 과 동일). iOS AudioContext suspended 는 T-013 체크리스트.
+- note: 2026-09-18 착수·구현(D-033). 상태 머신(`voiceMachine`) 변경 없음 — 선재생은 streaming 중 세션 큐, speaking 은 큐 소진 대기. 컴포저 마이크는 미터를 만들지 않는다(vad 옵션 없음).
+  VAD 한계: 바닥보다 12dB 이상 큰 꾸준한 소음은 발화로 보여 자동 종료 안 됨(60초 상한/탭). done 본문이 델타 누적과 다르면 델타 뒤 꼬리만 flush(잘린 부분은 안 읽음).
 
 ## M4 어드민
 

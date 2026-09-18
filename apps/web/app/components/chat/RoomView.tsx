@@ -90,7 +90,7 @@ export function RoomView({ roomId }: { roomId: number }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <OrphanedDialog roomId={roomId} open={orphaned && room.data.role === 'PARTICIPANT'} />
-      {voiceActive && <VoiceModeOverlay state={voice.state} elapsedMs={voice.elapsedMs} preview={voice.preview} onDone={() => void voice.done()} onRetry={voice.retry} onExit={voice.exit} />}
+      {voiceActive && <VoiceModeOverlay state={voice.state} elapsedMs={voice.elapsedMs} preview={voice.preview} level={voice.level} onDone={() => void voice.done()} onRetry={voice.retry} onExit={voice.exit} />}
       {empty ? (
         <Centered>
           <Avatar kind="ai" size={64} />

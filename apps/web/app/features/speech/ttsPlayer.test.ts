@@ -68,15 +68,17 @@ describe('ttsPlayer (듣기·보이스 모드 재생 큐, D-029)', () => {
     expect(done).toHaveBeenCalled();
   });
 
-  it('stop(): 재생 중단 + 남은 덩어리 합성 안 함, play 는 resolve(reject 아님)', async () => {
+  it('stop(): 재생 중단 + 남은 덩어리 합성 안 함(선합성 1개 제외), play 는 resolve(reject 아님)', async () => {
     const { audio, player, synthesize } = setup();
     const result = vi.fn();
-    void player.play('하나. 둘.'.replace('. ', `${'x'.repeat(999)}. `)).then(() => result('resolved'), () => result('rejected'));
+    const three = ['x'.repeat(999), 'y'.repeat(999), 'z'.repeat(999)].map((c) => `${c}.`).join(' ');
+    void player.play(three).then(() => result('resolved'), () => result('rejected'));
     await tick();
     player.stop();
     await tick();
+    await tick();
     expect(audio.pause).toHaveBeenCalled();
-    expect(synthesize).toHaveBeenCalledTimes(1);
+    expect(synthesize).toHaveBeenCalledTimes(2); // 첫 덩어리 + 선합성 1개, 세 번째는 안 부른다
     expect(result).toHaveBeenCalledWith('resolved');
   });
 
@@ -118,5 +120,107 @@ describe('ttsPlayer (듣기·보이스 모드 재생 큐, D-029)', () => {
     expect(audio.pause).toHaveBeenCalled();
     expect(first).toHaveBeenCalled();
     expect(audio.play).toHaveBeenCalledTimes(2);
+  });
+
+  describe('open() 세션 — 스트리밍 문장 선재생 큐 (D-033 B4)', () => {
+    it('enqueue 한 순서대로 이어 재생하고, 다음 덩어리는 재생 중에 미리 합성한다; end() 뒤 큐가 비면 done', async () => {
+      const { audio, player, synthesize } = setup();
+      const session = player.open();
+      const done = vi.fn();
+      void session.done.then(done);
+      session.enqueue('하나.');
+      await tick();
+      expect(synthesize).toHaveBeenNthCalledWith(1, '하나.');
+      expect(audio.play).toHaveBeenCalledTimes(1);
+      session.enqueue('둘.');
+      await tick();
+      expect(synthesize).toHaveBeenNthCalledWith(2, '둘.'); // 첫 덩어리가 끝나기 전에 선합성
+      expect(audio.play).toHaveBeenCalledTimes(1);
+      audio.end();
+      await tick();
+      expect(audio.play).toHaveBeenCalledTimes(2);
+      audio.end();
+      await tick();
+      expect(done).not.toHaveBeenCalled(); // 아직 end() 전 — 더 올 수 있다
+      session.end();
+      await tick();
+      expect(done).toHaveBeenCalled();
+    });
+
+    it('선합성은 1개까지 — 재생 중인 것 + 준비된 것 1개 이상 앞서 부르지 않는다', async () => {
+      const { audio, player, synthesize } = setup();
+      const session = player.open();
+      ['하나.', '둘.', '셋.', '넷.'].forEach((t) => session.enqueue(t));
+      session.end();
+      await tick();
+      await tick();
+      expect(synthesize).toHaveBeenCalledTimes(2);
+      audio.end();
+      await tick();
+      await tick();
+      expect(synthesize).toHaveBeenCalledTimes(3);
+    });
+
+    it('end() 만 부르고 아무것도 넣지 않으면 바로 done', async () => {
+      const { player, synthesize } = setup();
+      const session = player.open();
+      session.end();
+      await session.done;
+      expect(synthesize).not.toHaveBeenCalled();
+    });
+
+    it('played: 첫 오디오가 시작되기 전 false, 시작되면 true', async () => {
+      const { player } = setup();
+      const session = player.open();
+      expect(session.played).toBe(false);
+      session.enqueue('하나.');
+      await tick();
+      expect(session.played).toBe(true);
+    });
+
+    it('첫 오디오 전에 합성이 실패하면 done reject, played=false (전체 텍스트 폴백 판단용)', async () => {
+      const { player, deps } = setup();
+      (deps.synthesize as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('502'));
+      const session = player.open();
+      session.enqueue('하나.');
+      await expect(session.done).rejects.toThrow('502');
+      expect(session.played).toBe(false);
+    });
+
+    it('재생이 시작된 뒤 실패하면 done reject, played=true', async () => {
+      const { audio, player, deps } = setup();
+      const session = player.open();
+      session.enqueue('하나.');
+      await tick();
+      (deps.synthesize as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('502'));
+      session.enqueue('둘.');
+      audio.end();
+      await expect(session.done).rejects.toThrow('502');
+      expect(session.played).toBe(true);
+    });
+
+    it('stop() 은 세션을 중단하고 done 을 resolve, 이후 enqueue 는 무시', async () => {
+      const { audio, player, synthesize } = setup();
+      const session = player.open();
+      session.enqueue('하나.');
+      await tick();
+      player.stop();
+      await session.done;
+      session.enqueue('둘.');
+      await tick();
+      expect(audio.pause).toHaveBeenCalled();
+      expect(synthesize).toHaveBeenCalledTimes(1);
+    });
+
+    it('새 open() 은 진행 중인 세션을 멈춘다(동시 재생 1개)', async () => {
+      const { player } = setup();
+      const first = player.open();
+      first.enqueue('하나.');
+      await tick();
+      const second = player.open();
+      await first.done;
+      second.end();
+      await second.done;
+    });
   });
 });

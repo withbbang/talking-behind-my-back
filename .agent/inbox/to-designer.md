@@ -55,3 +55,9 @@
 - 근거 파일: D-025, `inbox/copy-inventory.md`, `apps/web/app/lib/copy.ts`
 - 원하는 결과: BRAND.md#5 "상황별 예시" 표를 copy-inventory.md 기준으로 교체(원안 승인분 포함), DESIGN.md#2~6 인라인 문구 동기화. 고정 용어 목록에 "방장" 추가 검토.
 - date: 2026-09-17
+
+### [개발자 → 디자이너] D-033 보이스 모드 체감 보강 — DESIGN.md#7 갱신 요청 (T-026)
+- 요청/이슈: 보이스 모드 흐름이 바뀐다. (1) recording 은 "녹음 완료" 탭 외에 **말이 끝나고 1초 무음이면 자동 종료**(적응형 VAD, 발화 전엔 종료 안 함, 60초 상한 유지). (2) streaming 중 **첫 문장이 완성되면 바로 읽기 시작**해 답변이 끝나기 전에 목소리가 나온다(speaking 은 남은 큐를 마저 읽는 단계). (3) recording 오브의 바 5개는 CSS keyframes 대신 실제 마이크 진폭에 반응한다. 컴포저 마이크는 탭/탭 그대로.
+- 근거 파일: D-033, `apps/web/app/features/speech/{vad,sentenceChunker,useRecorder,useVoiceMode,ttsPlayer}.ts`, `components/voice/VoiceOrb.tsx`
+- 원하는 결과: DESIGN.md#7 상태 설명에 자동 종료·선재생·진폭 한 줄씩. 바뀌면 to-dev 로.
+- date: 2026-09-18

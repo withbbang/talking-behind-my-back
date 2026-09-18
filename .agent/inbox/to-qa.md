@@ -240,3 +240,18 @@
 - 근거 파일: D-029, DESIGN.md#7, BRAND.md#5, TASKS.md T-010, `apps/web/app/features/speech/**`, `apps/web/app/components/voice/**`.
 - 범위 외: VAD·문장 단위 선재생(T-026), 실기기 PWA 음성(T-013).
 - date: 2026-09-18
+
+### [개발자 → QA] T-026 보이스 모드 체감 보강 — VAD 자동 종료 + 문장 단위 TTS 선재생 (web) 검증 요청
+- 요청/이슈: `cd apps/web && npm test`(360 passed / 54 files), `npm run lint`(0 error, 기존 경고 1: api.ts `_retry`), `npm run typecheck`, `npm run build` 통과 확인.
+  신규 41건은 `app/features/speech/{vad,sentenceChunker,ttsPlayer,useRecorder,useVoiceMode}` + `components/voice/VoiceModeOverlay`. 설계 근거 D-033(사용자 결정 "추천대로"). API 변경 없음.
+- 검증 포인트(코드/테스트 리뷰 + 가능하면 실브라우저):
+  (1) VAD(`vad.ts`): 적응형 바닥(내려갈 땐 즉시, 올라갈 땐 4dB/s, 말하는 동안 고정), 발화 = 바닥+12dB 초과·무음 = 바닥+6dB 미만(히스테리시스), 누적 발화 200ms 이상이어야 spoke, 그 뒤 무음 1,000ms → 자동 종료. 발화 없으면 절대 자동 종료 안 함(60초 상한).
+  (2) `useRecorder` `vad: true` 일 때만 AnalyserNode 미터 생성(컴포저 마이크는 미생성). `onAutoStop(rec, 'limit' | 'silence')`. silence 는 토스트 없음, limit 는 "60초까지만 들을 수 있어!". stop 이벤트가 늦어도 `recorder.stop()` 1회.
+  (3) 선재생: streaming 진입 시 `player.open()`, 델타를 `sentenceChunker` 로 잘라(첫 문장 즉시, 이후 40자 버퍼, 부호 뒤 공백/개행만 경계, `3.14` 미분할) `enqueue`. done 시 델타로 못 받은 나머지 + 꼬리 enqueue 후 `end()`. speaking 은 `session.done` 대기 → recording.
+  (4) 폴백(B3): 첫 오디오 전 실패 → `player.play(전체)`; 재생 후 실패 → error "시스템 오류. 다시 시도해줄래?". 2인 방은 내 `replyTo` 델타만 큐에.
+  (5) `ttsPlayer` 세션: 합성은 재생보다 1개만 앞서(호출 수 억제), 새 open/play/stop 은 이전 세션 abort(done resolve). 듣기 버튼(`useTts.play`)은 `play()` 그대로 — 회귀 확인.
+  (6) 오브 진폭: recording 바 `--level`(0~1) → `scaleY(0.4 + 0.6·level)` + keyframes 숨쉬기. reduced-motion 은 transition 도 끔.
+- 미수행(사유): 브라우저 자동화 pane 에 마이크 없음 + api OAuth 쿠키(T-010 과 동일) → 실브라우저 VAD/선재생 체감 미실측. iOS 에서 AudioContext 가 suspended 로 시작할 수 있어 `resume()` 만 걸어 둠 — T-013 체크리스트에 "보이스 모드 자동 종료 동작" 추가 요망.
+- 근거 파일: D-033, TASKS.md T-026, `apps/web/app/features/speech/**`, `apps/web/app/components/voice/VoiceModeOverlay.tsx`, `apps/web/app/globals.css`.
+- 범위 외: barge-in(백로그), DESIGN.md#7 문서 갱신(to-designer), 실기기 PWA 음성(T-013).
+- date: 2026-09-18

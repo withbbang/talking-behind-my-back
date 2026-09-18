@@ -43,6 +43,13 @@ describe('VoiceModeOverlay (DESIGN.md#7, D-029 뒤집히는 말풍선)', () => {
     expect(screen.getByTestId('orb-ai')).toHaveAttribute('data-active', 'true');
   });
 
+  it('recording 바는 마이크 레벨(0~1)을 --level CSS 변수로 받는다(D-033 A4), 없으면 0', () => {
+    const { rerender } = render(<VoiceModeOverlay state={st('recording')} elapsedMs={0} preview="" level={0.5} {...noop} />);
+    expect(screen.getByTestId('voice-bars').style.getPropertyValue('--level')).toBe('0.5');
+    rerender(<VoiceModeOverlay state={st('recording')} elapsedMs={0} preview="" {...noop} />);
+    expect(screen.getByTestId('voice-bars').style.getPropertyValue('--level')).toBe('0');
+  });
+
   it('상태 라벨은 aria-live polite', () => {
     render(<VoiceModeOverlay state={st('recording')} elapsedMs={0} preview="" {...noop} />);
     expect(screen.getByRole('status')).toHaveTextContent('듣는 중');

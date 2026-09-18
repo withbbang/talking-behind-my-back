@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { SpeakerHigh } from '@phosphor-icons/react';
 import { formatElapsed } from '@/features/speech/format';
 import type { VoiceState } from '@/features/speech/voiceMachine';
@@ -11,6 +12,8 @@ type Props = {
   elapsedMs: number;
   /** streaming 중 델타 미리보기 */
   preview: string;
+  /** recording 중 마이크 레벨 0~1 (D-033 A4) — 바 높이. 미터가 없으면 0 */
+  level?: number;
   /** recording 말풍선 탭 = 녹음 완료 */
   onDone: () => void;
   onRetry: () => void;
@@ -25,10 +28,10 @@ const LABEL: Partial<Record<VoiceState['phase'], string>> = {
 };
 
 /**
- * 보이스 모드 오버레이 (DESIGN.md#7, D-029). 전체 화면 bg 96% + 뒤 흐림. 말풍선 2개가 말하는 쪽으로 활성.
+ * 보이스 모드 오버레이 (DESIGN.md#7, D-029, D-033). 전체 화면 bg 96% + 뒤 흐림. 말풍선 2개가 말하는 쪽으로 활성. recording 바는 keyframes 숨쉬기 + 실제 진폭(--level) 스케일.
  * denied/error 는 말풍선 대신 카드. 하단 "다시"(현재 단계 취소 → 녹음) · "끄기".
  */
-export function VoiceModeOverlay({ state, elapsedMs, preview, onDone, onRetry, onExit }: Props) {
+export function VoiceModeOverlay({ state, elapsedMs, preview, level = 0, onDone, onRetry, onExit }: Props) {
   const { phase } = state;
   const mineActive = phase === 'recording' || phase === 'transcribing';
   const aiActive = phase === 'streaming' || phase === 'speaking';
@@ -44,7 +47,7 @@ export function VoiceModeOverlay({ state, elapsedMs, preview, onDone, onRetry, o
             <VoiceOrb side="mine" active={mineActive} onClick={phase === 'recording' ? onDone : undefined} buttonLabel="녹음 완료">
               {phase === 'recording' && (
                 <span className="flex flex-col items-center gap-3">
-                  <span className="voice-bars flex h-6 items-end gap-1" aria-hidden="true">
+                  <span data-testid="voice-bars" className="voice-bars flex h-6 items-end gap-1" style={{ '--level': String(level) } as CSSProperties} aria-hidden="true">
                     <i /><i /><i /><i /><i />
                   </span>
                   <span className="text-[15px] font-semibold tabular-nums">{formatElapsed(elapsedMs)}</span>
