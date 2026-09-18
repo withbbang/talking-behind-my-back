@@ -396,3 +396,18 @@
   - SSE 동작 회귀 없음: 구독 즉시 `:connected`, 브라우저 재접속 정상. `RoomEventBus` 무변경.
 - issues: 없음. 로컬 재현 시 lsof 가 Docker 경유 커넥션을 못 세므로 SSE 열림 여부는 `:connected` 수신으로 확인할 것.
 - date: 2026-09-18
+
+### T-029 채팅 UI 정리 13건 (web)
+- verdict: PASS — 사용자 Chrome 실측(:3000) + 개발자 QA 대행(사용자 지시 "태스크 종료"), 2026-09-18.
+- tests: 존재 / web `npm test` 53 파일 365→368 통과, lint 0 error(기존 경고 1), typecheck, build 통과. 신규·수정: `VoiceModeOverlay`(단일 오브·X·다시), `Composer`(토글 순서), `ChatShell`(설정 시트 방 안/밖·드로어·우측 햄버거), `Sidebar`, `RoomHeaderSheet`(툴팁·가운데·테마 줄·저장), `AiPromptEditor`(취소/저장), `RoomListItem`(바깥 클릭·↑↓), `MessageBubble`, `MessageList`.
+- checked: to-qa 9개 포인트(컴포저 [마이크][음성][전송], 우측 사이드바·드로어, 설정 시트 순서·가운데 정렬, 유저끼리 툴팁, 직접 쓰기 취소/저장, 듣기·"다시" 제거, cursor pointer, … 메뉴 닫힘, 보이스 단일 오브 + X) 사용자 실측 승인. 컴포저 지우기 X 는 5줄 입력에서도 세로 가운데 확인.
+- issues: 없음. 브라우저 자동화는 소셜 로그인 쿠키 부재로 미사용(로컬 토큰 발급은 권한 정책 차단) — 실측은 사용자.
+- date: 2026-09-18
+
+### T-030 채팅 UI 정리 2차 4건 (web)
+- verdict: PASS — 사용자 Chrome 실측 + 개발자 QA 대행(사용자 지시 "태스크 종료"), 2026-09-18.
+- tests: 존재 / T-029 와 같은 실행에 포함(368 통과). `useMenu` 추출은 `RoomListItem` 기존 2건이 회귀 커버, `Sidebar` +3(프로필 메뉴·바깥 클릭/Escape·로그아웃 POST), `ChatShell`(드로어 X 없음·Escape·딤), `MessageBubble`(VOICE 아이콘 없음), `Composer` +1(지우기 순서·포커스).
+- checked: 드로어 X 없음·딤/Escape 닫힘, 하단 우측 프로필 버튼 → 메뉴 "설정/로그아웃", 말풍선 VOICE 아이콘 없음, 입력창 지우기 X 노출/삭제/포커스 유지 — 사용자 실측 승인.
+- issues: 없음. 후속 결정 대기: 보이스 오버레이 "다시" 버튼 처리(카드에서만 유지 / 자동 복귀 / barge-in) — inbox/to-ceo.md.
+- date: 2026-09-18
+

@@ -571,7 +571,7 @@
 - note: 원인 — api 종료 시 Tomcat 이 열린 async(SSE) 요청을 강제 timeout → catch-all 핸들러가 ERROR. `SseEmitter(0L)` 은 무제한이라 평시엔 안 남. 교훈: bootRun 중 `gradlew test` 로 api 가 죽는 것 이번에도 재현(기존 교훈).
 
 ## T-029 채팅 UI 정리 13건 (web) — D-034
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M3
 - spec: DECISIONS.md#D-034, DESIGN.md#2·#3·#7
@@ -584,11 +584,11 @@
   - 보이스 오버레이: 단일 오브 + 라벨 + 우측 상단 X("끄기") + 하단 "다시". 기존 상태 머신·훅 변경 없음.
   - 활성 버튼·링크 cursor pointer. `npm test`·lint·typecheck 통과.
 - test: `VoiceModeOverlay`(9, 단일 오브·X·다시), `Composer`(+1 토글 순서 마이크→음성→전송), `ChatShell`(설정 시트 방 안/밖·드로어·우측 햄버거), `Sidebar`(톱니·테마 없음), `RoomHeaderSheet`(툴팁·가운데·테마 줄·저장 버튼), `AiPromptEditor`(취소/저장/비활성), `RoomListItem`(+2 바깥 클릭·↑↓), `MessageBubble`(듣기 없음), `MessageList`(다시 없음). web 전체 53 파일 365 통과, lint(기존 경고 1)·typecheck·build 통과(2026-09-18).
-- qa: (사용자 Chrome 실측 대기 — 개발자 브라우저 자동 로그인은 권한 정책으로 불가)
+- qa: PASS (QA_REPORT.md 2026-09-18, 사용자 Chrome 실측 + 개발자 QA 대행)
 - note: `ListenButton` 삭제. 사이드바 톱니는 방 밖에서도 보이며 그때 시트는 "테마" 줄만(D-034 가정). 오류 말풍선은 스트림 스토어에만 있어 새로고침하면 사라진다(서버 미저장, 기존과 동일).
 
 ## T-030 채팅 UI 정리 2차 4건 (web) — D-035
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M3
 - spec: DECISIONS.md#D-035, DESIGN.md#2·#3
@@ -600,6 +600,6 @@
   - 컴포저: 글자가 있으면 "지우기" X 버튼, 비면 없음. 탭 → 값 비움 + 포커스 유지.
   - `npm test`·lint·typecheck 통과.
 - test: `useMenu` 추출(RoomListItem 기존 2건이 회귀 커버), `Sidebar`(+3 프로필 메뉴·바깥 클릭/Escape·로그아웃 POST), `ChatShell`(드로어 X 없음·Escape·딤), `MessageBubble`(VOICE 아이콘 없음), `Composer`(+1 지우기 순서·포커스). web 전체 53 파일 368 통과, lint(기존 경고 1)·typecheck·build 통과(2026-09-18).
-- qa: (사용자 Chrome 실측 대기)
+- qa: PASS (QA_REPORT.md 2026-09-18, 사용자 Chrome 실측 + 개발자 QA 대행)
 - note: React Compiler lint(`Cannot access refs during render`)는 훅이 돌려준 객체에 `*Ref` 가 있으면 객체 전체를 ref 로 본다 → 호출부에서 구조분해. 교훈 상단에 추가.
 

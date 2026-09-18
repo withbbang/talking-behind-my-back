@@ -261,7 +261,7 @@
 - 근거 파일: TASKS.md T-028, API.md#에러-형식(503 행), `apps/api/.../global/error/GlobalExceptionHandler.java`
 - date: 2026-09-18
 
-### [개발자 → QA] T-029 채팅 UI 정리 13건 (web) 검증 요청
+### [개발자 → QA] T-029 채팅 UI 정리 13건 (web) 검증 요청 [처리됨 2026-09-18, QA_REPORT.md#T-029 PASS — 사용자 실측]
 - 요청/이슈: D-034(사용자 지시 13건) 구현. `cd apps/web && npm test`(365 passed / 53 files), `npm run lint`(0 error, 기존 경고 1), `npm run typecheck`, `npm run build` 통과.
 - 검증 포인트(실브라우저 http://localhost:3000, 라이트/다크 둘 다):
   (1) 컴포저: [마이크][음성][전송] 순서. AI 모드·ACTIVE 에서만 "음성" 보임, HUMAN·잠김(pending/orphaned) 에선 없음. 상단 바에는 제목만.
@@ -277,7 +277,7 @@
 - 근거 파일: D-034, TASKS.md T-029, DESIGN.md §2·§3·§7, BRAND.md §5, `apps/web/app/components/{chat,voice}/**`, `apps/web/app/globals.css`.
 - date: 2026-09-18
 
-### [개발자 → QA] T-030 채팅 UI 정리 2차 4건 (web) 검증 요청
+### [개발자 → QA] T-030 채팅 UI 정리 2차 4건 (web) 검증 요청 [처리됨 2026-09-18, QA_REPORT.md#T-030 PASS — 사용자 실측]
 - 요청/이슈: D-035(사용자 지시 4건 + "이름은 우측") 구현. `npm test`(368 passed / 53 files), lint(0 error, 기존 경고 1), typecheck, build 통과.
 - 검증 포인트(실브라우저, 모바일 폭 포함):
   (1) 드로어에 X 없음. 딤 탭·Escape 로 닫힘, 방 이동 시 자동 닫힘.
