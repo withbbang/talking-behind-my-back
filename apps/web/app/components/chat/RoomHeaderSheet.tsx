@@ -14,16 +14,20 @@ import { ApiError } from '@/lib/api';
 import { AiPromptEditor } from './AiPromptEditor';
 import { ThemeRow } from './ThemePicker';
 
+// 칸별 안내 툴팁(D-037 4) — 혼자인 방은 토글이 비활성이라 "친구 초대해봐!" 하나만 띄운다.
 const MODES = [
-  { value: 'AI', label: 'AI' },
-  { value: 'HUMAN', label: '유저끼리' },
-] as const satisfies readonly { value: RoomMode; label: string }[];
+  { value: 'AI', label: 'AI', tip: 'AI와 1:1, 친구는 못 봐!' },
+  { value: 'HUMAN', label: '유저끼리', tip: '친구와 1:1, AI는 못 봐!' },
+] as const satisfies readonly { value: RoomMode; label: string; tip: string }[];
+
+const MODES_ALONE = MODES.map(({ value, label }) => ({ value, label })) as readonly { value: RoomMode; label: string }[];
 
 type Props = { room: Room; open: boolean; onClose: () => void; onInvite?: () => void };
 
 /**
  * 설정 시트 (DESIGN.md#3, D-034 2~7). 사이드바 톱니 → 제목(가운데, 개설자는 탭해 수정) · 멤버 줄(가운데) · 모드 · 테마 · AI 성격.
- * 혼자면 모드 토글 비활성 + 호버/포커스 시 "친구 초대해봐!" 말풍선 툴팁. 초대 시트 진입(onInvite)은 T-018. 모드는 낙관적으로 바꾸고 실패 시 토스트 + 되돌림.
+ * 모드 토글 칸마다 안내 툴팁("AI와 1:1, 친구는 못 봐!" / "친구와 1:1, AI는 못 봐!", D-037 4).
+ * 혼자면 모드 토글 비활성 + 칸별 툴팁 대신 "친구 초대해봐!" 말풍선 툴팁 하나. 초대 시트 진입(onInvite)은 T-018. 모드는 낙관적으로 바꾸고 실패 시 토스트 + 되돌림.
  */
 export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
   const patch = usePatchRoom(room.id);
@@ -126,7 +130,7 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
             <PillToggle
               aria-label="모드"
               aria-describedby={alone ? tipId : undefined}
-              options={MODES}
+              options={alone ? MODES_ALONE : MODES}
               value={mode}
               onChange={changeMode}
               disabled={alone || patch.isPending}

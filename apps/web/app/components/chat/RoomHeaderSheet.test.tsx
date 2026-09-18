@@ -58,10 +58,19 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     expect(onInvite).toHaveBeenCalled();
   });
 
-  it('둘이면 툴팁 없음', () => {
+  it('둘이면 칸별 안내 툴팁 2개 + "친구 초대해봐!" 없음 (D-037 4)', () => {
     renderSheet(two());
-    expect(screen.queryByRole('tooltip')).toBeNull();
     expect(screen.queryByText('친구 초대해봐!')).toBeNull();
+    expect(screen.getAllByRole('tooltip').map((t) => t.textContent))
+      .toEqual(['AI와 1:1, 친구는 못 봐!', '친구와 1:1, AI는 못 봐!']);
+    expect(screen.getByRole('radio', { name: 'AI' }))
+      .toHaveAttribute('aria-describedby', screen.getByText('AI와 1:1, 친구는 못 봐!').id);
+  });
+
+  it('혼자면 칸별 툴팁 없이 "친구 초대해봐!" 하나만 (D-037 4 현행 유지)', () => {
+    renderSheet(roomDetail(10));
+    expect(screen.getAllByRole('tooltip')).toHaveLength(1);
+    expect(screen.queryByText('AI와 1:1, 친구는 못 봐!')).toBeNull();
   });
 
   it('시트 라벨 "설정", 제목·멤버 줄 가운데 정렬, 모드 다음 줄에 "테마"(시스템/라이트/다크) — D-034 2·3·5·7', () => {
