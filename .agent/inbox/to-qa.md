@@ -223,7 +223,7 @@
 
 
 
-### [개발자 → QA] T-010 듣기/말하기 버튼 + 보이스 모드 루프 (web) 검증 요청
+### [개발자 → QA] T-010 듣기/말하기 버튼 + 보이스 모드 루프 (web) 검증 요청 [처리됨 2026-09-18, QA_REPORT.md#T-010 PASS(기능) — 문구 확정 대기]
 - 요청/이슈: `cd apps/web && npm test`(319 passed / 52 files), `npm run lint`(0 error, 기존 경고 1: api.ts `_retry`), `npm run typecheck`, `npm run build` 통과 확인.
   신규 79건은 `app/features/speech/**` + `app/components/voice/**` + Composer/ChatShell/RoomView/MessageBubble/api 추가분.
   설계 근거 D-029(사용자 결정 1=2B·3=b, 나머지 승인) — DESIGN.md#7, BRAND.md#5 신규 문구 행 반영됨.

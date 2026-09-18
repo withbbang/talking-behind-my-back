@@ -355,3 +355,20 @@
   - (블록 아님, 참고) bootRun 로그에 netty `MacOSDnsServerAddressStreamProvider` 로드 실패 ERROR 1회 — macOS 로컬 전용(`netty-resolver-dns-native-macos` 미포함), Linux 컨테이너 무관.
   - 뒷정리: user 2 ACTIVE 복구, 임시 토큰·오디오 파일 삭제, bootRun 종료. `daily_usage` user 1 오늘 행은 실측값(71/14) 그대로.
 - date: 2026-09-18
+
+### T-010 듣기/말하기 버튼 + 보이스 모드 루프 (web)
+- verdict: PASS (기능) — 문구는 D-029 초안이라 사용자 확정 대기(REVIEW 유지). 개발자 QA 대행, 2026-09-18. Playwright 실브라우저 + 실백엔드.
+- tests: 존재 / web `npm test` 319 passed(52 files, 신규 79), `lint` 0 error(기존 경고 1), `typecheck`·`build` 통과. 에이전트 실행(로컬).
+- checked (실측: compose + api bootRun + web dev, nginx :3000, Playwright Chromium — fake mic + `context.addCookies`(로컬 JWT_SECRET 서명 user 1) + `grantPermissions(microphone)`):
+  - 렌더: AI·ACTIVE 방(3668) 상단 바 "음성" 토글, AI 말풍선 "듣기" 버튼, 컴포저 "마이크" 버튼 모두 표시(스크린샷 `t010-room.png`).
+  - 보이스 오버레이(D-029 1=2B): 토글 → dialog "보이스 모드" 열림, 내 쪽 말풍선 활성("녹음 완료" + `m:ss` 타이머 진행) + AI 쪽 45% + `status`(aria-live) "듣는 중". getUserMedia 성공(fake mic) → 실제 녹음. 신선 로드 시 자동 안 열림(오작동 아님 확인).
+  - STT 왕복 실측: "녹음 완료" → 실제 MediaRecorder webm/opus(약 31KB) → nginx → api → OmniRoute → **Groq 200** `{text,durationMs,provider:"omniroute"}`(fake tone 이 영어로 전사됨). 전사 텍스트가 `inputType:VOICE` 로 전송돼 목록에 남고 **마이크 마커(`음성` 아이콘)** 표시.
+  - 스트림 오류 경로: 전송 후 AI 응답이 error(이 로컬 OmniRoute 에 chat LLM 노드 미구성 — T-010 무관, 백엔드 범위) → 오버레이 error 카드 "시스템 오류. 다시 시도해줄래?" + "다시"/"끄기", 배경 blur(스크린샷 `t010-overlay-error.png`). "다시" → recording 복귀, "끄기" → 오버레이 닫힘 + 토글 해제.
+  - 듣기(TTS) 실측: AI 말풍선 "듣기" → **`/speech/tts` 200 `audio/mpeg`**(실제 edge-tts) → 버튼 "정지"(aria-pressed) 유지하며 재생 → 오디오 자연 종료 시 "듣기"로 복귀(재생 큐·상태 정상).
+  - 컴포저 마이크: "마이크" → 캡슐이 녹음 줄("듣는 중" + `m:ss` + 녹음 취소/완료)로 전환, "녹음 취소" → 입력창 복귀(스크린샷 `t010-composer-recording.png`).
+  - 계약: STT/TTS 응답·헤더 API.md#speech 와 일치. VOICE 메시지 persist·표시 정상.
+- issues:
+  - (블록 아님, 범위 밖) 로컬 OmniRoute 에 chat LLM 노드가 없어 AI 응답이 error → 보이스 모드의 **speaking/TTS 재생 레그(성공 done → 합성)**는 오버레이 경유로는 미실측. 단, 같은 TTS 합성·재생 경로를 ListenButton 으로 200·재생·종료까지 실측했고, `useVoiceMode` speaking→TTS 전이는 단위 테스트가 덮는다. chat LLM 구성은 T-007/T-008 backend.
+  - (참고) 실기기(iOS/Android) 마이크·PWA 왕복은 미실측 → T-013. HUMAN 전환 종료(2인 방 필요)는 단위 테스트로 대체.
+  - (뒷정리) 테스트로 room 3668 에 남은 메시지 삭제(빈 방 복원), 임시 토큰·쿠키 파일 삭제. user 1 `daily_usage` 오늘 stt/tts 사용량은 실측값 그대로.
+- date: 2026-09-18
