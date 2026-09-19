@@ -329,3 +329,16 @@
   (6) 모바일/터치(있으면): 잠금 해제 시 키보드가 다시 올라오는 게 거슬리는지 — 거슬리면 pointer:coarse 예외를 별도 T 로 뺀다.
 - 근거 파일: `apps/web/app/components/chat/Composer.tsx`, `apps/web/app/components/chat/Composer.test.tsx`, TASKS.md T-034.
 - date: 2026-09-19
+
+### [개발자 → QA] T-033 SSE 끊김 ERROR 스택 제거 — 검증 요청 [처리됨 2026-09-19, PASS — 끊김 2건에 ERROR 0건·DEBUG 2줄, 실브라우저 확인은 다음 실측에 곁눈질]
+- 무엇: SSE 를 연 탭을 닫거나 새로고침할 때마다 api 로그에 찍히던 `AsyncRequestNotUsableException`(Caused by Broken pipe) ERROR 스택 제거. 전용 `@ExceptionHandler` + catch-all 안전망(`DisconnectedClientHelper`)으로 debug 한 줄로 내렸다. 응답/이벤트 계약 변경 없음.
+- 테스트: api `./gradlew test` 310 통과(로그 레벨 단언 포함 +2).
+- 개발자 실측(2026-09-19): :8081 별도 인스턴스 + `curl -N` SSE 끊김 — 수정 전 ERROR 1건/끊김 1건 → 수정 후 끊김 2건에 ERROR·WARN 0건, DEBUG 2줄.
+- 남은 검증 포인트(실브라우저, bootRun 로그를 보며):
+  (1) 방에 들어가 SSE 가 붙은 뒤 **탭 닫기 / 새로고침 / 방 나가기**를 각각 해본다 → 로그에 `unhandled exception` 스택이 더는 없다(최대 20초 뒤 판정 — 하트비트 시점에 드러난다).
+  (2) 스트리밍 도중(점 3개 나오는 중) 탭을 닫아도 같다. 남은 AI 잡은 조용히 끝난다.
+  (3) 진짜 서버 오류는 여전히 ERROR 로 보인다 — 예: OmniRoute 를 내린 뒤 전송(T-032 재현 절차)하면 그 실패 로그는 그대로 남는다.
+  (4) 2인 방에서 한쪽만 탭을 닫아도 남은 쪽 SSE 는 계속 살아 있다(메시지·델타 수신 정상).
+- 근거 파일: `apps/api/src/main/java/com/example/chat/global/error/GlobalExceptionHandler.java`, `apps/api/src/test/java/com/example/chat/global/error/GlobalExceptionHandlerTest.java`, TASKS.md T-033(T-028 형제).
+- date: 2026-09-19
+

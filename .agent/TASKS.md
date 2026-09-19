@@ -60,6 +60,7 @@
 - **`docker exec -i mysql < file.sql` 은 한글이 깨져 1064**(클라이언트 charset 기본값). `--default-character-set=utf8mb4` 를 붙인다.
 - **포커스된 엘리먼트를 `disabled` 로 만들면 브라우저가 포커스를 뗀다**(다시 활성화해도 복원 안 됨) — 전송 직후 잠기는 입력창·값이 비면 disabled 되는 전송 버튼 둘 다 해당(T-034). 잠금으로 가리는 UI 는 "풀릴 때 포커스를 어디로 돌려줄지" 를 같이 정할 것. **jsdom 은 이 blur 를 흉내내지 않으니** 테스트에서 `el.blur()` 로 그 지점을 직접 재현해야 한다.
 - **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
+- **"로그에 안 찍힌다" 는 응답 단언으로 검증되지 않는다** — logback `ListAppender` 를 핸들러 로거에 붙여 레벨을 단언한다(T-033). api 로그를 실측할 땐 사용자 bootRun(:8080)을 건드리지 말고 `ps` 에서 뽑은 같은 클래스패스로 `java -Dserver.port=8081 … ChatApplication` 두 번째 인스턴스를 띄워 로그를 파일로 받는다. **클라이언트 끊김은 다음 하트비트(20초) 쓰기 시점에야 예외로 드러난다** — 끊고 바로 로그를 보면 아직 없다.
 
 ---
 
@@ -653,18 +654,22 @@
   **Safari 에서 프로필 메뉴 "설정" 무반응** = `useMenu` 의 focusout 판정 — 역할 무관이었다(참여자 창이 Safari, 개설자 창이 Chrome 이라 한쪽만 재현). `ChatShell.test.tsx` 가 Sidebar 를 스텁으로 갈아끼워 이 경로에 테스트가 없었다 → 실제 Sidebar 통합 테스트 신설.
 
 ## T-033 SSE 클라이언트 끊김 ERROR 스택 제거 (api) — T-031 실측 중 발견
-- status: TODO
+- status: DONE
 - owner: 개발자
 - milestone: M3
 - spec: TASKS.md T-028(형제 케이스), `GlobalExceptionHandler`
 - blocked_by: 없음
 - acceptance:
   - SSE 를 연 클라이언트가 끊길 때 나는 `AsyncRequestNotUsableException`(Caused by Broken pipe)이 catch-all ERROR 스택으로 찍히지 않는다(T-028 의 `AsyncRequestTimeoutException` 과 같은 모양의 핸들러 + debug 로그).
+  - catch-all `handleUnknown` 은 톰캣 `ClientAbortException` 처럼 다른 모양으로 오는 끊김도 `DisconnectedClientHelper.isClientDisconnectedException` 으로 판정해 debug 로 내린다(사용자 선택 C안, 2026-09-19). 진짜 예외는 그대로 ERROR.
   - 단위 테스트 +1. `./gradlew test` 통과.
-- test: (구현 후)
-- qa: (대기)
+- test: `GlobalExceptionHandlerTest` +2 — 전용 핸들러(`AsyncRequestNotUsableException` → 503 + DEBUG 1줄), catch-all 안전망(`ClientAbortException` → 503 + DEBUG). 기존 "예상 못한 예외 500" 에 ERROR 로그 단언을 추가해 안전망이 진짜 실패를 삼키지 않는 걸 고정.
+  로그 레벨 단언은 logback `ListAppender` 로(응답만 보면 "ERROR 로 안 찍힌다" 가 검증되지 않는다). api 전체 310 통과(2026-09-19 로컬, compose MySQL).
+- qa: PASS (QA_REPORT.md 2026-09-19, 개발자 실측 + 개발자 QA 대행)
 - note: T-031 실측 중 30분에 4건 관측(탭 닫기·새로고침마다 1건). 동작 영향은 없고 로그 노이즈 — 실측 로그에서 진짜 실패를 가린다.
-  착수 순서는 사용자 선택 대기(실측 먼저 vs 지금).
+  경로 확인(2026-09-19 실측): 톰캣 `AsyncListenerWrapper.fireOnError` → `StandardServletAsyncWebRequest.onError` → `WebAsyncManager` 가 `AsyncRequestNotUsableException`(Caused by `Broken pipe`) 으로 감싸 에러 디스패치 → 우리 advice catch-all `handleUnknown` 에서 ERROR 스택. `RoomEventBus` 의 send 실패 경로는 원인이 아니다(이미 IOException 을 잡아 debug).
+  실측 방식: 8080 의 bootRun 을 건드리지 않게 같은 클래스패스로 **:8081 두 번째 인스턴스**를 띄우고(로컬 dev JWT 쿠키 + 기존 방) `curl -N` 로 SSE 를 연 뒤 kill — 끊김은 다음 하트비트(20초) 쓰기 시점에 드러난다.
+  결과: 수정 전 끊김 1건 = ERROR 스택 1건 / 수정 후 끊김 2건 = ERROR·WARN 0건 + `client disconnected during response:` DEBUG 2줄. SSE 동작(`:connected`·`:ping`)은 그대로.
 
 ## T-034 전송 후 입력창 포커스 유지 (web) — 사용자 버그 제보
 - status: DONE

@@ -11,10 +11,12 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.util.DisconnectedClientHelper;
 
 /**
  * 모든 예외를 API.md#에러-형식 으로 변환. 본문/토큰/오디오는 로그에 남기지 않는다 (CONVENTIONS.md#공통).
@@ -89,10 +91,31 @@ public class GlobalExceptionHandler {
 			.body(new ErrorResponse("SERVICE_UNAVAILABLE", "요청 처리 시간이 초과되었습니다.", null));
 	}
 
+	/**
+	 * SSE 를 연 클라이언트가 끊길 때(탭 닫기·새로고침) 톰캣이 async 요청에 error 를 통지하고 스프링이 이 예외로 감싼다
+	 * (Caused by Broken pipe). 응답 스트림이 이미 죽어 본문은 나갈 곳이 없고, catch-all 로 가면 끊김마다 ERROR 스택이
+	 * 찍혀 실측 로그에서 진짜 실패를 가린다(T-033). AsyncRequestTimeoutException(T-028)과 같은 모양의 처리.
+	 */
+	@ExceptionHandler(AsyncRequestNotUsableException.class)
+	public ResponseEntity<ErrorResponse> handleAsyncNotUsable(AsyncRequestNotUsableException e) {
+		return clientDisconnected(e);
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleUnknown(Exception e) {
+		// 안전망 — 톰캣 ClientAbortException 처럼 다른 모양으로 오는 끊김도 ERROR 스택을 남기지 않는다(T-033)
+		if (DisconnectedClientHelper.isClientDisconnectedException(e)) {
+			return clientDisconnected(e);
+		}
 		log.error("unhandled exception", e);
 		ErrorCode code = ErrorCode.INTERNAL_ERROR;
 		return ResponseEntity.status(code.getStatus()).body(ErrorResponse.of(code));
+	}
+
+	/** 끊긴 클라이언트 — 스택 없이 debug 한 줄. 응답은 어차피 전달되지 않는다. */
+	private ResponseEntity<ErrorResponse> clientDisconnected(Exception e) {
+		log.debug("client disconnected during response: {}", e.toString());
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(new ErrorResponse("SERVICE_UNAVAILABLE", "연결이 끊겼습니다.", null));
 	}
 }

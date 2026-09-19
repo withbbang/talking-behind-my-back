@@ -450,3 +450,18 @@
 - checked (실측): to-qa 2026-09-19 검증 포인트 (1)~(5) 통과 — AI 답 완료 후 입력창에 커서 복귀, 버튼 클릭 전송도 동일, `유저끼리` 모드 동일, 대기 중 다른 곳에 포커스를 두면 안 뺏음, `orphaned` 해제 시 자동 포커스 없음.
 - issues: 없음. (6) 모바일/터치에서 잠금 해제 시 키보드 재등장 여부는 이번 실측 보고 없음 — 거슬리면 pointer:coarse 예외를 별도 T 로 분리.
 - date: 2026-09-19
+
+### T-033 SSE 클라이언트 끊김 ERROR 스택 제거 (api) — T-031 실측 중 발견
+- verdict: PASS — 개발자 실측(:8081 별도 인스턴스 + `curl -N` SSE 끊김, 수정 전/후 로그 대조) + 개발자 QA 대행(사용자 지시 "태스크 종료"), 2026-09-19.
+- tests: 존재 / api `./gradlew test` **310 통과**(68 클래스, 실패·스킵 0, compose MySQL).
+  `GlobalExceptionHandlerTest` +2 — `AsyncRequestNotUsableException` → 503 + DEBUG 1줄 / catch-all 안전망 `ClientAbortException` → 503 + DEBUG 1줄.
+  기존 "예상 못한 예외 500" 에 `ERROR` 로그 단언 추가(안전망이 진짜 실패를 삼키지 않는지 고정). 로그 레벨은 logback `ListAppender` 로 단언 — 응답 단언만으로는 "ERROR 로 안 찍힌다" 가 검증되지 않는다.
+  전용 핸들러 부재 상태에서 컴파일 실패(RED) 확인 후 구현(GREEN).
+- checked (실측):
+  - 원인 경로 확정: 톰캣 `AsyncListenerWrapper.fireOnError` → `StandardServletAsyncWebRequest.onError` → `WebAsyncManager` 가 `AsyncRequestNotUsableException`(Caused by `java.io.IOException: Broken pipe`)으로 감싸 에러 디스패치 → advice catch-all `handleUnknown` 이 ERROR 스택. `RoomEventBus` send 실패 경로는 원인이 아니다(이미 IOException 을 잡아 debug).
+  - 수정 전: 끊김 1건 = ERROR 스택 1건. 수정 후: 끊김 2건 = ERROR·WARN **0건** + `client disconnected during response:` DEBUG 2줄.
+  - SSE 정상 동작 회귀: 구독 직후 `:connected`, 20초 하트비트 `:ping` 수신 그대로.
+- issues: 없음. 한계 — 실브라우저(탭 닫기·새로고침·nginx 경유)가 아니라 `curl -N` 강제 종료로 재현했다(같은 예외·같은 스택). 실브라우저 확인은 to-qa T-033 (1)~(4) 로 남겨 다음 실측 때 곁눈질로 볼 것.
+  관측 사실: 끊김은 **다음 하트비트(20초) 쓰기 시점**에야 예외로 드러난다 — 끊고 바로 로그를 보면 아직 없다(교훈 등재).
+- date: 2026-09-19
+

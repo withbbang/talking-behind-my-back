@@ -2,9 +2,19 @@ package com.example.chat.global.error;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import org.apache.catalina.connector.ClientAbortException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +24,7 @@ import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
@@ -25,6 +36,30 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 class GlobalExceptionHandlerTest {
 
 	private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+	/** 로그 레벨 단언용 — "ERROR 스택으로 찍히지 않는다" 는 응답만 봐서는 검증되지 않는다 (T-033). */
+	private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+	private final Logger handlerLogger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+	private Level 원래레벨;
+
+	@BeforeEach
+	void 로그_수집_시작() {
+		원래레벨 = handlerLogger.getLevel();
+		handlerLogger.setLevel(Level.DEBUG);
+		logs.start();
+		handlerLogger.addAppender(logs);
+	}
+
+	@AfterEach
+	void 로그_수집_종료() {
+		handlerLogger.detachAppender(logs);
+		logs.stop();
+		handlerLogger.setLevel(원래레벨);
+	}
+
+	private List<Level> 로그레벨() {
+		return logs.list.stream().map(ILoggingEvent::getLevel).toList();
+	}
 
 	@Test
 	@DisplayName("BusinessException 은 ErrorCode 의 상태/코드/기본 메시지로 응답한다")
@@ -113,6 +148,8 @@ class GlobalExceptionHandlerTest {
 		assertThat(res.getBody()).isNotNull();
 		assertThat(res.getBody().code()).isEqualTo("INTERNAL_ERROR");
 		assertThat(res.getBody().message()).doesNotContain("DB 커넥션");
+		// 끊김 안전망(T-033)이 진짜 실패를 삼키지 않는다
+		assertThat(로그레벨()).containsExactly(Level.ERROR);
 	}
 
 	@Test
@@ -132,6 +169,30 @@ class GlobalExceptionHandlerTest {
 		assertThat(res.getBody()).isNotNull();
 		assertThat(res.getBody().code()).isEqualTo("SERVICE_UNAVAILABLE");
 		assertThat(res.getBody().details()).isNull();
+	}
+
+	@Test
+	@DisplayName("AsyncRequestNotUsableException(SSE 클라이언트 끊김) 은 503 SERVICE_UNAVAILABLE + debug 한 줄 — ERROR 스택이 아니다 (T-033)")
+	void asyncNotUsable_503_debug() {
+		ResponseEntity<ErrorResponse> res = handler.handleAsyncNotUsable(new AsyncRequestNotUsableException(
+			"Servlet container error notification for disconnected client", new IOException("Broken pipe")));
+
+		assertThat(res.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+		assertThat(res.getBody()).isNotNull();
+		assertThat(res.getBody().code()).isEqualTo("SERVICE_UNAVAILABLE");
+		assertThat(res.getBody().details()).isNull();
+		assertThat(로그레벨()).containsExactly(Level.DEBUG);
+	}
+
+	@Test
+	@DisplayName("catch-all 로 온 다른 모양의 끊김(톰캣 ClientAbortException)도 ERROR 스택 없이 503 — 안전망 (T-033)")
+	void catchAll_클라이언트_끊김_debug() {
+		ResponseEntity<ErrorResponse> res = handler.handleUnknown(new ClientAbortException(new IOException("Broken pipe")));
+
+		assertThat(res.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+		assertThat(res.getBody()).isNotNull();
+		assertThat(res.getBody().code()).isEqualTo("SERVICE_UNAVAILABLE");
+		assertThat(로그레벨()).containsExactly(Level.DEBUG);
 	}
 
 	/** MethodParameter 생성용 더미 시그니처 */
