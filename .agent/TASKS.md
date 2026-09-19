@@ -62,6 +62,7 @@
 - **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
 - **"로그에 안 찍힌다" 는 응답 단언으로 검증되지 않는다** — logback `ListAppender` 를 핸들러 로거에 붙여 레벨을 단언한다(T-033). api 로그를 실측할 땐 사용자 bootRun(:8080)을 건드리지 말고 `ps` 에서 뽑은 같은 클래스패스로 `java -Dserver.port=8081 … ChatApplication` 두 번째 인스턴스를 띄워 로그를 파일로 받는다. **클라이언트 끊김은 다음 하트비트(20초) 쓰기 시점에야 예외로 드러난다** — 끊고 바로 로그를 보면 아직 없다.
 - **GH Actions `vars.*` 는 Settings → Secrets and variables → Actions 의 Repository variables 탭에 있어야 읽힌다.** Secrets 탭이나 Environment 범위(job 에 `environment:` 없음)에 넣으면 빈 문자열 → `ghcr.io/owner/-api` invalid reference (T-012, master push 10회 실패). 레포명 폴백(`vars.X || github.event.repository.name`)을 둬서 없어도 돌게 했다.
+- **Synology 비대화형 SSH(GH Actions·`ssh host cmd`)는 PATH 에 `/usr/local/bin` 이 없고, `docker.sock` 은 root:root 660 + docker 그룹 없음, `visudo`·SFTP 없음.** deploy 스크립트는 `export PATH=/usr/local/bin:$PATH` + `sudo -n docker`(sudoers.d NOPASSWD), Mac 에서 파일 올릴 땐 `scp -O`(레거시 프로토콜). `ls -l` 모드 비트는 보는 계정의 ACL 유효권한으로 합성돼 계정마다 다르게 보인다 — 실제 권한은 `synoacltool -get`(T-012).
 
 ---
 

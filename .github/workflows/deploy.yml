@@ -10,7 +10,9 @@
 #   2. 배포 계정 ~/.ssh/authorized_keys 에 공개키 등록
 #   3. docker login ghcr.io -u <GH_OWNER> -p <read:packages PAT>  (비공개 이미지일 때)
 #   4. NAS_DEPLOY_DIR 에 .env / .env.omniroute 준비 (예제 파일 참고)
-#   5. Synology는 docker 실행에 sudo가 필요할 수 있음 → visudo로 NOPASSWD 지정하거나 docker 그룹 추가
+#   5. Synology 는 docker.sock 이 root:root 660 이라 sudo 필요(visudo 없음):
+#      sudo sh -c 'echo "<배포계정> ALL=(root) NOPASSWD: /usr/local/bin/docker" > /etc/sudoers.d/<배포계정> && chmod 440 /etc/sudoers.d/<배포계정>'
+#      확인: ssh <배포계정>@NAS 'sudo -n /usr/local/bin/docker ps'
 
 name: deploy
 
@@ -112,9 +114,13 @@ jobs:
           key: ${{ secrets.NAS_SSH_KEY }}
           script: |
             set -e
+            export PATH=/usr/local/bin:$PATH        # Synology 비대화형 SSH 는 /usr/local/bin(docker) 이 PATH 에 없다
             cd ${{ env.DEPLOY_DIR }}
-            export IMAGE_TAG=${{ github.sha }}
-            docker compose --env-file .env pull web api
-            docker compose --env-file .env up -d --remove-orphans
-            docker image prune -f
-            docker compose --env-file .env ps
+            # IMAGE_TAG 는 .env 에 써 넣는다(.env.example 주석) — sudo 가 환경변수를 초기화해도 compose 가 읽는다
+            if grep -q '^IMAGE_TAG=' .env; then sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${{ github.sha }}/" .env; else echo "IMAGE_TAG=${{ github.sha }}" >> .env; fi
+            # docker.sock 이 root:root 660 이면 sudoers NOPASSWD(상단 주석 5번) 경유. 비밀번호를 요구하면 즉시 실패(-n)
+            if docker ps >/dev/null 2>&1; then DOCKER=docker; else DOCKER="sudo -n docker"; fi
+            $DOCKER compose --env-file .env pull web api
+            $DOCKER compose --env-file .env up -d --remove-orphans
+            $DOCKER image prune -f
+            $DOCKER compose --env-file .env ps
