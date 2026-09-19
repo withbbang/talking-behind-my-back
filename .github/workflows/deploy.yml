@@ -118,6 +118,9 @@ jobs:
             cd ${{ env.DEPLOY_DIR }}
             # IMAGE_TAG 는 .env 에 써 넣는다(.env.example 주석) — sudo 가 환경변수를 초기화해도 compose 가 읽는다
             if grep -q '^IMAGE_TAG=' .env; then sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${{ github.sha }}/" .env; else echo "IMAGE_TAG=${{ github.sha }}" >> .env; fi
+            # Synology Docker 는 bind mount 대상 디렉터리를 자동 생성하지 않는다 ("Bind mount failed: ... does not exist")
+            DATA_DIR=$(grep '^DATA_DIR=' .env | cut -d= -f2- | awk '{print $1}')
+            mkdir -p "${DATA_DIR:-./data}/mysql" "${DATA_DIR:-./data}/omniroute"
             # docker.sock 이 root:root 660 이면 sudoers NOPASSWD(상단 주석 5번) 경유. 비밀번호를 요구하면 즉시 실패(-n)
             if docker ps >/dev/null 2>&1; then DOCKER=docker; else DOCKER="sudo -n docker"; fi
             $DOCKER compose --env-file .env pull web api
