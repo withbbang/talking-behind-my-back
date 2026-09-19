@@ -28,6 +28,7 @@ export type SendVars = { content: string; inputType?: InputType };
 /**
  * 전송 (API.md POST /rooms/{id}/messages → 202). 낙관적 USER 말풍선을 바로 넣고, 202 의 messageId 로 교체한다.
  * AI 모드면 내 잡을 대기로 표시해 입력을 잠근다(HUMAN 은 응답 없음). 실패 시 되돌리고 오류는 호출자가 토스트로.
+ * 보내는 순간 그 방의 오류 말풍선을 치운다 — 안 치우면 계속 목록 맨 밑에 따라다닌다(T-032 실측).
  * 410(ROOM_ORPHANED)이면 상세 캐시 status 를 ORPHANED 로 — RoomView 의 모달 트리거는 이 값 하나다(D-021).
  */
 export function useSendMessage(roomId: number, ctx: { meId: number; mode: RoomMode }) {
@@ -42,6 +43,7 @@ export function useSendMessage(roomId: number, ctx: { meId: number; mode: RoomMo
       const tempId = -Date.now();
       const temp: Message = { id: tempId, role: 'USER', senderUserId: ctx.meId, senderNickname: null, content, inputType, mode: ctx.mode, createdAt: new Date().toISOString() };
       client.setQueryData<MessagesData>(key, (old) => appendMessage(old, temp));
+      store.getState().clearErrors(roomId);
       if (ctx.mode === 'AI') store.getState().markSending(roomId, tempId, ctx.meId);
       return { tempId };
     },

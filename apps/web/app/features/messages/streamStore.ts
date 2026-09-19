@@ -9,6 +9,8 @@ type StreamStore = {
   /** 202 messageId 로 키 교체. 이벤트가 먼저 와서 서버 id 스트림이 이미 있으면 임시만 지운다. */
   rekey: (roomId: number, tempId: number, id: number) => void;
   remove: (roomId: number, replyTo: number) => void;
+  /** 오류 말풍선 정리 — 다시 보내는 순간 지난 오류는 치운다(T-032 실측, D-034 9 보완). */
+  clearErrors: (roomId: number) => void;
   /** 내 AI 잡이 대기·진행 중인가 (오류 상태는 잠금 아님). */
   myPending: (roomId: number, meId: number) => boolean;
 };
@@ -43,6 +45,12 @@ export const useStreamStore = create<StreamStore>((set, get) => ({
       return { rooms: { ...s.rooms, [roomId]: { ...without, streams: { ...without.streams, [id]: merged } } } };
     }),
   remove: (roomId, replyTo) => set((s) => ({ rooms: { ...s.rooms, [roomId]: removeStream(of(s.rooms, roomId), replyTo) } })),
+  clearErrors: (roomId) =>
+    set((s) => {
+      const cur = of(s.rooms, roomId);
+      const streams = Object.fromEntries(Object.entries(cur.streams).filter(([, e]) => e.status !== 'error'));
+      return { rooms: { ...s.rooms, [roomId]: { ...cur, streams } } };
+    }),
   myPending: (roomId, meId) =>
     Object.values(of(get().rooms, roomId).streams).some((e) => e.senderUserId === meId && e.status !== 'error'),
 }));

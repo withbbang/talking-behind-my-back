@@ -25,9 +25,10 @@ const MODES_ALONE = MODES.map(({ value, label }) => ({ value, label })) as reado
 type Props = { room: Room; open: boolean; onClose: () => void; onInvite?: () => void };
 
 /**
- * 설정 시트 (DESIGN.md#3, D-034 2~7). 사이드바 톱니 → 제목(가운데, 개설자는 탭해 수정) · 멤버 줄(가운데) · 모드 · 테마 · AI 성격.
- * 모드 토글 칸마다 안내 툴팁("AI와 1:1, 친구는 못 봐!" / "친구와 1:1, AI는 못 봐!", D-037 4).
- * 혼자면 모드 토글 비활성 + 칸별 툴팁 대신 "친구 초대해봐!" 말풍선 툴팁 하나. 초대 시트 진입(onInvite)은 T-018. 모드는 낙관적으로 바꾸고 실패 시 토스트 + 되돌림.
+ * 설정 시트 (DESIGN.md#3, D-034 2~7). 제목(가운데, 개설자는 탭해 수정) · 멤버 줄(가운데) · [개설자만] 모드 · 테마 · [개설자만] AI 성격.
+ * **참여자에게는 모드·AI 성격 줄을 아예 내리지 않는다**(T-032 실측 정정) — 방 성격은 개설자가 정한다. 참여자는 제목·멤버·테마만 본다.
+ * 모드 토글은 호버·포커스한 칸의 안내를 우측에 하나 띄운다("AI와 1:1, 친구는 못 봐!" / "친구와 1:1, AI는 못 봐!", D-037 4).
+ * 혼자면 모드 토글 비활성 + 칸별 안내 대신 "친구 초대해봐!" 툴팁 하나. 초대 시트 진입(onInvite)은 T-018. 모드는 낙관적으로 바꾸고 실패 시 토스트 + 되돌림.
  */
 export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
   const patch = usePatchRoom(room.id);
@@ -124,6 +125,7 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
           )}
         </ul>
 
+        {isOwner && (
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-[15px] font-semibold">모드</h3>
           <span className="group relative inline-flex">
@@ -146,9 +148,11 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
             )}
           </span>
         </div>
+        )}
 
         <ThemeRow />
 
+        {isOwner && (
         <AiPromptEditor
           key={room.aiPrompt ?? ''}
           aiPersonality={room.aiPersonality}
@@ -159,6 +163,7 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
           onSavePrompt={(aiPrompt) => patch.mutate({ aiPrompt }, { onError: fail })}
           onReset={() => patch.mutate({ aiPrompt: '' }, { onError: fail })}
         />
+        )}
       </div>
     </Sheet>
   );

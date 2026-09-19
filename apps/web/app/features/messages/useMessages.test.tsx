@@ -42,6 +42,27 @@ describe('useMessages (GET /rooms/{id}/messages 커서)', () => {
 });
 
 describe('useSendMessage (POST 202 + 낙관적 렌더 + 내 잡 잠금)', () => {
+
+  it('새로 보내면 그 방의 오류 말풍선은 사라진다 (T-032 실측)', async () => {
+    useStreamStore.setState({
+      rooms: {
+        7: {
+          streams: {
+            5: { replyTo: 5, senderUserId: 1, text: '', status: 'error', errorMessage: '시스템 오류. 다시 시도해줄래?', startedAt: 'x' },
+            6: { replyTo: 6, senderUserId: 2, text: '답 쓰는 중', status: 'streaming', startedAt: 'y' },
+          },
+          notices: [],
+        },
+      },
+    });
+    apiFetchMock.mockResolvedValue({ messageId: 101 });
+    const { result } = renderHook(() => useSendMessage(7, { meId: 1, mode: 'AI' }), { wrapper });
+
+    await act(() => result.current.mutateAsync({ content: '다시 물어봄' }));
+
+    // 오류 엔트리만 정리 — 진행 중인 남의 스트림은 건드리지 않는다
+    expect(Object.keys(useStreamStore.getState().rooms[7].streams).map(Number).sort((a, b) => a - b)).toEqual([6, 101]);
+  });
   it('낙관적 USER 메시지 → 202 messageId 로 교체, 스트림은 내 대기 잡으로 rekey', async () => {
     let resolve!: (v: { messageId: number }) => void;
     apiFetchMock.mockReturnValueOnce(new Promise((r) => (resolve = r)));

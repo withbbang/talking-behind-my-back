@@ -58,13 +58,25 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     expect(onInvite).toHaveBeenCalled();
   });
 
-  it('둘이면 칸별 안내 툴팁 2개 + "친구 초대해봐!" 없음 (D-037 4)', () => {
+  it('둘이면 칸별 안내 2개 + "친구 초대해봐!" 없음 (D-037 4)', () => {
     renderSheet(two());
     expect(screen.queryByText('친구 초대해봐!')).toBeNull();
     expect(screen.getAllByRole('tooltip').map((t) => t.textContent))
       .toEqual(['AI와 1:1, 친구는 못 봐!', '친구와 1:1, AI는 못 봐!']);
     expect(screen.getByRole('radio', { name: 'AI' }))
       .toHaveAttribute('aria-describedby', screen.getByText('AI와 1:1, 친구는 못 봐!').id);
+  });
+
+  it('참여자에게는 모드·AI 성격 줄이 없고 제목·멤버·테마만 (T-032 실측 정정)', () => {
+    renderSheet(two({ role: 'PARTICIPANT' }));
+    expect(screen.getByRole('dialog', { name: '설정' })).toBeInTheDocument();
+    expect(screen.getByText('방 10')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '영희' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: '테마 선택' })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: '모드' })).toBeNull();
+    expect(screen.queryByText('모드')).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: 'AI 성격' })).toBeNull();
+    expect(screen.queryByText('AI 성격')).toBeNull();
   });
 
   it('혼자면 칸별 툴팁 없이 "친구 초대해봐!" 하나만 (D-037 4 현행 유지)', () => {
@@ -141,11 +153,10 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     await waitFor(() => expect(useToastStore.getState().toast?.message).toBe('시스템 오류. 다시 시도해줄래?'));
   });
 
-  it('참여자: 제목은 버튼 아님, 성격 토글 비활성', () => {
+  it('참여자: 제목은 버튼 아님(수정 불가)', () => {
     renderSheet(two({ role: 'PARTICIPANT' }));
     expect(screen.queryByRole('button', { name: /제목 수정/ })).toBeNull();
     expect(screen.getByRole('heading', { name: '방 10' })).toBeInTheDocument();
-    expect(screen.getByRole('radiogroup', { name: 'AI 성격' })).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('토스트 스토어에 오류 메시지가 남으면 act 경고 없이 정리', () => {
