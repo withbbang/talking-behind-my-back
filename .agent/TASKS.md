@@ -49,6 +49,11 @@
 - **업로드 상한 실측 파일은 26,214,401B 이상.** "26MB" 를 26,000,000B 로 만들면 25MiB 미만이라 nginx(25m)·Boot(25MB) 를 통과해 공급자까지 갔다가 502 가 난다(T-009 QA).
 - **`MediaRecorder.stop()` 은 `stop` 이벤트가 비동기라 자동 종료 트리거가 둘(VAD·상한)이면 두 번 불려 InvalidStateError.** finish 결과 Promise 를 세션에 저장해 한 번만(T-026). 공유 Promise 에 `.finally()` 를 붙이면 거절이 한 번 더 unhandled 로 새니 `.then(after, after)` 로.
 - **React Compiler ESLint 는 훅이 돌려준 객체 안에 `xxxRef` 가 있으면 그 객체 접근 전부를 "refs during render" 로 잡는다.** 훅 반환값은 호출부에서 `const { open, menuRef } = useMenu()` 로 구조분해(T-030).
+- **macOS Safari 는 버튼을 클릭해도 포커스를 주지 않는다** → 메뉴/팝업을 `focusout` 으로 닫으면 `relatedTarget: null` 이 와서 click 전에 닫히고 항목이 안 눌린다(T-032 실측, Chrome·Firefox 는 통과). `relatedTarget` 이 null 인 focusout 은 무시하고 바깥 클릭은 `pointerdown` 으로 판정할 것.
+- **Tailwind `group-hover:` 는 조상 중 어떤 `.group` 이든 hover 면 매칭된다** — `.group` 을 중첩하면 안쪽 툴팁이 전부 같이 켜진다(T-032 실측). 여러 개가 필요하면 named group(`group/x`) 이거나 상태로 하나만 그린다. `overflow-y-auto` 컨테이너는 x축도 auto 라 절대배치 말풍선이 넘치면 가로 스크롤바가 생긴다.
+- **컴포넌트를 `vi.mock` 으로 스텁하면 그 경로는 테스트가 없는 것과 같다** — `ChatShell.test.tsx` 가 Sidebar 를 스텁해 "프로필 메뉴 → 설정" 이 한 번도 검증되지 않았다. 스텁은 격리 목적에만 쓰고, 실제 조립을 확인하는 통합 테스트를 따로 둘 것.
+- **Gemini 는 컨텍스트가 assistant 턴으로 끝나면 400 `Requests ending with a model turn are not supported`.** 2인 방에서 각자 AI 와 대화하면
+  상대 잡이 먼저 끝나 내 질문 뒤에 행이 쌓인다 — AI 잡은 **자기 트리거 메시지 id 까지만** 읽어야 한다(T-031 실측). 답 상대가 바뀌는 혼선도 같은 원인.
 - **MySQL 은 UPDATE 대상 테이블을 서브쿼리에서 다시 읽지 못한다**(파생 테이블로 감싸도 머지되면 1093). 백필은 `CREATE TEMPORARY TABLE … AS SELECT` 로 한 번 끊고 JOIN UPDATE(T-031 V4). 빈 DB 에서는 백필이 0행이라 "성공"만 보이니 더미 데이터를 넣어 결과를 눈으로 확인할 것.
 - **`docker exec -i mysql < file.sql` 은 한글이 깨져 1064**(클라이언트 charset 기본값). `--default-character-set=utf8mb4` 를 붙인다.
 - **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
@@ -619,11 +624,13 @@
   - AI 컨텍스트: `HUMAN` 모드 USER 행 제외, 양쪽 `AI` 모드 USER 행 + 모든 ASSISTANT 행 포함. 최근 N 창이 제외분으로 낭비되지 않게 SQL 에서 걸러진다.
   - 시스템 프롬프트: 상대 발언을 먼저 옮기지 말고 직접 물으면 알려준다는 지시 + 마지막 발신자에게 답한다는 지시(2인 방만).
   - `./gradlew test` 통과.
-- test: `RoomEventBusTest`(+3 publishTo 대상·구독 없는 유저·실패 emitter 제거), `MessageServiceTest` 가시성 6건(상대 AI 대화 history 제외·HUMAN 양쪽 노출·커서·컨텍스트 포함/제외·비공개 지시·최근 N 창), `AiContextBuilderTest`(+3 HUMAN 제외·비공개 지시 유무), `MapperTest`(가시성 3행 + 뷰어 필터 + findRecentForAiContext), `MessageControllerIntegrationTest`(+1 상대 AI 대화 미노출). api 전체 307 통과(2026-09-19).
+- test: `RoomEventBusTest`(+3 publishTo 대상·구독 없는 유저·실패 emitter 제거), `MessageServiceTest` 가시성 6건(상대 AI 대화 history 제외·HUMAN 양쪽 노출·커서·컨텍스트 포함/제외·비공개 지시·최근 N 창), `AiContextBuilderTest`(+3 HUMAN 제외·비공개 지시 유무), `MapperTest`(가시성 3행 + 뷰어 필터 + findRecentForAiContext), `MessageControllerIntegrationTest`(+1 상대 AI 대화 미노출), 실측 회귀 +1(상대 응답이 뒤에 끼어도 컨텍스트 마지막 턴은 내 질문). api 전체 308 통과(2026-09-19).
 - qa: (대기)
 - note: SSE 구독 키가 `(roomId, userId)` 로 바뀌어 `bus.subscribe` 시그니처 변경(호출부 = `MessageController`, 테스트 3곳).
   `findRecentByRoomId`(가시성 무관 원본)와 `findRecentForAiContext`(HUMAN 제외) 두 개 — 서비스는 후자만 쓴다.
   V4 백필 2단계는 MySQL 이 UPDATE 대상 테이블을 서브쿼리에서 못 읽어 임시 테이블로 끊었다.
+  **실측 1차 FAIL → 같은 T 안에서 수정**(to-dev 2026-09-19): 두 사람이 동시에 물으면 내 질문 뒤에 상대 응답이 쌓여
+  컨텍스트가 assistant 턴으로 끝나 Gemini 400. 잡이 트리거 id 까지만 읽도록 `findRecentForAiContext(roomId, upToMessageId, limit)`.
 
 ## T-032 모드 토글 칸별 안내 툴팁 (web) — D-037
 - status: REVIEW
@@ -636,7 +643,22 @@
   - `AI` 칸 "AI와 1:1, 친구는 못 봐!", `유저끼리` 칸 "친구와 1:1, AI는 못 봐!".
   - 혼자인 방: 토글 disabled + "친구 초대해봐!" 하나만(칸별 툴팁 없음) — 현행 유지.
   - `npm test`·lint·typecheck 통과.
-- test: `PillToggle`(+2 칸별 tooltip·aria-describedby / tip 없으면 없음), `RoomHeaderSheet`(둘이면 칸별 2개 + "친구 초대해봐!" 없음, 혼자면 1개만). web 전체 53 파일 371 통과, lint(기존 경고 1)·typecheck·build 통과(2026-09-19).
+- test: `PillToggle`(+2 안내 tooltip·aria-describedby / tip 없으면 없음), `RoomHeaderSheet`(안내 2개·혼자면 1개·참여자는 모드/AI성격 없음), **신설 `ChatShell.settings.test.tsx` 5건**(실제 Sidebar 로 프로필 메뉴 → 설정: 참여자·개설자·상세 실패 폴백·Safari focusout·me 실패), `useMessages`(+1 전송 시 오류 말풍선 정리). web 전체 54 파일 378 통과, lint(기존 경고 1)·typecheck 통과(2026-09-19).
+- qa: (대기 — 2차 실측)
+- note: `PillToggle` 옵션에 `tip?` 추가. 혼자인 방은 `MODES_ALONE`(tip 제거)을 넘겨 "친구 초대해봐!" 툴팁 하나만.
+  **실측 1차 FAIL 4건 → 같은 T 안에서 수정**(D-038, to-dev 2026-09-19): 툴팁 2개 동시 표시·시트 가로 스크롤(둘 다 툴팁 방식 문제) / 참여자 시트 범위 / 오류 말풍선 영구 잔류.
+  **Safari 에서 프로필 메뉴 "설정" 무반응** = `useMenu` 의 focusout 판정 — 역할 무관이었다(참여자 창이 Safari, 개설자 창이 Chrome 이라 한쪽만 재현). `ChatShell.test.tsx` 가 Sidebar 를 스텁으로 갈아끼워 이 경로에 테스트가 없었다 → 실제 Sidebar 통합 테스트 신설.
+
+## T-033 SSE 클라이언트 끊김 ERROR 스택 제거 (api) — T-031 실측 중 발견
+- status: TODO
+- owner: 개발자
+- milestone: M3
+- spec: TASKS.md T-028(형제 케이스), `GlobalExceptionHandler`
+- blocked_by: 없음
+- acceptance:
+  - SSE 를 연 클라이언트가 끊길 때 나는 `AsyncRequestNotUsableException`(Caused by Broken pipe)이 catch-all ERROR 스택으로 찍히지 않는다(T-028 의 `AsyncRequestTimeoutException` 과 같은 모양의 핸들러 + debug 로그).
+  - 단위 테스트 +1. `./gradlew test` 통과.
+- test: (구현 후)
 - qa: (대기)
-- note: `PillToggle` 옵션에 `tip?` 추가 — 툴팁 있는 칸만 `group relative` 래퍼로 감싸고, 없으면 `contents` 로 감싸 세그먼트 모양 유지.
-  혼자인 방은 `MODES_ALONE`(tip 제거)을 넘겨 기존 "친구 초대해봐!" 툴팁 하나만 남긴다.
+- note: T-031 실측 중 30분에 4건 관측(탭 닫기·새로고침마다 1건). 동작 영향은 없고 로그 노이즈 — 실측 로그에서 진짜 실패를 가린다.
+  착수 순서는 사용자 선택 대기(실측 먼저 vs 지금).
