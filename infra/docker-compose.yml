@@ -75,7 +75,8 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 30
+      start_period: 300s              # NAS HDD 에서 첫 초기화(데이터 디렉터리 생성)만 2분 이상 — 그동안 실패는 안 센다 (T-012 실측)
 
   omniroute:
     image: diegosouzapw/omniroute:latest
