@@ -81,6 +81,41 @@ describe('RoomView (DESIGN.md#3)', () => {
     await waitFor(() => expect(screen.queryByText(GENERIC_ERROR)).toBeNull());
   });
 
+  it('오류 후 정상 대화가 재개되면 오류 말풍선이 돌아오지 않는다 (D-038 2)', async () => {
+    mockApi(roomDetail(10, { memberCount: 2 }), [userMsg(5, { senderUserId: 1, content: '첫 질문' })]);
+    useStreamStore.setState({
+      rooms: {
+        10: {
+          streams: { 5: { replyTo: 5, senderUserId: 1, text: '', status: 'error', errorMessage: GENERIC_ERROR, startedAt: '2026-09-19T00:00:00Z' } },
+          notices: [],
+        },
+      },
+    });
+    renderIt();
+    expect(await screen.findByText(GENERIC_ERROR)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: '메시지' }), { target: { value: '다시 물어봄' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    await waitFor(() => expect(screen.queryByText(GENERIC_ERROR)).toBeNull());
+
+    // 이번엔 상류가 정상 — delta 가 흐르고 done 으로 끝난다. 그 사이 오류 말풍선이 되살아나선 안 된다.
+    act(() => {
+      useStreamStore.getState().dispatch(10, { type: 'delta', data: { replyTo: 101, text: '이번엔' } });
+      useStreamStore.getState().dispatch(10, { type: 'delta', data: { replyTo: 101, text: ' 잘 됨' } });
+    });
+    expect(await screen.findByText('이번엔 잘 됨')).toBeInTheDocument();
+    expect(screen.queryByText(GENERIC_ERROR)).toBeNull();
+
+    act(() => {
+      useStreamStore.getState().dispatch(10, {
+        type: 'done',
+        data: { replyTo: 101, message: aiMsg(102, { content: '이번엔 잘 됨' }), promptTokens: 1, completionTokens: 1 },
+      });
+    });
+    await waitFor(() => expect(screen.queryByText('이번엔 잘 됨')).toBeNull());   // 스트림 정리(본문은 캐시가 소유)
+    expect(screen.queryByText(GENERIC_ERROR)).toBeNull();
+  });
+
   it('메시지 0 이라도 시스템 라인이 있으면 빈 상태 대신 라인을 보인다 (T-024)', async () => {
     mockApi(roomDetail(10, { messageCount: 0, memberCount: 2 }));
     useStreamStore.setState({ rooms: { 10: { streams: {}, notices: [{ id: 'n1', text: '영희 등장!', createdAt: '2026-09-16T00:00:00Z' }] } } });
