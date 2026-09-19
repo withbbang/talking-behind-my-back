@@ -49,6 +49,8 @@
 - **업로드 상한 실측 파일은 26,214,401B 이상.** "26MB" 를 26,000,000B 로 만들면 25MiB 미만이라 nginx(25m)·Boot(25MB) 를 통과해 공급자까지 갔다가 502 가 난다(T-009 QA).
 - **`MediaRecorder.stop()` 은 `stop` 이벤트가 비동기라 자동 종료 트리거가 둘(VAD·상한)이면 두 번 불려 InvalidStateError.** finish 결과 Promise 를 세션에 저장해 한 번만(T-026). 공유 Promise 에 `.finally()` 를 붙이면 거절이 한 번 더 unhandled 로 새니 `.then(after, after)` 로.
 - **React Compiler ESLint 는 훅이 돌려준 객체 안에 `xxxRef` 가 있으면 그 객체 접근 전부를 "refs during render" 로 잡는다.** 훅 반환값은 호출부에서 `const { open, menuRef } = useMenu()` 로 구조분해(T-030).
+- **zustand 스토어 모듈을 고친 뒤엔 실측 전에 하드 리로드.** Fast Refresh 가 모듈을 다시 평가하면 스토어 인스턴스가 새로 생기는데 마운트된 화면은 옛 인스턴스를 구독한다 → 스토어를 바꾸는 코드가 "안 먹는" 것처럼 보인다(T-032 오류 말풍선 실측, 리로드 후 정상).
+- **스토어 단위 테스트는 "화면에서 사라지는지" 를 보증하지 않는다.** 상태를 지우는 동작은 컴포넌트 수준 테스트(DOM 에서 없어지는지)까지 같이 둘 것(T-032).
 - **macOS Safari 는 버튼을 클릭해도 포커스를 주지 않는다** → 메뉴/팝업을 `focusout` 으로 닫으면 `relatedTarget: null` 이 와서 click 전에 닫히고 항목이 안 눌린다(T-032 실측, Chrome·Firefox 는 통과). `relatedTarget` 이 null 인 focusout 은 무시하고 바깥 클릭은 `pointerdown` 으로 판정할 것.
 - **Tailwind `group-hover:` 는 조상 중 어떤 `.group` 이든 hover 면 매칭된다** — `.group` 을 중첩하면 안쪽 툴팁이 전부 같이 켜진다(T-032 실측). 여러 개가 필요하면 named group(`group/x`) 이거나 상태로 하나만 그린다. `overflow-y-auto` 컨테이너는 x축도 auto 라 절대배치 말풍선이 넘치면 가로 스크롤바가 생긴다.
 - **컴포넌트를 `vi.mock` 으로 스텁하면 그 경로는 테스트가 없는 것과 같다** — `ChatShell.test.tsx` 가 Sidebar 를 스텁해 "프로필 메뉴 → 설정" 이 한 번도 검증되지 않았다. 스텁은 격리 목적에만 쓰고, 실제 조립을 확인하는 통합 테스트를 따로 둘 것.
@@ -644,7 +646,7 @@
   - 혼자인 방: 토글 disabled + "친구 초대해봐!" 하나만(칸별 툴팁 없음) — 현행 유지.
   - `npm test`·lint·typecheck 통과.
 - test: `PillToggle`(+2 안내 tooltip·aria-describedby / tip 없으면 없음), `RoomHeaderSheet`(안내 2개·혼자면 1개·참여자는 모드/AI성격 없음), **신설 `ChatShell.settings.test.tsx` 5건**(실제 Sidebar 로 프로필 메뉴 → 설정: 참여자·개설자·상세 실패 폴백·Safari focusout·me 실패), `useMessages`(+1 전송 시 오류 말풍선 정리). web 전체 54 파일 378 통과, lint(기존 경고 1)·typecheck 통과(2026-09-19).
-- qa: PASS (QA_REPORT.md 2026-09-19, 사용자 실측 Safari 재검증 포함) — 오류 말풍선 소멸 1건은 재현 수단이 없어 단위 테스트로만 확인
+- qa: PASS (QA_REPORT.md 2026-09-19, 사용자 실측 — Safari 재검증 + OmniRoute 중단으로 오류 말풍선 강제 재현까지 완료)
 - note: `PillToggle` 옵션에 `tip?` 추가. 혼자인 방은 `MODES_ALONE`(tip 제거)을 넘겨 "친구 초대해봐!" 툴팁 하나만.
   **실측 1차 FAIL 4건 → 같은 T 안에서 수정**(D-038, to-dev 2026-09-19): 툴팁 2개 동시 표시·시트 가로 스크롤(둘 다 툴팁 방식 문제) / 참여자 시트 범위 / 오류 말풍선 영구 잔류.
   **Safari 에서 프로필 메뉴 "설정" 무반응** = `useMenu` 의 focusout 판정 — 역할 무관이었다(참여자 창이 Safari, 개설자 창이 Chrome 이라 한쪽만 재현). `ChatShell.test.tsx` 가 Sidebar 를 스텁으로 갈아끼워 이 경로에 테스트가 없었다 → 실제 Sidebar 통합 테스트 신설.

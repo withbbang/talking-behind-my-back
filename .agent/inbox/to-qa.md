@@ -307,7 +307,7 @@
   `apps/api/src/main/resources/mapper/MessageMapper.xml`, `apps/web/app/components/ui/PillToggle.tsx`, `apps/web/app/components/chat/RoomHeaderSheet.tsx`.
 - date: 2026-09-19
 
-### [개발자 → QA] T-032 오류 말풍선 소멸 — 강제 재현 절차 (미검증 1건)
+### [개발자 → QA] T-032 오류 말풍선 소멸 — 강제 재현 절차 [처리됨 2026-09-19, PASS — 말풍선 항상 1개, 참여자엔 미노출]
 - 왜: api 수정 후 AI 잡이 정상 응답해 오류 말풍선을 만들 수 없어 실측이 안 됐다(QA_REPORT T-032 issues). 단위 테스트만 통과.
 - 재현 (2분, 되돌리기 쉬움):
   1. `docker stop chat-app-dev-omniroute-1` — 상류를 끊는다.

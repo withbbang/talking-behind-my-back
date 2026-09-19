@@ -12,6 +12,7 @@ const replace = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace }), usePathname: () => '/rooms/10' }));
 
 import { ApiError, apiFetch } from '@/lib/api';
+import { GENERIC_ERROR } from '@/lib/copy';
 import { RoomView } from './RoomView';
 import { useToastStore } from '@/components/ui/Toast';
 import { useStreamStore } from '@/features/messages/streamStore';
@@ -58,6 +59,26 @@ describe('RoomView (DESIGN.md#3)', () => {
     renderIt();
     expect(await screen.findByText('오늘은 누가 짜증나게 했어?')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'AI' })).toHaveStyle({ width: '64px' });
+  });
+
+  it('오류 말풍선은 다시 보내면 화면에서 사라진다 (D-038 2, 실측 FAIL 재현)', async () => {
+    mockApi(roomDetail(10, { memberCount: 2 }), [userMsg(5, { senderUserId: 1, content: '첫 질문' })]);
+    useStreamStore.setState({
+      rooms: {
+        10: {
+          streams: { 5: { replyTo: 5, senderUserId: 1, text: '', status: 'error', errorMessage: GENERIC_ERROR, startedAt: '2026-09-19T00:00:00Z' } },
+          notices: [],
+        },
+      },
+    });
+    renderIt();
+    expect(await screen.findByText(GENERIC_ERROR)).toBeInTheDocument();
+
+    const box = screen.getByRole('textbox', { name: '메시지' });
+    fireEvent.change(box, { target: { value: '다시 물어봄' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+
+    await waitFor(() => expect(screen.queryByText(GENERIC_ERROR)).toBeNull());
   });
 
   it('메시지 0 이라도 시스템 라인이 있으면 빈 상태 대신 라인을 보인다 (T-024)', async () => {
