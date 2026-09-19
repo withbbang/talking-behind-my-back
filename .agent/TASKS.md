@@ -502,7 +502,7 @@
 ## M5 배포 · PWA
 
 ## T-012 NAS 첫 배포 리허설
-- status: TODO
+- status: IN_PROGRESS
 - owner: 개발자
 - milestone: M5
 - spec: 루트 README.md#첫-배포-순서, D-002, D-009
@@ -511,6 +511,11 @@
   - GitHub Variables/Secrets 등록, `master` push → GHCR → NAS 기동. DSM 리버스 프록시 경유 SSE 동작.
   - NAS CPU 아키텍처 확인 → deploy.yml `platforms:`. DSM `X-Forwarded-For` 전달 확인.
   - `docker stats` 로 api 메모리 상한 내 동작. 인프라 작업이라 자동 테스트 없음 — QA 체크리스트.
+- note: 2026-09-19 착수. **로컬 이미지 빌드 리허설 PASS**(`docker buildx build --platform linux/amd64`, 2b145c7 기준):
+  web 80MB(Next 16.2.10 standalone, `/login` 200) · api 124MB(bootJar 61MB, `spring` 유저, `/tmp/audio` 생성). Dockerfile 수정 없음.
+  사전 점검: 레포 public / omniroute·edge-tts(고정 digest) 이미지 둘 다 amd64+arm64 매니페스트 / compose `web.API_INTERNAL_URL` 은 코드 미사용(무해).
+  주의: `ci.yml` 은 `pull_request` 트리거라 `--no-ff` 직접 머지 push 에는 CI 가 안 돈다 → master 머지 전 로컬 전체 테스트 필수.
+  남은 것 = NAS 측 사용자 작업(SSH·`uname -m`·DSM 리버스 프록시 XFF/XFP·`.env` 실값·OAuth redirect·GitHub Variables/Secrets) → master push → 실배포 확인.
 
 ## T-013 iOS/Android 홈화면 PWA 검증
 - status: TODO
