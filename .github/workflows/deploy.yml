@@ -72,6 +72,23 @@ jobs:
     env:
       DEPLOY_DIR: ${{ vars.NAS_DEPLOY_DIR || format('/volume1/docker/{0}', github.event.repository.name) }}
     steps:
+      - name: Check required secrets (값은 출력하지 않음 — 이름만)
+        env:
+          NAS_HOST: ${{ secrets.NAS_HOST }}
+          NAS_SSH_PORT: ${{ secrets.NAS_SSH_PORT }}
+          NAS_SSH_USER: ${{ secrets.NAS_SSH_USER }}
+          NAS_SSH_KEY: ${{ secrets.NAS_SSH_KEY }}
+        run: |
+          missing=""
+          for n in NAS_HOST NAS_SSH_PORT NAS_SSH_USER NAS_SSH_KEY; do
+            [ -z "${!n}" ] && missing="$missing $n"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::비어 있는 Repository secret:$missing — Settings → Secrets and variables → Actions → Secrets 탭 → Repository secrets 에 등록(Environment secrets 는 이 job 에서 안 읽힘)"
+            exit 1
+          fi
+          echo "secrets OK (NAS_SSH_KEY ${#NAS_SSH_KEY} chars, DEPLOY_DIR=$DEPLOY_DIR)"
+
       - uses: actions/checkout@v4
 
       - name: Copy infra/ to NAS (.env는 gitignore라 복사되지 않음)
