@@ -58,6 +58,7 @@
   상대 잡이 먼저 끝나 내 질문 뒤에 행이 쌓인다 — AI 잡은 **자기 트리거 메시지 id 까지만** 읽어야 한다(T-031 실측). 답 상대가 바뀌는 혼선도 같은 원인.
 - **MySQL 은 UPDATE 대상 테이블을 서브쿼리에서 다시 읽지 못한다**(파생 테이블로 감싸도 머지되면 1093). 백필은 `CREATE TEMPORARY TABLE … AS SELECT` 로 한 번 끊고 JOIN UPDATE(T-031 V4). 빈 DB 에서는 백필이 0행이라 "성공"만 보이니 더미 데이터를 넣어 결과를 눈으로 확인할 것.
 - **`docker exec -i mysql < file.sql` 은 한글이 깨져 1064**(클라이언트 charset 기본값). `--default-character-set=utf8mb4` 를 붙인다.
+- **포커스된 엘리먼트를 `disabled` 로 만들면 브라우저가 포커스를 뗀다**(다시 활성화해도 복원 안 됨) — 전송 직후 잠기는 입력창·값이 비면 disabled 되는 전송 버튼 둘 다 해당(T-034). 잠금으로 가리는 UI 는 "풀릴 때 포커스를 어디로 돌려줄지" 를 같이 정할 것. **jsdom 은 이 blur 를 흉내내지 않으니** 테스트에서 `el.blur()` 로 그 지점을 직접 재현해야 한다.
 - **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
 
 ---
@@ -664,3 +665,22 @@
 - qa: (대기)
 - note: T-031 실측 중 30분에 4건 관측(탭 닫기·새로고침마다 1건). 동작 영향은 없고 로그 노이즈 — 실측 로그에서 진짜 실패를 가린다.
   착수 순서는 사용자 선택 대기(실측 먼저 vs 지금).
+
+## T-034 전송 후 입력창 포커스 유지 (web) — 사용자 버그 제보
+- status: DONE
+- owner: 개발자
+- milestone: M3
+- spec: DESIGN.md#3 입력창, `Composer.tsx`
+- blocked_by: 없음
+- acceptance:
+  - Enter 로 전송해 AI 잡 대기(`lock='pending'`)로 잠겼다가 풀리면 입력창(textarea)에 포커스가 돌아온다.
+  - 전송 버튼 클릭으로 보낸 뒤에도 포커스가 입력창에 있다(버튼이 disabled 되며 포커스가 날아가지 않는다).
+  - 잠금이 풀릴 때 사용자가 다른 곳(시트·다이얼로그 등)에 포커스를 두고 있으면 뺏지 않는다.
+  - `orphaned` 잠금, 보이스 전송(마이크·보이스 모드)은 자동 포커스 대상이 아니다.
+  - `npm test`·lint·typecheck 통과.
+- test: `Composer.test.tsx` +4 (잠금 해제 시 포커스 복원 / 전송 버튼 클릭 후 포커스 유지 / 다른 곳에 포커스가 있으면 안 뺏음 / orphaned 해제는 자동 포커스 없음). web 전체 54 파일 384 통과, lint(기존 경고 1)·typecheck 통과(2026-09-19).
+- qa: PASS (QA_REPORT.md 2026-09-19, 사용자 실측)
+- note: 원인 2개 — 둘 다 "포커스된 엘리먼트를 disabled 로 만들면 브라우저가 포커스를 뗀다".
+  (1) AI 모드: `useMessages.ts` `markSending` → `RoomView` `lock='pending'` → textarea `disabled` → 포커스 소실, 잠금 해제 시 복원 코드 없음.
+  (2) 전송 버튼 클릭: 값이 비면 그 버튼이 `disabled` → 포커스 소실.
+  수정 방식은 "포커스 복원"(사용자 선택, 2026-09-19). 잠금 UX(disabled) 자체는 유지 — readOnly 전환안은 D-번호 결정 필요라 보류.

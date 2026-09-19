@@ -83,3 +83,67 @@ describe('Composer 보이스 모드 토글 (D-034 1)', () => {
     expect(screen.queryByRole('button', { name: '지우기' })).toBeNull();
   });
 });
+
+describe('Composer 전송 후 포커스 (T-034)', () => {
+  it('Enter 전송 → 잠김 → 잠금 해제 시 입력창으로 포커스가 돌아온다', () => {
+    const { rerender } = render(<Composer mode="AI" lock={null} onSend={vi.fn()} />);
+    const box = screen.getByRole('textbox', { name: '메시지' });
+    box.focus();
+    fireEvent.change(box, { target: { value: '그 사람이 또 그랬어' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+
+    box.blur(); // 브라우저가 disabled 되는 엘리먼트의 포커스를 떼는 지점 (jsdom 은 흉내내지 않는다)
+    rerender(<Composer mode="AI" lock="pending" onSend={vi.fn()} />);
+    expect(box).not.toHaveFocus();
+
+    rerender(<Composer mode="AI" lock={null} onSend={vi.fn()} />);
+    expect(screen.getByRole('textbox', { name: '메시지' })).toHaveFocus();
+  });
+
+  it('전송 버튼 클릭 후에도 포커스는 입력창에 남는다', () => {
+    render(<Composer mode="AI" lock={null} onSend={vi.fn()} />);
+    const box = screen.getByRole('textbox', { name: '메시지' });
+    fireEvent.change(box, { target: { value: '안녕' } });
+    const sendButton = screen.getByRole('button', { name: '전송' });
+    sendButton.focus();
+    fireEvent.click(sendButton);
+    expect(box).toHaveFocus();
+  });
+
+  it('잠금이 풀릴 때 다른 곳에 포커스가 있으면 뺏지 않는다', () => {
+    const { rerender } = render(
+      <>
+        <button type="button">다른 버튼</button>
+        <Composer mode="AI" lock={null} onSend={vi.fn()} />
+      </>,
+    );
+    const box = screen.getByRole('textbox', { name: '메시지' });
+    box.focus();
+    fireEvent.change(box, { target: { value: '안녕' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+
+    box.blur(); // 브라우저가 disabled 로 포커스를 뗀 뒤
+    rerender(
+      <>
+        <button type="button">다른 버튼</button>
+        <Composer mode="AI" lock="pending" onSend={vi.fn()} />
+      </>,
+    );
+    const other = screen.getByRole('button', { name: '다른 버튼' });
+    other.focus(); // 대기 중 사용자가 다른 곳을 누른다
+
+    rerender(
+      <>
+        <button type="button">다른 버튼</button>
+        <Composer mode="AI" lock={null} onSend={vi.fn()} />
+      </>,
+    );
+    expect(other).toHaveFocus();
+  });
+
+  it('보내지 않고 잠긴 방(orphaned → 해제)은 자동 포커스하지 않는다', () => {
+    const { rerender } = render(<Composer mode="AI" lock="orphaned" onSend={vi.fn()} />);
+    rerender(<Composer mode="AI" lock={null} onSend={vi.fn()} />);
+    expect(screen.getByRole('textbox', { name: '메시지' })).not.toHaveFocus();
+  });
+});

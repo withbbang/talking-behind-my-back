@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { ArrowUp, Check, Microphone, X } from '@phosphor-icons/react';
 import { useToastStore } from '@/components/ui/Toast';
 import { VoiceButton } from '@/components/voice/VoiceButton';
@@ -41,6 +41,16 @@ export function Composer({ mode, lock, voiceRoomId = null, onSend }: Props) {
   const locked = lock !== null;
   const show = useToastStore((s) => s.show);
   const player = useTtsStore((s) => s.player);
+
+  // 전송 → 내 잡 대기로 textarea 가 disabled 되면 브라우저가 포커스를 뗀다. 잠금이 풀리면 되돌린다(T-034).
+  // 텍스트 전송으로 잠긴 경우에만, 그리고 그 사이 사용자가 다른 곳을 누르지 않았을 때만.
+  const restoreFocus = useRef(false);
+  useEffect(() => {
+    if (lock !== null || !restoreFocus.current) return;
+    restoreFocus.current = false;
+    const active = document.activeElement;
+    if (active === null || active === document.body) ref.current?.focus();
+  }, [lock]);
 
   const afterRecording = async (rec: Recording) => {
     setVoice('transcribing');
@@ -84,7 +94,11 @@ export function Composer({ mode, lock, voiceRoomId = null, onSend }: Props) {
     if (!content || locked) return;
     onSend(content);
     setValue('');
-    if (ref.current) ref.current.style.height = '';
+    if (ref.current) {
+      ref.current.style.height = '';
+      ref.current.focus(); // 버튼 클릭 전송: 값이 비면 그 버튼이 disabled 돼 포커스가 날아간다(T-034)
+    }
+    restoreFocus.current = true;
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
