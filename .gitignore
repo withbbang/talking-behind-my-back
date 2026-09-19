@@ -16,6 +16,7 @@ apps/web/tsconfig.tsbuildinfo
 
 # api
 apps/api/build/
+apps/api/bin/
 apps/api/.gradle/
 apps/api/.env*
 apps/api/src/main/resources/application-secret*.yml
