@@ -61,6 +61,7 @@
 - **포커스된 엘리먼트를 `disabled` 로 만들면 브라우저가 포커스를 뗀다**(다시 활성화해도 복원 안 됨) — 전송 직후 잠기는 입력창·값이 비면 disabled 되는 전송 버튼 둘 다 해당(T-034). 잠금으로 가리는 UI 는 "풀릴 때 포커스를 어디로 돌려줄지" 를 같이 정할 것. **jsdom 은 이 blur 를 흉내내지 않으니** 테스트에서 `el.blur()` 로 그 지점을 직접 재현해야 한다.
 - **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
 - **"로그에 안 찍힌다" 는 응답 단언으로 검증되지 않는다** — logback `ListAppender` 를 핸들러 로거에 붙여 레벨을 단언한다(T-033). api 로그를 실측할 땐 사용자 bootRun(:8080)을 건드리지 말고 `ps` 에서 뽑은 같은 클래스패스로 `java -Dserver.port=8081 … ChatApplication` 두 번째 인스턴스를 띄워 로그를 파일로 받는다. **클라이언트 끊김은 다음 하트비트(20초) 쓰기 시점에야 예외로 드러난다** — 끊고 바로 로그를 보면 아직 없다.
+- **GH Actions `vars.*` 는 Settings → Secrets and variables → Actions 의 Repository variables 탭에 있어야 읽힌다.** Secrets 탭이나 Environment 범위(job 에 `environment:` 없음)에 넣으면 빈 문자열 → `ghcr.io/owner/-api` invalid reference (T-012, master push 10회 실패). 레포명 폴백(`vars.X || github.event.repository.name`)을 둬서 없어도 돌게 했다.
 
 ---
 
@@ -515,7 +516,8 @@
   web 80MB(Next 16.2.10 standalone, `/login` 200) · api 124MB(bootJar 61MB, `spring` 유저, `/tmp/audio` 생성). Dockerfile 수정 없음.
   사전 점검: 레포 public / omniroute·edge-tts(고정 digest) 이미지 둘 다 amd64+arm64 매니페스트 / compose `web.API_INTERNAL_URL` 은 코드 미사용(무해).
   주의: `ci.yml` 은 `pull_request` 트리거라 `--no-ff` 직접 머지 push 에는 CI 가 안 돈다 → master 머지 전 로컬 전체 테스트 필수.
-  남은 것 = NAS 측 사용자 작업(SSH·`uname -m`·DSM 리버스 프록시 XFF/XFP·`.env` 실값·OAuth redirect·GitHub Variables/Secrets) → master push → 실배포 확인.
+  NAS `uname -m` = x86_64 → `platforms: linux/amd64` 유지. 2026-09-14~19 master push 9회 deploy 전부 실패 = GitHub Variable `APP_NAME` 미등록으로
+  태그가 `ghcr.io/withbbang/-api` (invalid reference format). Variables/Secrets·NAS 준비(E) 완료 후 `workflow_dispatch` 로 재실행.
 
 ## T-013 iOS/Android 홈화면 PWA 검증
 - status: TODO

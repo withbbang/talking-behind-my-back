@@ -1,7 +1,8 @@
 # master 브랜치 push → 이미지 빌드/푸시(GHCR) → NAS에 infra/ 복사 → compose pull & up
 #
 # 필요한 GitHub 설정
-#   Variables : APP_NAME (예: chat-app), NAS_DEPLOY_DIR (예: /volume1/docker/chat-app)
+#   Variables : APP_NAME, NAS_DEPLOY_DIR — 둘 다 선택. 비우면 레포명(D-010 슬러그) 기반 기본값
+#               APP_NAME=<repo>, NAS_DEPLOY_DIR=/volume1/docker/<repo>. 등록 시 Repository variables 탭(Secrets 아님)
 #   Secrets   : NAS_HOST, NAS_SSH_PORT, NAS_SSH_USER, NAS_SSH_KEY
 #
 # NAS 사전 준비
@@ -38,11 +39,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve image name (GHCR는 소문자만 허용)
+      - name: Resolve image name (GHCR는 소문자만 허용, APP_NAME 미설정 시 레포명)
         id: img
         run: |
           OWNER="${{ github.repository_owner }}"
-          echo "name=ghcr.io/${OWNER,,}/${{ vars.APP_NAME }}-${{ matrix.app }}" >> "$GITHUB_OUTPUT"
+          APP="${{ vars.APP_NAME || github.event.repository.name }}"
+          echo "name=ghcr.io/${OWNER,,}/${APP,,}-${{ matrix.app }}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -67,6 +69,8 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_DIR: ${{ vars.NAS_DEPLOY_DIR || format('/volume1/docker/{0}', github.event.repository.name) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -78,7 +82,7 @@ jobs:
           username: ${{ secrets.NAS_SSH_USER }}
           key: ${{ secrets.NAS_SSH_KEY }}
           source: "infra/*"
-          target: ${{ vars.NAS_DEPLOY_DIR }}
+          target: ${{ env.DEPLOY_DIR }}
           strip_components: 1
           overwrite: true
 
@@ -91,7 +95,7 @@ jobs:
           key: ${{ secrets.NAS_SSH_KEY }}
           script: |
             set -e
-            cd ${{ vars.NAS_DEPLOY_DIR }}
+            cd ${{ env.DEPLOY_DIR }}
             export IMAGE_TAG=${{ github.sha }}
             docker compose --env-file .env pull web api
             docker compose --env-file .env up -d --remove-orphans
