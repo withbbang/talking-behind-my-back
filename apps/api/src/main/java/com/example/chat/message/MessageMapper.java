@@ -26,8 +26,11 @@ public interface MessageMapper {
 	/**
 	 * LLM 컨텍스트용 최근 N개 (id DESC 로 나옴 — 서비스에서 뒤집어 시간순으로) (D-006).
 	 * 두 유저의 `AI` 모드 대화 + 모든 ASSISTANT 응답. `HUMAN` 모드 USER 행은 제외 — 최근 N 창도 그 행을 세지 않는다(D-037).
+	 * `upToMessageId` = 이 잡의 트리거 USER 메시지 — 그보다 뒤에 쌓인 행은 보지 않는다. 2인 방에서 상대 잡이 먼저 끝나면
+	 * 내 질문 뒤에 상대 응답이 끼어 컨텍스트가 assistant 턴으로 끝나는데, Gemini 는 그걸 400 으로 거부한다(T-031 실측).
 	 */
-	List<Message> findRecentForAiContext(@Param("roomId") Long roomId, @Param("limit") int limit);
+	List<Message> findRecentForAiContext(@Param("roomId") Long roomId, @Param("upToMessageId") Long upToMessageId,
+		@Param("limit") int limit);
 
 	long countByRoomId(@Param("roomId") Long roomId);
 }

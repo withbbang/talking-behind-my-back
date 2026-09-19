@@ -59,11 +59,15 @@
     LIMIT #{limit}
   </select>
 
-  <!-- AI 컨텍스트 (D-037): HUMAN 모드 USER 행은 제외. 가시성은 보지 않는다 — AI 는 두 유저 대화를 다 읽는다. -->
+  <!--
+    AI 컨텍스트 (D-037): HUMAN 모드 USER 행은 제외. 가시성은 보지 않는다 — AI 는 두 유저 대화를 다 읽는다.
+    트리거 메시지까지만(id <= upToMessageId) — 뒤에 쌓인 상대 턴을 넣으면 마지막이 assistant 턴이 돼 Gemini 400.
+  -->
   <select id="findRecentForAiContext" resultMap="messageMap">
     SELECT <include refid="columns"/>
     <include refid="fromJoined"/>
     WHERE m.room_id = #{roomId}
+      AND m.id &lt;= #{upToMessageId}
       AND (m.role = 'ASSISTANT' OR m.mode = 'AI')
     ORDER BY m.id DESC
     LIMIT #{limit}

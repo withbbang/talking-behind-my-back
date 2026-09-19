@@ -118,7 +118,7 @@ public class MessageService {
 		}
 		ChatRoom room = found.get();
 		List<RoomMember> allMembers = members.findAllByRoomId(roomId);
-		List<Message> recent = messages.findRecentForAiContext(roomId, llmProps.contextMaxMessages());
+		List<Message> recent = messages.findRecentForAiContext(roomId, userMessageId, llmProps.contextMaxMessages());
 		List<LlmClient.ChatMessage> context = AiContextBuilder.build(room, allMembers, recent);
 
 		LlmClient.Result result;

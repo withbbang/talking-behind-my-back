@@ -335,9 +335,11 @@ class MapperTest {
 			assertThat(messageMapper.findByRoomId(r.getId(), you.getId(), null, 10))
 				.extracting(Message::getId).containsExactly(m3.getId());
 
-			// AI 컨텍스트용: HUMAN 모드 USER 행 제외
-			assertThat(messageMapper.findRecentForAiContext(r.getId(), 10))
+			// AI 컨텍스트용: HUMAN 모드 USER 행 제외 + 트리거 메시지 이후 행 제외
+			assertThat(messageMapper.findRecentForAiContext(r.getId(), m3.getId(), 10))
 				.extracting(Message::getId).containsExactly(m2.getId(), m1.getId());
+			assertThat(messageMapper.findRecentForAiContext(r.getId(), m1.getId(), 10))
+				.extracting(Message::getId).containsExactly(m1.getId());
 		}
 	}
 

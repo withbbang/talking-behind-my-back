@@ -353,6 +353,27 @@ class MessageServiceTest {
 		}
 
 		@Test
+		void 내_잡은_내_질문까지만_본다_상대_응답이_뒤에_끼어도_마지막_턴은_내_질문() {
+			joinGuest();
+			messageMapper.insert(Message.user(room.getId(), guest.getId(), "먼저 온 상대 질문", Message.InputType.TEXT, RoomMode.AI));
+			Message mine = Message.user(room.getId(), owner.getId(), "내 질문", Message.InputType.TEXT, RoomMode.AI);
+			messageMapper.insert(mine);
+			// 상대 잡이 먼저 끝나 내 질문 뒤에 행이 쌓인 상황 — 그대로 넣으면 컨텍스트가 assistant 턴으로 끝나
+			// Gemini 가 400 "Requests ending with a model turn are not supported" 를 준다(T-031 실측).
+			messageMapper.insert(Message.user(room.getId(), guest.getId(), "나중에 온 상대 질문", Message.InputType.TEXT, RoomMode.AI));
+			messageMapper.insert(Message.assistant(room.getId(), guest.getId(), "상대에게 준 답", "m", 1, 1));
+			llm.reply("내 답");
+
+			service.runAiJob(room.getId(), mine.getId(), owner.getId());
+
+			List<ChatMessage> ctx = llm.calls.get(0);
+			assertThat(ctx.get(ctx.size() - 1)).isEqualTo(new ChatMessage("user", "[개설자 철수] 내 질문"));
+			assertThat(ctx).extracting(ChatMessage::content)
+				.contains("[참여자 영희] 먼저 온 상대 질문")
+				.noneMatch(c -> c.contains("나중에 온") || c.contains("상대에게 준 답"));
+		}
+
+		@Test
 		void 시스템_프롬프트에_비공개_지시가_붙는다() {
 			joinGuest();
 			llm.reply("ok");
