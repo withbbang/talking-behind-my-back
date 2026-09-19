@@ -465,3 +465,16 @@
   관측 사실: 끊김은 **다음 하트비트(20초) 쓰기 시점**에야 예외로 드러난다 — 끊고 바로 로그를 보면 아직 없다(교훈 등재).
 - date: 2026-09-19
 
+### T-035 2인 방 보이스 모드 동시 사용 확인 — TTS 충돌 실측 (web, 검증만)
+- verdict: PASS — 사용자 실측("전부 기대대로 잘 됐음, 대기는 안 거슬림") + 개발자 로그 대조, 개발자 QA 대행, 2026-09-19.
+- tests: 코드 변경 없음. 기존 테스트가 경로를 덮는다 — web `voiceMachine.test.ts`(STREAM_DONE 은 추적 중인 replyTo 만), `useVoiceMode.test.tsx`(2인 방 상대 done 무시),
+  api `MessageServiceTest`(AI 모드 `visibleToUserId` 기록)·`RoomEventBusTest`(`publishTo` 유저 타겟 발행).
+- checked (실측, Chrome 개설자 + Safari 참여자, `AI` 모드, 둘 다 보이스 토글 ON): to-qa 2026-09-19 검증 포인트 (1)~(4) 통과.
+  (1) 동시 발화 → 각자 자기 질문의 답만 재생, 상대 질문·답은 목록에도 안 뜸(D-037 유저 타겟 발행 + D-029 (6) replyTo 필터).
+  (2) 늦은 쪽은 409 없이 "답하는 중" 으로 대기 후 자기 답 재생(`ROOM_BUSY` 유저 단위, 방 큐 직렬). **대기 체감 안 거슬림** — api `start` 이벤트 + `queued` 단계(제안 B)는 열지 않음.
+  (3) 한쪽 speaking 중 상대 발화해도 재생 안 끊김. (4) 한쪽 `유저끼리` 전환 → 상대 오버레이 닫힘 + 토스트.
+  로그 대조: api `bootRun` 로그 WARN 0 · ERROR 1 — 유일한 ERROR 는 첫 외부 호출 시 Netty `MacOSDnsServerAddressStreamProvider` 미로드 안내(시스템 DNS 폴백, T-035 무관·기능 영향 없음). `ROOM_BUSY`/`AI_BUSY`/예외 없음.
+- issues: 없음. 관측 — 로컬 api 는 요청·AI 잡을 INFO 로 남기지 않아 "두 잡이 순서대로" 는 사용자 관찰(늦은 쪽이 상대 답 뒤에 재생)로만 확인. dev nginx 는 access_log 미설정.
+  Netty macOS DNS ERROR 노이즈는 `io.netty:netty-resolver-dns-native-macos` 의존성(로컬 전용) 추가로 없앨 수 있음 — 배포(Linux)엔 안 뜨므로 백로그.
+- date: 2026-09-19
+

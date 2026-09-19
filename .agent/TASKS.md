@@ -549,7 +549,6 @@
 ## 백로그 (마일스톤 미배정)
 - 방별 AI 장기 메모리(`ai_memory` 개설자 발화 위주 요약) — 컨텍스트 윈도우 밖 과거 학습
 - AI 성격 문구 어드민 편집(현재는 `AiPersonality` enum 고정)
-- 2인 방 보이스 모드 동시 사용 시 TTS 재생 충돌 처리(모두 허용 결정, M3 에서 확인)
 - 방 검색
 - 메시지 복사/재생성(regenerate)
 - TTS 응답 스트리밍(문장 단위 선재생)
@@ -558,6 +557,7 @@
 - `MapperTest` 를 `@MybatisTest` 슬라이스로 전환(속도) — Boot 4 `AutoConfigureTestDatabase` 패키지 확인 후
 - TTS 폴백 콤보: OmniRoute 에서 `edge/tts-1` 실패 시 `gtts/ko` 로 넘어가는 콤보 설정 + `TTS_MODEL` 을 콤보 alias 로(D-028). 비공식 Edge API 차단 대비.
 - OmniRoute `next` 이미지가 내장 edgetts 403(Sec-MS-GEC)을 고쳤는지 확인 → 고쳤으면 edge-tts 사이드카 제거(D-028).
+- 로컬 api 첫 외부 호출 시 Netty `MacOSDnsServerAddressStreamProvider` ERROR 노이즈 — `io.netty:netty-resolver-dns-native-macos` 를 로컬 전용 의존성으로(배포 Linux 무관, T-035 실측 관측)
 - 잘못된 percent-encoding 쿼리스트링(Tomcat `InvalidParameterException`) 500 → 400 `VALIDATION_FAILED` 매핑(T-006 QA 발견)
 
 ## T-027 로컬/배포 LLM 공급자 확정 (infra/api)
@@ -689,3 +689,18 @@
   (1) AI 모드: `useMessages.ts` `markSending` → `RoomView` `lock='pending'` → textarea `disabled` → 포커스 소실, 잠금 해제 시 복원 코드 없음.
   (2) 전송 버튼 클릭: 값이 비면 그 버튼이 `disabled` → 포커스 소실.
   수정 방식은 "포커스 복원"(사용자 선택, 2026-09-19). 잠금 UX(disabled) 자체는 유지 — readOnly 전환안은 D-번호 결정 필요라 보류.
+
+## T-035 2인 방 보이스 모드 동시 사용 확인 — TTS 충돌 실측 (web, 검증만)
+- status: DONE
+- owner: QA
+- milestone: M3
+- spec: D-029 (6), D-037, DESIGN.md#7, `RoomAiExecutor.java`
+- blocked_by: 없음
+- acceptance:
+  - 2인 방에서 둘 다 보이스 모드를 켜고 동시에 말해도 각자 **자기 질문에 대한 답만** 재생된다(상대 답은 들리지도, 목록에 보이지도 않는다).
+  - 늦게 말한 쪽은 409 없이 전송되고 상대 잡이 끝난 뒤 자기 답을 받아 재생한다(직렬 큐 대기).
+  - 한쪽이 `유저끼리` 로 전환하면 상대 오버레이가 닫히고 토스트가 뜬다.
+  - 대기 체감(라벨 없이 "답하는 중" 만 보이는 시간)이 거슬리는지 기록 → 거슬리면 별도 T(api `start` 이벤트 + `queued` 단계).
+- test: 코드 변경 없음. 기존 `voiceMachine.test.ts`(STREAM_DONE replyTo 필터), `useVoiceMode.test.tsx`(2인 방 상대 done 무시) 가 클라이언트 필터를, api `MessageServiceTest`(가시성 `visibleToUserId`)·`RoomEventBusTest`(`publishTo` 유저 타겟 발행)가 서버 쪽을 이미 덮는다.
+- qa: PASS (QA_REPORT.md 2026-09-19, 사용자 실측 — 대기 체감 안 거슬림, 제안 B 미개설)
+- note: 백로그 "2인 방 보이스 모드 동시 사용 시 TTS 재생 충돌 처리(모두 허용 결정, M3 에서 확인)" 를 T 로 승격(2026-09-19). 조사 결과 충돌은 D-029 (6) 클라이언트 `replyTo` 필터 + D-037 서버 유저 타겟 발행으로 두 겹 차단, `ROOM_BUSY` 는 유저 단위라 동시 전송도 통과 — 남은 일은 실측 확인뿐. 실측 절차는 inbox/to-qa.md.

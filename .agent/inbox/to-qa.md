@@ -342,3 +342,16 @@
 - 근거 파일: `apps/api/src/main/java/com/example/chat/global/error/GlobalExceptionHandler.java`, `apps/api/src/test/java/com/example/chat/global/error/GlobalExceptionHandlerTest.java`, TASKS.md T-033(T-028 형제).
 - date: 2026-09-19
 
+### [개발자 → QA] T-035 2인 방 보이스 모드 동시 사용 — TTS 충돌 실측 요청 [처리됨 2026-09-19, QA_REPORT.md#T-035 PASS — 사용자 실측, 대기 체감 안 거슬림]
+- 무엇: 백로그 "2인 방 보이스 동시 사용 TTS 충돌" 확인. 코드 변경 없음 — 조사 결과 (1) 클라이언트는 `replyTo` 가 내 messageId 인 스트림만 읽고(D-029 6, `voiceMachine.ts`), (2) 서버는 AI 모드 delta/done 을 그 유저 탭에만 보내며(D-037, `MessageService.publishTo`), (3) `ROOM_BUSY` 는 유저 단위라 상대가 답 받는 중이어도 내 전송은 통과해 방 큐 뒤에 대기한다(`RoomAiExecutor`). 실측으로 이 셋이 실제 마이크 루프에서도 성립하는지만 본다.
+- 준비: 2인 방, Chrome + Safari 각각 다른 계정, 방 모드 `AI`. 마이크 실측이라 사용자 Mac 필요. 두 브라우저 모두 보이스 모드 토글 ON.
+- 검증 포인트:
+  (1) **동시 발화**: 두 브라우저에서 거의 동시에 서로 다른 질문을 말한다(예: Chrome "오늘 뭐 먹지", Safari "내일 날씨 어때") → 각 브라우저가 **자기 질문의 답만** 읽는다. 상대 질문·답은 목록에도 안 뜬다.
+  (2) **직렬 대기**: 늦게 말한 쪽이 409 오류 카드 없이 "답하는 중" 으로 넘어가고, 먼저 말한 쪽 답이 끝난 뒤 자기 답이 재생된다. 그 대기 시간이 얼마나 되는지, 라벨 없이 기다리는 게 거슬리는지 한 줄 기록(거슬리면 별도 T).
+  (3) **재생 중 상대 발화**: 한쪽이 답을 듣는 중(speaking)에 다른 쪽이 말해도 듣던 쪽 재생이 끊기거나 섞이지 않는다.
+  (4) **모드 전환**: 한쪽이 보이스 모드 중에 헤더 시트에서 `유저끼리` 로 바꾸면 상대 오버레이가 닫히고 토스트가 뜬다. 다시 `AI` 로 돌리면 토글이 다시 보인다.
+  (5) **참여자만 안 되면 Safari 의심**(기존 실측 교훈): 한쪽만 실패하면 브라우저를 바꿔 한 번 더.
+- 로그 대조: bootRun 로그에서 두 잡이 순서대로 시작·종료되는지(같은 방 id, user id 둘), ERROR 없음.
+- 근거 파일: `apps/web/app/features/speech/voiceMachine.ts:67`, `useVoiceMode.ts:133-138`, `apps/web/app/components/chat/RoomView.tsx:50-59`, `apps/api/src/main/java/com/example/chat/message/RoomAiExecutor.java`, `MessageService.java:127·149`, TASKS.md T-035.
+- date: 2026-09-19
+
