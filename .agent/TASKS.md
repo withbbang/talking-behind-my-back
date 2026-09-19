@@ -612,7 +612,7 @@
 
 
 ## T-031 AI 모드 메시지 비공개화 + 유저끼리 대화 컨텍스트 제외 (api) — D-037
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M3
 - spec: DECISIONS.md#D-037, API.md#messages, SCHEMA.md#messages
@@ -625,15 +625,15 @@
   - 시스템 프롬프트: 상대 발언을 먼저 옮기지 말고 직접 물으면 알려준다는 지시 + 마지막 발신자에게 답한다는 지시(2인 방만).
   - `./gradlew test` 통과.
 - test: `RoomEventBusTest`(+3 publishTo 대상·구독 없는 유저·실패 emitter 제거), `MessageServiceTest` 가시성 6건(상대 AI 대화 history 제외·HUMAN 양쪽 노출·커서·컨텍스트 포함/제외·비공개 지시·최근 N 창), `AiContextBuilderTest`(+3 HUMAN 제외·비공개 지시 유무), `MapperTest`(가시성 3행 + 뷰어 필터 + findRecentForAiContext), `MessageControllerIntegrationTest`(+1 상대 AI 대화 미노출), 실측 회귀 +1(상대 응답이 뒤에 끼어도 컨텍스트 마지막 턴은 내 질문). api 전체 308 통과(2026-09-19).
-- qa: (대기)
+- qa: PASS (QA_REPORT.md 2026-09-19, 사용자 실측 + 개발자 QA 대행)
 - note: SSE 구독 키가 `(roomId, userId)` 로 바뀌어 `bus.subscribe` 시그니처 변경(호출부 = `MessageController`, 테스트 3곳).
   `findRecentByRoomId`(가시성 무관 원본)와 `findRecentForAiContext`(HUMAN 제외) 두 개 — 서비스는 후자만 쓴다.
   V4 백필 2단계는 MySQL 이 UPDATE 대상 테이블을 서브쿼리에서 못 읽어 임시 테이블로 끊었다.
   **실측 1차 FAIL → 같은 T 안에서 수정**(to-dev 2026-09-19): 두 사람이 동시에 물으면 내 질문 뒤에 상대 응답이 쌓여
   컨텍스트가 assistant 턴으로 끝나 Gemini 400. 잡이 트리거 id 까지만 읽도록 `findRecentForAiContext(roomId, upToMessageId, limit)`.
 
-## T-032 모드 토글 칸별 안내 툴팁 (web) — D-037
-- status: REVIEW
+## T-032 모드 토글 안내 툴팁 + 실측 정정 5건 (web) — D-037 4, D-038
+- status: DONE
 - owner: 개발자
 - milestone: M3
 - spec: DECISIONS.md#D-037 (4), DESIGN.md#3
@@ -644,7 +644,7 @@
   - 혼자인 방: 토글 disabled + "친구 초대해봐!" 하나만(칸별 툴팁 없음) — 현행 유지.
   - `npm test`·lint·typecheck 통과.
 - test: `PillToggle`(+2 안내 tooltip·aria-describedby / tip 없으면 없음), `RoomHeaderSheet`(안내 2개·혼자면 1개·참여자는 모드/AI성격 없음), **신설 `ChatShell.settings.test.tsx` 5건**(실제 Sidebar 로 프로필 메뉴 → 설정: 참여자·개설자·상세 실패 폴백·Safari focusout·me 실패), `useMessages`(+1 전송 시 오류 말풍선 정리). web 전체 54 파일 378 통과, lint(기존 경고 1)·typecheck 통과(2026-09-19).
-- qa: (대기 — 2차 실측)
+- qa: PASS (QA_REPORT.md 2026-09-19, 사용자 실측 Safari 재검증 포함) — 오류 말풍선 소멸 1건은 재현 수단이 없어 단위 테스트로만 확인
 - note: `PillToggle` 옵션에 `tip?` 추가. 혼자인 방은 `MODES_ALONE`(tip 제거)을 넘겨 "친구 초대해봐!" 툴팁 하나만.
   **실측 1차 FAIL 4건 → 같은 T 안에서 수정**(D-038, to-dev 2026-09-19): 툴팁 2개 동시 표시·시트 가로 스크롤(둘 다 툴팁 방식 문제) / 참여자 시트 범위 / 오류 말풍선 영구 잔류.
   **Safari 에서 프로필 메뉴 "설정" 무반응** = `useMenu` 의 focusout 판정 — 역할 무관이었다(참여자 창이 Safari, 개설자 창이 Chrome 이라 한쪽만 재현). `ChatShell.test.tsx` 가 Sidebar 를 스텁으로 갈아끼워 이 경로에 테스트가 없었다 → 실제 Sidebar 통합 테스트 신설.

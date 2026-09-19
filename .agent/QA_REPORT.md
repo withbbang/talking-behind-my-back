@@ -411,3 +411,31 @@
 - issues: 없음. 보이스 오버레이 "다시" 버튼은 D-036 으로 보류(현행 유지).
 - date: 2026-09-18
 
+
+### T-031 AI 모드 메시지 비공개화 + 유저끼리 대화 컨텍스트 제외 (api) — D-037
+- verdict: PASS — 사용자 실측(Chrome=개설자 / Safari·Firefox=참여자, :3000) + 개발자 QA 대행, 2026-09-19.
+- tests: 존재 / api `./gradlew test` 307→308 통과(compose MySQL, cleanTest 강제 재실행 포함 실패 0).
+  `RoomEventBusTest` +3(publishTo 대상·구독 없는 유저·실패 emitter 제거), `MessageServiceTest` 가시성 7건, `AiContextBuilderTest` +3, `MapperTest`(가시성 3행·뷰어 필터·컨텍스트 절단), `MessageControllerIntegrationTest` +1.
+- checked (실측):
+  - `AI` 모드에서 상대의 질문·AI 답이 내 화면에 안 뜨고 새로고침 후에도 안 보인다.
+  - `유저끼리` 대화는 양쪽 다 보이고, `AI` 로 돌아온 뒤에도 남는다(과거 가시성 불변).
+  - `유저끼리` 대화를 AI 가 모른다. 상대가 뭐라 했는지 **직접 물으면** 알려준다(D-037 2).
+  - 두 사람이 연달아 물어도 각자 자기 답을 받는다(실측 1차 FAIL 수정분 재검증).
+  - V4 백필: 더미 데이터로 귀속 결과 확인(AI 질문·답 → 발신자, 유저끼리 → 전원).
+- issues: 실측 1차에서 FAIL 1건 → 같은 T 안에서 수정(to-dev 2026-09-19). 두 잡이 겹치면 컨텍스트가 assistant 턴으로 끝나
+  Gemini 400 (`Requests ending with a model turn are not supported`). 잡이 트리거 id 까지만 읽도록 절단 + 회귀 테스트.
+  남은 관측: SSE 클라이언트 끊김 ERROR 스택(동작 무해, 로그 노이즈) → T-033 으로 분리.
+- date: 2026-09-19
+
+### T-032 모드 토글 안내 툴팁 + 실측 정정 5건 (web) — D-037 4, D-038
+- verdict: PASS — 사용자 실측(Safari 재검증 포함) + 개발자 QA 대행, 2026-09-19. **1건 미검증**(아래 issues).
+- tests: 존재 / web `npm test` 53 파일 371 → **54 파일 378** 통과, lint 0 error(기존 경고 1), typecheck 통과.
+  `PillToggle` +2, `RoomHeaderSheet`(안내 2개·혼자 1개·참여자 제외), **`ChatShell.settings.test.tsx` 신설 5건**(실제 Sidebar 로 프로필 메뉴 → 설정: 참여자·개설자·상세 실패 폴백·Safari focusout·me 실패), `useMessages` +1(전송 시 오류 말풍선 정리).
+- checked (실측, Safari·Firefox·Chrome):
+  - 프로필 메뉴 → 설정 열림(Safari 포함), 방 목록 … 메뉴도 동작.
+  - 설정 시트 가로 스크롤바 없음, 모드 안내는 호버한 칸 것만 하나.
+  - 참여자 시트에 모드·AI 성격 줄 없음(제목·멤버·테마만).
+- issues: **오류 말풍선 소멸(D-038 2)은 실측 미검증** — api 수정 후 AI 잡이 실패하지 않아 오류 말풍선을 만들 수 없었다.
+  단위 테스트(`useMessages` clearErrors: 오류만 정리, 남의 진행 스트림 유지)로만 확인됨. 강제 재현 절차는 to-qa 2026-09-19 항목에 기록.
+  실측 1차 FAIL 5건은 같은 T 안에서 수정(to-dev 2026-09-19) — Safari focusout, 툴팁 중복·오버플로, 참여자 시트 범위, 오류 말풍선 잔류.
+- date: 2026-09-19

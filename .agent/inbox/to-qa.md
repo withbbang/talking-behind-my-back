@@ -288,7 +288,7 @@
 - date: 2026-09-18
 
 
-### [개발자 → QA] T-031·T-032 AI 모드 대화 비공개화 (api+web) 검증 요청
+### [개발자 → QA] T-031·T-032 AI 모드 대화 비공개화 (api+web) 검증 요청 [처리됨 2026-09-19, QA_REPORT.md#T-031·T-032 PASS — 사용자 실측, 오류 말풍선 1건 미검증]
 - 요청/이슈: D-037(사용자 결정 4건) 구현. api `./gradlew test` 307 통과, web `npm test` 371/53 파일 + lint(기존 경고 1)·typecheck·build 통과.
 - 필요한 환경: 계정 2개(개설자 A · 참여자 B)로 같은 방에 동시 접속. 브라우저 2개(또는 시크릿 창) + 각자 SSE 연결.
 - 검증 포인트(실브라우저):
@@ -305,4 +305,14 @@
 - 근거 파일: D-037, TASKS.md T-031·T-032, API.md#messages, SCHEMA.md#5, DESIGN.md §3,
   `apps/api/src/main/resources/db/migration/V4__message_visibility.sql`, `apps/api/src/main/java/com/example/chat/message/{RoomEventBus,MessageService,AiContextBuilder,Message,MessageMapper}.java`,
   `apps/api/src/main/resources/mapper/MessageMapper.xml`, `apps/web/app/components/ui/PillToggle.tsx`, `apps/web/app/components/chat/RoomHeaderSheet.tsx`.
+- date: 2026-09-19
+
+### [개발자 → QA] T-032 오류 말풍선 소멸 — 강제 재현 절차 (미검증 1건)
+- 왜: api 수정 후 AI 잡이 정상 응답해 오류 말풍선을 만들 수 없어 실측이 안 됐다(QA_REPORT T-032 issues). 단위 테스트만 통과.
+- 재현 (2분, 되돌리기 쉬움):
+  1. `docker stop chat-app-dev-omniroute-1` — 상류를 끊는다.
+  2. `AI` 모드에서 아무 메시지 전송 → 점 3개 뒤 "시스템 오류. 다시 시도해줄래?" 말풍선이 뜬다.
+  3. 그 상태로 메시지를 **한 번 더** 전송 → 오류 말풍선이 사라지고 내 말풍선 + 새 대기 표시만 남아야 한다(D-038 2).
+  4. `docker start chat-app-dev-omniroute-1` — 복구. 3에서 보낸 메시지의 답은 안 온다(그 잡은 이미 실패) — 정상.
+- 같이 볼 것: 2인 방이면 상대 화면에는 이 오류 말풍선이 **안 보여야** 한다(error 이벤트도 대화 주인에게만, D-037).
 - date: 2026-09-19
