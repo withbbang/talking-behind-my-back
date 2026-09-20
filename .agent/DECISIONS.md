@@ -373,6 +373,18 @@
 - impact: `apps/web` `RoomHeaderSheet`(참여자 분기)·`PillToggle`(툴팁 단일화)·`streamStore`(`clearErrors`)·`useMessages`(전송 시 호출). API 변경 없음. DESIGN.md §3 갱신(디자이너 대행). 참여자 모드 변경은 **API 계약은 그대로**(멤버 누구나 PATCH mode) — 화면에서만 진입점을 없앤다.
 - date: 2026-09-19 (개발자 대행 기록, 사용자 결정 — 실측 지적 6건 중 3건)
 
+### D-039 서비스워커는 `@serwist/turbopack` Route Handler 방식 — 오프라인 셸 `/~offline` 정적 페이지
+- decision (사용자 결정, T-014 착수 전 변경안 A-1·C-1 채택):
+  (1) **`@serwist/next` 는 쓰지 않는다.** Next 16 은 `next build`/`next dev` 가 Turbopack 기본이고 `@serwist/next` 는 webpack 플러그인이라 `--webpack` 으로 빌드 전체를 되돌려야 한다. 대신 같은 팀의 **`@serwist/turbopack`**(9.5.x) — `app/serwist/[path]/route.ts`(`force-static`) 가 빌드 시 `app/sw.ts` 를 esbuild 로 번들 + 프리캐시 매니페스트 주입, `Service-Worker-Allowed: /` 는 라이브러리가 붙인다. `next.config.ts` 는 `withSerwist()` 래핑(`serverExternalPackages` 에 esbuild 추가만).
+  (2) **캐시 정책은 `defaultCache` 를 쓰지 않고 직접 쓴다.** serwist 기본값은 `/api/*` 를 NetworkFirst 로 캐시하려 들어(SSE·auth 위험) 채택 불가. `/api/*`·`/admin/*`·`/serwist/*` NetworkOnly(D-005 impact 이행), `/_next/static/*` CacheFirst, 아이콘·manifest StaleWhileRevalidate, 문서·RSC NetworkFirst(3초) + 실패 시 `/~offline` 폴백(`/admin` 문서 제외). `skipWaiting`·`clientsClaim`·`navigationPreload` 켬.
+  (3) **오프라인 안내는 `app/~offline/page.tsx` 정적 페이지 하나.** 문구: 제목 "연결 없음" / "인터넷이 안 되는 것 같아. 다시 연결되면 이어서 하자." / 버튼 "다시 시도"(reload). `proxy.ts` 가드에서 `/~offline` 제외(안 빼면 SW 설치 시 로그인 페이지가 프리캐시됨). 앱 사용 중 끊김 인앱 배너는 범위 밖(필요하면 별도 T + DESIGN.md).
+  (4) **등록은 `Providers` 의 `SerwistProvider`**, development 에선 `disable`(HMR·실측 오염 방지), `reloadOnOnline=false`(SSE 재연결은 `lib/sse.ts` 백오프가 담당).
+  (5) **T-014 acceptance 정정.** `public/icons/*` 는 T-005 에서 이미 추가됨. "Lighthouse PWA 체크" 는 Lighthouse 12 에서 PWA 카테고리가 삭제돼 실행 불가 → 대체 검증: Playwright `setOffline` 콜드 오픈 시 `/~offline` 렌더, DevTools Manifest installable 무경고, `/api/**` 가 SW 캐시(Cache Storage)에 남지 않음.
+- rationale: Turbopack 주류 경로를 유지하면서 프리캐시 매니페스트(앱 셸 precache 요건)를 얻는 유일한 공식 경로. 손으로 쓴 `public/sw.js` 는 매니페스트가 없어 요건 미충족.
+- alternatives: `@serwist/next` + `next build --webpack` — 빌드 느려지고 Next 16 기본 경로 이탈, 기각. 수동 `public/sw.js` — 프리캐시 없음, 기각. 인앱 오프라인 배너 — DESIGN.md 없는 UI 라 이번 범위 밖.
+- impact: `apps/web` `next.config.ts`·`app/sw.ts`·`app/serwist/[path]/route.ts`·`app/~offline/page.tsx`·`app/providers.tsx`·`proxy.ts`·`vitest.config.ts`(sw.ts 제외). devDependencies `@serwist/turbopack`·`serwist`·`esbuild`. nginx·Dockerfile·CI 변경 없음. `.gitignore` 의 `public/sw.js` 줄은 무해(사용 안 함).
+- date: 2026-09-20 (개발자 대행 기록, 사용자 결정)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

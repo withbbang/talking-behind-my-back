@@ -370,3 +370,17 @@
 - 근거 파일: `.github/workflows/deploy.yml`, `infra/docker-compose.yml`, `infra/.env.example`, `apps/api/Dockerfile`, TASKS.md#T-012 note·교훈 3줄
 - 범위 외: OmniRoute 제거 검토(백로그), DSM 타임아웃 튜닝(별도 T 후보).
 - date: 2026-09-20
+
+### [개발자 → QA] T-014 서비스워커(PWA 오프라인 셸) — 검증 요청 [처리됨 2026-09-20, QA_REPORT.md#T-014 PASS — 사용자 로컬 installable·설치, 소셜은 :3002 라 T-013 으로]
+- 무엇: `@serwist/turbopack` 로 `/serwist/sw.js` 등록(production 만). `/api`·`/admin` NetworkOnly, 앱 셸·아이콘 프리캐시, 오프라인 콜드 오픈 시 `/~offline` "연결 없음". 상세 TASKS.md#T-014 test·D-039.
+- 개발자 실측(Playwright, `next start` 직접 접속): SW 활성·프리캐시 29건·api 캐시 0건·오프라인 폴백·복귀 PASS.
+- 검증 포인트 (dev 에선 SW 가 꺼져 있으니 **배포본 또는 `npm run build && node .next/standalone/server.js`** 로):
+  (1) Chrome DevTools → Application → Manifest: "installable" 경고 없음(아이콘 192/512/maskable, start_url, display standalone).
+  (2) Application → Service workers: `/serwist/sw.js` activated, scope `/`. Cache Storage 에 `serwist-precache-*`·`pages`·`shell-assets`·`next-static` 만, `/api/` 경로 항목 없음.
+  (3) 로그인 후 방 하나 열고 DevTools Network → Offline → 새 탭에서 `/` 콜드 오픈 → "연결 없음" 페이지. Online 으로 되돌리고 "다시 시도" → 방 목록 복귀.
+  (4) 채팅 중 SSE 가 SW 를 안 거치는지: Network 에서 `/api/rooms/{id}/events` 의 Size 가 "(ServiceWorker)" 가 아님. 메시지 전송·AI 스트리밍 기존과 동일.
+  (5) 운영(nginx 경유, https): 배포 후 (1)(2) 반복 — `Service-Worker-Allowed: /` 헤더가 nginx 를 통과하는지(응답 헤더 확인).
+- 근거 파일: `apps/web/app/sw.ts`, `app/serwist/[path]/route.ts`, `app/~offline/page.tsx`, `app/features/pwa/*`, `proxy.ts`, `next.config.ts`
+- 범위 외: 앱 사용 중 끊김 인앱 배너(D-039 3), iOS 실기기 → T-013.
+- date: 2026-09-20
+

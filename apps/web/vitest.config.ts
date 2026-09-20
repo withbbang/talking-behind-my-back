@@ -15,7 +15,8 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html"],
       include: ["app/**/*.{ts,tsx}"],
-      exclude: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}", "app/layout.tsx", "app/manifest.ts"],
+      // app/sw.ts 는 워커 전역(esbuild 번들) — jsdom 밖. 판정 로직은 features/pwa/caching.ts 에서 테스트.
+      exclude: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}", "app/layout.tsx", "app/manifest.ts", "app/sw.ts", "app/serwist/**"],
     },
   },
   resolve: {

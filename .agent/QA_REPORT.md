@@ -492,3 +492,15 @@
 - issues: to-qa 체크리스트 중 미실측 — Naver·Kakao 운영 로그인 왕복, SSE 2분 이상 방치 후 재연결, 세션 15분 후 silent refresh, PWA 홈화면(T-013 로), 이는 사용 중 자연 확인 대상으로 남김.
   관측 — DSM 리버스 프록시 `proxy_read_timeout` 기본 60s 는 SSE 재연결로 커버(끊김 체감 시 고급 설정에서 조정). OmniRoute 상주 메모리 ~650MiB 는 제거 검토 백로그.
 - date: 2026-09-20
+
+### T-014 서비스워커(PWA 오프라인 셸) (web)
+- verdict: PASS — 사용자 로컬 실측(Chrome DevTools Manifest installable 무경고 + 실제 설치) + 개발자 Playwright 실측, 개발자 QA 대행, 2026-09-20.
+- tests: 존재 / web `npm test` 411 passed(57 files, 신규 27), `lint` 0 error(기존 경고 1), `typecheck`·`build` 통과. 에이전트 실행(로컬).
+- checked (`npm run build` + `next start -p 3002` 직접 접속, D-039 5 대체 검증):
+  acceptance ① `@serwist/turbopack` Route Handler — 빌드 로그 `29 precache entries`, `/serwist/sw.js` 200 `application/javascript` + `Service-Worker-Allowed: /`.
+  acceptance ② `/api`·`/admin` NetworkOnly — `POST /api/auth/refresh` 후 Cache Storage 에 api 항목 0건(`serwist-precache-*` 29 / `pages`: /login / `shell-assets`: manifest). 프리캐시에 `/_next/static/**`·아이콘 3종·`/~offline`, `/api`·`/admin` 없음.
+  acceptance ③ 오프라인 — Playwright `setOffline` 후 `/`·`/rooms/1` 콜드 오픈 → h1 "연결 없음" + 안내 문구 + "다시 시도". 온라인 복귀 + "다시 시도" → `/login?next=%2Frooms%2F1`(가드 정상).
+  acceptance ④(대체) Manifest installable — 사용자 Chrome 에서 경고 없음, 홈화면(데스크톱) 설치 완료.
+- issues: 소셜 로그인은 :3002 직접 접속이라 OAuth redirect URI 불일치로 미실측(예상된 제약, T-014 범위 밖) → 운영 배포본에서 T-013 이 확인. 운영 nginx 경유 `Service-Worker-Allowed` 헤더 통과도 T-013 에서 곁눈질.
+- date: 2026-09-20
+
