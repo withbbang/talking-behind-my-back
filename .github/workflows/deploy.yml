@@ -123,6 +123,9 @@ jobs:
             mkdir -p "${DATA_DIR:-./data}/mysql" "${DATA_DIR:-./data}/omniroute"
             # docker.sock 이 root:root 660 이면 sudoers NOPASSWD(상단 주석 5번) 경유. 비밀번호를 요구하면 즉시 실패(-n)
             if docker ps >/dev/null 2>&1; then DOCKER=docker; else DOCKER="sudo -n docker"; fi
+            # omniroute 는 node(1000) 로 돌아 배포 계정 소유 디렉터리에 storage.sqlite 를 못 쓴다(설정이 메모리에만 남음, T-012 실측).
+            # 배포 계정은 chown 권한이 없으니 컨테이너로 소유자 변경. mysql 은 entrypoint 가 스스로 chown 하므로 불필요
+            $DOCKER run --rm -v "$(cd "${DATA_DIR:-./data}" && pwd)/omniroute:/d" alpine:3.20 chown 1000:1000 /d
             $DOCKER compose --env-file .env pull web api
             $DOCKER compose --env-file .env up -d --remove-orphans
             $DOCKER image prune -f
