@@ -536,12 +536,14 @@
 - status: TODO
 - owner: QA
 - milestone: M5
-- blocked_by: T-012, T-014
+- blocked_by: ~~T-012, T-014~~ (둘 다 DONE 2026-09-20) — **T-014 가 master 에 배포된 뒤** 실기기로.
 - acceptance:
   - 홈화면 설치, 소셜 로그인 3사 왕복, 마이크 권한, 백그라운드 복귀 후 세션 유지. 실패는 inbox/to-ceo.md.
+  - (T-014 이월) 운영 https 에서 `/serwist/sw.js` 응답에 `Service-Worker-Allowed: /` 통과, 홈화면 앱 오프라인 콜드 오픈 → "연결 없음".
+- note: 2026-09-20 착수 대기. 배포 순서 `feature_20260914` → `dev` → `master`(--no-ff) 후 5분 내 NAS 반영.
 
 ## T-014 서비스워커(PWA 오프라인 셸) — T-001 에서 분리
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M5
 - spec: PLAN.md#M5, DECISIONS.md#D-039
@@ -554,6 +556,7 @@
 - test: 신규 web 27건(전체 `npm test` 411 passed / 57 files, lint 0 error·기존 경고 1, typecheck·build 통과).
   `features/pwa/caching`(22, 네트워크 전용·정적·셸 자원·문서·RSC 판정), `PwaProvider`(2, prod 등록 `/serwist/sw.js` scope `/` / dev 미등록),
   `~offline/page`(2), `proxy.test`(+1, `/~offline` 미인증 통과).
+- qa: PASS, QA_REPORT.md 2026-09-20 (사용자 로컬 installable·설치 + 개발자 Playwright). 소셜 로그인은 :3002 라 미실측 → T-013.
   실측(`next start -p 3002` 직접 접속 + Playwright Chromium, 2026-09-20): SW activated(scope `/`, controller), 프리캐시 29건(`/_next/static/**`·아이콘·`/~offline`, `/api`·`/admin` 0건),
   `POST /api/auth/refresh` 후 Cache Storage 에 api 항목 없음(`pages`: /login, `shell-assets`: manifest 만), `setOffline` 후 `/`·`/rooms/1` 콜드 오픈 → h1 "연결 없음",
   온라인 복귀 + "다시 시도" → `/login?next=/rooms/1`(가드 정상). 미실측: DevTools Manifest installable(사용자 Chrome), 운영(nginx 경유) 등록 → to-qa.

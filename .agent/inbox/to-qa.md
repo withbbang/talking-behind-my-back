@@ -371,7 +371,7 @@
 - 범위 외: OmniRoute 제거 검토(백로그), DSM 타임아웃 튜닝(별도 T 후보).
 - date: 2026-09-20
 
-### [개발자 → QA] T-014 서비스워커(PWA 오프라인 셸) — 검증 요청
+### [개발자 → QA] T-014 서비스워커(PWA 오프라인 셸) — 검증 요청 [처리됨 2026-09-20, QA_REPORT.md#T-014 PASS — 사용자 로컬 installable·설치, 소셜은 :3002 라 T-013 으로]
 - 무엇: `@serwist/turbopack` 로 `/serwist/sw.js` 등록(production 만). `/api`·`/admin` NetworkOnly, 앱 셸·아이콘 프리캐시, 오프라인 콜드 오픈 시 `/~offline` "연결 없음". 상세 TASKS.md#T-014 test·D-039.
 - 개발자 실측(Playwright, `next start` 직접 접속): SW 활성·프리캐시 29건·api 캐시 0건·오프라인 폴백·복귀 PASS.
 - 검증 포인트 (dev 에선 SW 가 꺼져 있으니 **배포본 또는 `npm run build && node .next/standalone/server.js`** 로):
