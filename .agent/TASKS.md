@@ -65,6 +65,9 @@
 - **Synology 비대화형 SSH(GH Actions·`ssh host cmd`)는 PATH 에 `/usr/local/bin` 이 없고, `docker.sock` 은 root:root 660 + docker 그룹 없음, `visudo`·SFTP 없음.** deploy 스크립트는 `export PATH=/usr/local/bin:$PATH` + `sudo -n docker`(sudoers.d NOPASSWD), Mac 에서 파일 올릴 땐 `scp -O`(레거시 프로토콜). `ls -l` 모드 비트는 보는 계정의 ACL 유효권한으로 합성돼 계정마다 다르게 보인다 — 실제 권한은 `synoacltool -get`(T-012).
 - **DSM 방화벽은 도커 브리지 안 컨테이너끼리 트래픽도 FORWARD 체인에서 걸러 DROP 한다**(`bridge-nf-call-iptables=1`). 증상: 같은 compose 인데 DNS 는 풀리고 TCP 는 timeout. 제어판 → 보안 → 방화벽에 소스 `172.16.0.0/255.240.0.0` 허용 규칙을 DROP 위에(T-012).
 - **compose env_file 은 값이 빈 줄의 인라인 `# 주석` 을 값으로 넣는다**(값이 있으면 잘라냄). `LLM_REASONING_EFFORT=   # ...` 가 그대로 Gemini 로 가서 400. 빈 값 줄엔 주석을 윗줄로(T-012, `.env.example` 반영).
+- **`package-lock.json` 은 CI 와 같은 npm(node:22-alpine, npm 10.9)으로 만든다.** 로컬 npm 11 이 쓴 lock 은 optional peer(`@swc/helpers`) 중첩 항목을 안 적어
+  Docker `npm ci` 가 "not in sync" 로 죽는다(T-014 배포 1회 실패). 의존성을 바꾼 뒤엔 `docker run --rm -v "$PWD":/app -w /app node:22-alpine npm install --package-lock-only`
+  로 lock 을 다시 쓰고 `docker build --target deps` 로 확인.
 - **Next 16 은 `next build` 가 Turbopack 기본이라 webpack 플러그인(`@serwist/next` 등)이 안 먹는다.** Route Handler 기반 `@serwist/turbopack` 을 쓴다(D-039). serwist `defaultCache` 는 `/api/*` 를 NetworkFirst 로 캐시하니 그대로 쓰지 말 것.
   SW 가 프리캐시하는 정적 페이지(`/~offline`)는 `proxy.ts` 가드에서 빼야 한다 — 안 빼면 설치 시 로그인 페이지가 저장된다(T-014).
 - **bind mount 는 컨테이너 유저 소유여야 한다 — 이미지의 chown/tmpfs `mode=` 는 마운트에 안 먹는다.** omniroute(node 1000)는 storage.sqlite 를 못 써 설정이 메모리에만 남고, api tmpfs `/tmp/audio` 는 root 755. 해결: 배포 시 `docker run alpine chown 1000:1000`, tmpfs 는 `uid=100,gid=101`(T-012).
