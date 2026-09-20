@@ -478,3 +478,17 @@
   Netty macOS DNS ERROR 노이즈는 `io.netty:netty-resolver-dns-native-macos` 의존성(로컬 전용) 추가로 없앨 수 있음 — 배포(Linux)엔 안 뜨므로 백로그.
 - date: 2026-09-19
 
+
+### T-012 NAS 첫 배포 리허설 (infra)
+- verdict: PASS — 사용자 실측("텍스트, 음성 성공", 2기기 SSE "전부 성공") + 개발자 NAS/외부 대조, 개발자 QA 대행(사용자 지시 "태스크 종료"), 2026-09-20.
+- tests: 인프라 작업이라 자동 테스트 없음. 로컬 이미지 빌드 리허설(web 80MB·api 124MB, amd64) + `docker compose config` 파싱 확인.
+- checked (운영 https://talk-behind-my-back.o-r.kr, master 4022782):
+  acceptance ① GitHub Variables/Secrets → master push → GHCR → NAS 기동: deploy 3회 연속 성공(0c6e114·ab6f39d·4022782), `IMAGE_TAG` 자동 반영.
+  acceptance ② DSM 리버스 프록시 경유 SSE: 휴대폰(LTE)+Mac(hosts 우회) 같은 방에서 메시지·AI 답장 실시간 도착 — 사용자 실측 PASS.
+  acceptance ③ NAS x86_64 → `platforms: linux/amd64`. `X-Forwarded-For` → nginx 로그에 실제 클라이언트 IP(39.7.x.x) 복원, `X-Forwarded-Proto` → OAuth redirect_uri `https://…/api/login/oauth2/code/{provider}` 3사 확인.
+  acceptance ④ `docker stats`: api 419MiB(상한 내) / mysql 529 / omniroute 649 / web 56 / nginx 6 / edge-tts 48.
+  추가: Google 로그인 왕복, 음성 → Groq STT → Gemini → edge-tts TTS 왕복(사용자 실측), Flyway V1~V4 적용, Let's Encrypt 인증서(2026-12-19 만료, DSM 자동갱신), http:80 → `/login` 307.
+  OmniRoute 대시보드 설정이 `data/omniroute/storage.sqlite` 에 저장됨(권한 수정 후 확인) — 재시작 시 유지.
+- issues: to-qa 체크리스트 중 미실측 — Naver·Kakao 운영 로그인 왕복, SSE 2분 이상 방치 후 재연결, 세션 15분 후 silent refresh, PWA 홈화면(T-013 로), 이는 사용 중 자연 확인 대상으로 남김.
+  관측 — DSM 리버스 프록시 `proxy_read_timeout` 기본 60s 는 SSE 재연결로 커버(끊김 체감 시 고급 설정에서 조정). OmniRoute 상주 메모리 ~650MiB 는 제거 검토 백로그.
+- date: 2026-09-20
