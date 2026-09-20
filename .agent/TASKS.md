@@ -507,7 +507,7 @@
 ## M5 배포 · PWA
 
 ## T-012 NAS 첫 배포 리허설
-- status: REVIEW
+- status: DONE
 - owner: 개발자
 - milestone: M5
 - spec: 루트 README.md#첫-배포-순서, D-002, D-009
@@ -528,6 +528,7 @@
   ⑦ `.env` 빈 값 인라인 주석이 값으로 → Gemini 400 ⑧ `data/omniroute` 소유자 → chown 1000. OmniRoute 는 대시보드(LAN :20128)에서 Gemini·Groq·edge-tts 노드 연결 + API 키 발급(Playwright 로 조작, 키는 사용자 직접 입력).
   실측 수치: api 419MiB / mysql 529 / omniroute 649 / web 56 / nginx 6 / edge-tts 48 MiB. Flyway V1~V4 적용. `X-Forwarded-For` 로 실제 클라이언트 IP 복원, `X-Forwarded-Proto` 로 redirect_uri https 확인.
   남은 것: QA 체크리스트(to-qa), DSM 리버스 프록시 read timeout(기본 60s → SSE 재연결로 커버, 거슬리면 늘림), OmniRoute 제거 검토는 별도 백로그(메모리 ~650MiB).
+- qa: PASS (QA_REPORT.md 2026-09-20, 사용자 지시로 개발자 대행). 미실측 항목(Naver·Kakao 운영 로그인, SSE 장시간, PWA)은 사용 중 확인.
 
 ## T-013 iOS/Android 홈화면 PWA 검증
 - status: TODO
