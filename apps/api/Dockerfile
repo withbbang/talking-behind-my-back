@@ -12,7 +12,8 @@ RUN ./gradlew bootJar --no-daemon -x test   # 테스트는 CI(ci.yml)에서 별�
 
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-RUN addgroup -S spring && adduser -S spring -G spring \
+# uid/gid 고정 — infra/docker-compose.yml 의 /tmp/audio tmpfs uid=100,gid=101 과 맞물린다
+RUN addgroup -S -g 101 spring && adduser -S -u 100 -G spring spring \
     && mkdir -p /tmp/audio && chown spring:spring /tmp/audio
 COPY --from=build --chown=spring:spring /app/build/libs/*.jar app.jar
 USER spring
