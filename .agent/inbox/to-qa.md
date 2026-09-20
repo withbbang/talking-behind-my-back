@@ -355,3 +355,18 @@
 - 근거 파일: `apps/web/app/features/speech/voiceMachine.ts:67`, `useVoiceMode.ts:133-138`, `apps/web/app/components/chat/RoomView.tsx:50-59`, `apps/api/src/main/java/com/example/chat/message/RoomAiExecutor.java`, `MessageService.java:127·149`, TASKS.md T-035.
 - date: 2026-09-19
 
+
+### [개발자 → QA] T-012 NAS 첫 배포 — 운영 환경 검증 요청
+- 무엇: master 0c6e114 가 https://talk-behind-my-back.o-r.kr 에 떠 있음. 인프라 작업이라 자동 테스트 없음 — 운영 환경에서 체크리스트 실측.
+  개발자 실측(사용자 기기, 2026-09-20): Google 로그인, 텍스트→AI 답장, 음성→STT→TTS, 2기기 SSE 실시간 — PASS. 자세한 경위 TASKS.md#T-012 note.
+- 준비: 휴대폰(LTE) + Mac. Mac 은 같은 사설망이라 공인 IP 로 못 들어감 → `/etc/hosts` 에 `192.168.55.71 talk-behind-my-back.o-r.kr` 한 줄(hairpin NAT 우회).
+- 검증 포인트:
+  (1) **http 진입**: 주소창에 도메인만 입력(http) → 403 없이 `/login` 으로. https 자물쇠 정상(Let's Encrypt, `talk-behind-my-back.o-r.kr`).
+  (2) **Naver·Kakao 로그인**: Google 은 확인됨. 나머지 둘 각각 왕복 → `/` 에 닉네임·공급자. redirect_uri mismatch 나오면 콘솔 등록 URI 확인.
+  (3) **SSE 장시간**: 방을 열어두고 2분 이상 아무것도 안 함 → 이후 상대 메시지가 도착하는지(DSM `proxy_read_timeout` 60s 로 끊겨도 재연결돼야 함). 재연결 지연이 거슬리면 리버스 프록시 고급 설정 타임아웃 조정 후보로 기록.
+  (4) **세션 유지**: 로그인 후 15분 이상 뒤 새 탭 `/` → silent refresh 로 복귀(T-005 (3) 과 동일, 운영 쿠키 Secure/Domain 확인).
+  (5) **PWA**: 휴대폰 홈화면 추가 → 실행 → 로그인 왕복(T-013 과 겹치면 거기서).
+  (6) **메모리**: NAS `sudo -n /usr/local/bin/docker stats --no-stream` 에서 api 가 512MiB 안(현재 ~420MiB), omniroute ~650MiB 기록.
+- 근거 파일: `.github/workflows/deploy.yml`, `infra/docker-compose.yml`, `infra/.env.example`, `apps/api/Dockerfile`, TASKS.md#T-012 note·교훈 3줄
+- 범위 외: OmniRoute 제거 검토(백로그), DSM 타임아웃 튜닝(별도 T 후보).
+- date: 2026-09-20
