@@ -63,6 +63,9 @@
 - **"로그에 안 찍힌다" 는 응답 단언으로 검증되지 않는다** — logback `ListAppender` 를 핸들러 로거에 붙여 레벨을 단언한다(T-033). api 로그를 실측할 땐 사용자 bootRun(:8080)을 건드리지 말고 `ps` 에서 뽑은 같은 클래스패스로 `java -Dserver.port=8081 … ChatApplication` 두 번째 인스턴스를 띄워 로그를 파일로 받는다. **클라이언트 끊김은 다음 하트비트(20초) 쓰기 시점에야 예외로 드러난다** — 끊고 바로 로그를 보면 아직 없다.
 - **GH Actions `vars.*` 는 Settings → Secrets and variables → Actions 의 Repository variables 탭에 있어야 읽힌다.** Secrets 탭이나 Environment 범위(job 에 `environment:` 없음)에 넣으면 빈 문자열 → `ghcr.io/owner/-api` invalid reference (T-012, master push 10회 실패). 레포명 폴백(`vars.X || github.event.repository.name`)을 둬서 없어도 돌게 했다.
 - **Synology 비대화형 SSH(GH Actions·`ssh host cmd`)는 PATH 에 `/usr/local/bin` 이 없고, `docker.sock` 은 root:root 660 + docker 그룹 없음, `visudo`·SFTP 없음.** deploy 스크립트는 `export PATH=/usr/local/bin:$PATH` + `sudo -n docker`(sudoers.d NOPASSWD), Mac 에서 파일 올릴 땐 `scp -O`(레거시 프로토콜). `ls -l` 모드 비트는 보는 계정의 ACL 유효권한으로 합성돼 계정마다 다르게 보인다 — 실제 권한은 `synoacltool -get`(T-012).
+- **DSM 방화벽은 도커 브리지 안 컨테이너끼리 트래픽도 FORWARD 체인에서 걸러 DROP 한다**(`bridge-nf-call-iptables=1`). 증상: 같은 compose 인데 DNS 는 풀리고 TCP 는 timeout. 제어판 → 보안 → 방화벽에 소스 `172.16.0.0/255.240.0.0` 허용 규칙을 DROP 위에(T-012).
+- **compose env_file 은 값이 빈 줄의 인라인 `# 주석` 을 값으로 넣는다**(값이 있으면 잘라냄). `LLM_REASONING_EFFORT=   # ...` 가 그대로 Gemini 로 가서 400. 빈 값 줄엔 주석을 윗줄로(T-012, `.env.example` 반영).
+- **bind mount 는 컨테이너 유저 소유여야 한다 — 이미지의 chown/tmpfs `mode=` 는 마운트에 안 먹는다.** omniroute(node 1000)는 storage.sqlite 를 못 써 설정이 메모리에만 남고, api tmpfs `/tmp/audio` 는 root 755. 해결: 배포 시 `docker run alpine chown 1000:1000`, tmpfs 는 `uid=100,gid=101`(T-012).
 
 ---
 
@@ -504,7 +507,7 @@
 ## M5 배포 · PWA
 
 ## T-012 NAS 첫 배포 리허설
-- status: IN_PROGRESS
+- status: REVIEW
 - owner: 개발자
 - milestone: M5
 - spec: 루트 README.md#첫-배포-순서, D-002, D-009
@@ -519,6 +522,12 @@
   주의: `ci.yml` 은 `pull_request` 트리거라 `--no-ff` 직접 머지 push 에는 CI 가 안 돈다 → master 머지 전 로컬 전체 테스트 필수.
   NAS `uname -m` = x86_64 → `platforms: linux/amd64` 유지. 2026-09-14~19 master push 9회 deploy 전부 실패 = GitHub Variable `APP_NAME` 미등록으로
   태그가 `ghcr.io/withbbang/-api` (invalid reference format). Variables/Secrets·NAS 준비(E) 완료 후 `workflow_dispatch` 로 재실행.
+  **2026-09-20 첫 배포 성공 (master 0c6e114, https://talk-behind-my-back.o-r.kr).** 사용자 실측: 휴대폰(LTE) Google 로그인·텍스트→AI 답장·음성→STT→TTS, Mac(hosts 우회)+휴대폰 2기기 SSE 실시간 전부 PASS.
+  거친 장애 순서와 해결: ① deploy scp 1회 일시 실패(재실행 OK) ② mysql 첫 초기화 >2분 → healthcheck start_period 300s ③ DSM 방화벽이 컨테이너 간 트래픽 DROP → 172.16.0.0/12 허용 규칙
+  ④ OAuth 키 미설정(prod 는 기본값 없이 fail-fast, 의도) ⑤ http:80 진입 403 + 인증서 미매핑 → LE 인증서 발급·매핑, 80 규칙 추가 ⑥ tmpfs `/tmp/audio` root 755 → `uid=100,gid=101`
+  ⑦ `.env` 빈 값 인라인 주석이 값으로 → Gemini 400 ⑧ `data/omniroute` 소유자 → chown 1000. OmniRoute 는 대시보드(LAN :20128)에서 Gemini·Groq·edge-tts 노드 연결 + API 키 발급(Playwright 로 조작, 키는 사용자 직접 입력).
+  실측 수치: api 419MiB / mysql 529 / omniroute 649 / web 56 / nginx 6 / edge-tts 48 MiB. Flyway V1~V4 적용. `X-Forwarded-For` 로 실제 클라이언트 IP 복원, `X-Forwarded-Proto` 로 redirect_uri https 확인.
+  남은 것: QA 체크리스트(to-qa), DSM 리버스 프록시 read timeout(기본 60s → SSE 재연결로 커버, 거슬리면 늘림), OmniRoute 제거 검토는 별도 백로그(메모리 ~650MiB).
 
 ## T-013 iOS/Android 홈화면 PWA 검증
 - status: TODO
