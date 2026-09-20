@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/authCookies';
 import { safeNextPath } from '@/lib/nextPath';
+import { OFFLINE_PATH } from '@/features/pwa/caching';
 
 /**
  * 라우트 가드 (T-005). Next 16 규약: middleware.ts → proxy.ts (Homepage 와 동일).
@@ -16,11 +17,15 @@ import { safeNextPath } from '@/lib/nextPath';
  * T-018 (D-021): 미인증 보호 경로는 `/login?next=<경로+쿼리>` 로 보낸다(`/` 는 기본 목적지라 생략).
  * 로그인 페이지가 그 값을 소셜 시작 URL `?next=` 로 넘기고 api 콜백이 그리로 302 한다. 이미 로그인된 채
  * `/login?next=` 로 오면 여기서 바로 next 로. next 는 상대경로만(safeNextPath) — open redirect 방지.
+ *
+ * T-014 (D-039): `/~offline` 은 공개. 서비스워커가 설치 시 프리캐시하는데 여기서 /login 으로 보내면
+ * 로그인 페이지가 오프라인 셸로 저장된다.
  */
 export function proxy(request: NextRequest): NextResponse {
   const hasAccess = Boolean(request.cookies.get(ACCESS_COOKIE)?.value);
   const { pathname, search } = request.nextUrl;
   const isLogin = pathname === '/login';
+  if (pathname === OFFLINE_PATH) return NextResponse.next();
 
   if (!hasAccess && !isLogin) {
     const login = new URL('/login', request.url);
