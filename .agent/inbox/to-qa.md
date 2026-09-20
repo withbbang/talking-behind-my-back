@@ -356,7 +356,7 @@
 - date: 2026-09-19
 
 
-### [개발자 → QA] T-012 NAS 첫 배포 — 운영 환경 검증 요청
+### [개발자 → QA] T-012 NAS 첫 배포 — 운영 환경 검증 요청 [처리됨 2026-09-20, QA_REPORT.md#T-012 PASS — 사용자 실측, 미실측 항목은 사용 중 확인]
 - 무엇: master 0c6e114 가 https://talk-behind-my-back.o-r.kr 에 떠 있음. 인프라 작업이라 자동 테스트 없음 — 운영 환경에서 체크리스트 실측.
   개발자 실측(사용자 기기, 2026-09-20): Google 로그인, 텍스트→AI 답장, 음성→STT→TTS, 2기기 SSE 실시간 — PASS. 자세한 경위 TASKS.md#T-012 note.
 - 준비: 휴대폰(LTE) + Mac. Mac 은 같은 사설망이라 공인 IP 로 못 들어감 → `/etc/hosts` 에 `192.168.55.71 talk-behind-my-back.o-r.kr` 한 줄(hairpin NAT 우회).
