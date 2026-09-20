@@ -46,7 +46,9 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD}
       OMNIROUTE_BASE_URL: http://omniroute:20128/v1
     tmpfs:
-      - /tmp/audio:size=256m           # STT 업로드 임시 파일 — 디스크에 남기지 않음
+      # STT 업로드 임시 파일 — 디스크에 남기지 않음. tmpfs 는 root:root 755 로 마운트돼 Dockerfile 의 chown 을 덮어쓰고
+      # spring 유저가 못 쓴다(T-012 NAS 실측: Permission denied) → /tmp 처럼 sticky 1777
+      - /tmp/audio:size=256m,mode=1777
     depends_on:
       mysql:
         condition: service_healthy
