@@ -65,6 +65,8 @@
 - **Synology 비대화형 SSH(GH Actions·`ssh host cmd`)는 PATH 에 `/usr/local/bin` 이 없고, `docker.sock` 은 root:root 660 + docker 그룹 없음, `visudo`·SFTP 없음.** deploy 스크립트는 `export PATH=/usr/local/bin:$PATH` + `sudo -n docker`(sudoers.d NOPASSWD), Mac 에서 파일 올릴 땐 `scp -O`(레거시 프로토콜). `ls -l` 모드 비트는 보는 계정의 ACL 유효권한으로 합성돼 계정마다 다르게 보인다 — 실제 권한은 `synoacltool -get`(T-012).
 - **DSM 방화벽은 도커 브리지 안 컨테이너끼리 트래픽도 FORWARD 체인에서 걸러 DROP 한다**(`bridge-nf-call-iptables=1`). 증상: 같은 compose 인데 DNS 는 풀리고 TCP 는 timeout. 제어판 → 보안 → 방화벽에 소스 `172.16.0.0/255.240.0.0` 허용 규칙을 DROP 위에(T-012).
 - **compose env_file 은 값이 빈 줄의 인라인 `# 주석` 을 값으로 넣는다**(값이 있으면 잘라냄). `LLM_REASONING_EFFORT=   # ...` 가 그대로 Gemini 로 가서 400. 빈 값 줄엔 주석을 윗줄로(T-012, `.env.example` 반영).
+- **Next 16 은 `next build` 가 Turbopack 기본이라 webpack 플러그인(`@serwist/next` 등)이 안 먹는다.** Route Handler 기반 `@serwist/turbopack` 을 쓴다(D-039). serwist `defaultCache` 는 `/api/*` 를 NetworkFirst 로 캐시하니 그대로 쓰지 말 것.
+  SW 가 프리캐시하는 정적 페이지(`/~offline`)는 `proxy.ts` 가드에서 빼야 한다 — 안 빼면 설치 시 로그인 페이지가 저장된다(T-014).
 - **bind mount 는 컨테이너 유저 소유여야 한다 — 이미지의 chown/tmpfs `mode=` 는 마운트에 안 먹는다.** omniroute(node 1000)는 storage.sqlite 를 못 써 설정이 메모리에만 남고, api tmpfs `/tmp/audio` 는 root 755. 해결: 배포 시 `docker run alpine chown 1000:1000`, tmpfs 는 `uid=100,gid=101`(T-012).
 
 ---
@@ -534,19 +536,33 @@
 - status: TODO
 - owner: QA
 - milestone: M5
-- blocked_by: T-012, T-014
+- blocked_by: ~~T-012, T-014~~ (둘 다 DONE 2026-09-20) — **T-014 가 master 에 배포된 뒤** 실기기로.
 - acceptance:
   - 홈화면 설치, 소셜 로그인 3사 왕복, 마이크 권한, 백그라운드 복귀 후 세션 유지. 실패는 inbox/to-ceo.md.
+  - (T-014 이월) 운영 https 에서 `/serwist/sw.js` 응답에 `Service-Worker-Allowed: /` 통과, 홈화면 앱 오프라인 콜드 오픈 → "연결 없음".
+- note: 2026-09-20 착수 대기. 배포 순서 `feature_20260914` → `dev` → `master`(--no-ff) 후 5분 내 NAS 반영.
 
 ## T-014 서비스워커(PWA 오프라인 셸) — T-001 에서 분리
-- status: TODO
+- status: DONE
 - owner: 개발자
 - milestone: M5
+- spec: PLAN.md#M5, DECISIONS.md#D-039
 - blocked_by: T-008
-- acceptance:
-  - `@serwist/next` 의 Next 16 호환 확인(안 되면 대안 결정 → DECISIONS.md). `app/sw.ts`, `next.config.ts` 래핑.
-  - `/api/*`, `/admin/*` NetworkOnly. 앱 셸·정적 자원만 precache. 오프라인 시 "연결 없음" 안내.
-  - `public/icons/*` 추가(DESIGN.md 아이콘 확정 후). Lighthouse PWA 체크 통과.
+- acceptance (2026-09-20 D-039 로 정정):
+  - ~~`@serwist/next` 의 Next 16 호환 확인~~ → Turbopack 미지원 확인, **`@serwist/turbopack`** 채택(D-039 1). `app/sw.ts` + `app/serwist/[path]/route.ts`, `next.config.ts` `withSerwist` 래핑.
+  - `/api/*`, `/admin/*`, `/serwist/*` NetworkOnly. 앱 셸·정적 자원만 precache. 오프라인 콜드 오픈 시 `/~offline` "연결 없음" 안내(D-039 3). `/~offline` 은 `proxy.ts` 가드 제외.
+  - ~~`public/icons/*` 추가~~ → T-005 에서 완료. ~~Lighthouse PWA 체크~~ → Lighthouse 12 에 PWA 카테고리 없음. 대체: Playwright `setOffline` 콜드 오픈 → `/~offline` 렌더, DevTools Manifest installable 무경고, `/api/**` 가 Cache Storage 에 없음(D-039 5).
+  - 테스트: 라우트 판정 순수 함수(`features/pwa/caching`), `proxy.test` `/~offline` 통과, `~offline/page` 렌더, `Providers` 등록(dev 미등록 / prod `/serwist/sw.js`).
+- test: 신규 web 27건(전체 `npm test` 411 passed / 57 files, lint 0 error·기존 경고 1, typecheck·build 통과).
+  `features/pwa/caching`(22, 네트워크 전용·정적·셸 자원·문서·RSC 판정), `PwaProvider`(2, prod 등록 `/serwist/sw.js` scope `/` / dev 미등록),
+  `~offline/page`(2), `proxy.test`(+1, `/~offline` 미인증 통과).
+- qa: PASS, QA_REPORT.md 2026-09-20 (사용자 로컬 installable·설치 + 개발자 Playwright). 소셜 로그인은 :3002 라 미실측 → T-013.
+  실측(`next start -p 3002` 직접 접속 + Playwright Chromium, 2026-09-20): SW activated(scope `/`, controller), 프리캐시 29건(`/_next/static/**`·아이콘·`/~offline`, `/api`·`/admin` 0건),
+  `POST /api/auth/refresh` 후 Cache Storage 에 api 항목 없음(`pages`: /login, `shell-assets`: manifest 만), `setOffline` 후 `/`·`/rooms/1` 콜드 오픈 → h1 "연결 없음",
+  온라인 복귀 + "다시 시도" → `/login?next=/rooms/1`(가드 정상). 미실측: DevTools Manifest installable(사용자 Chrome), 운영(nginx 경유) 등록 → to-qa.
+- note: 2026-09-20 착수·완료. `SerwistProvider` 는 `reloadOnOnline=false`(SSE 재연결은 `lib/sse.ts`), development `disable`.
+  esbuild 는 vite 5 가 0.21 을 물고 있어 top-level 에 `esbuild@^0.28` 을 명시(peer 충돌 회피, vite 는 nested 0.21). `sw.js.map` 은 안 낸다(`esbuildOptions.sourcemap=false`).
+  `/serwist/sw.js` 응답에 `cache-control: s-maxage=31536000`(Next `force-static`) — 브라우저는 SW 스크립트를 24h 넘으면 HTTP 캐시 무시하고 재검사하고 nginx 는 proxy_cache 없음.
 
 ## T-015 nginx location 헤더 상속 버그 — /api 경유 시 400 (T-004 리뷰 중 발견)
 - status: DONE

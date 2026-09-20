@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { withSerwist } from '@serwist/turbopack';
 
 /**
  * '/api/*' rewrite 는 두지 않는다 (Homepage X21 결함에서 배움).
@@ -11,4 +12,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 };
 
-export default nextConfig;
+// T-014 (D-039): 서비스워커. withSerwist 는 esbuild 를 serverExternalPackages 에 넣는 것만 한다.
+// 워커 번들·프리캐시 매니페스트는 app/serwist/[path]/route.ts 가 빌드 시 만든다 (Turbopack 은 webpack 플러그인 불가).
+export default withSerwist(nextConfig);

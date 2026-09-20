@@ -40,6 +40,12 @@ describe('proxy', () => {
     expect(new URL(res.headers.get('location')!).pathname).toBe('/');
   });
 
+  it('/~offline 은 쿠키 없이도 통과 (T-014: SW 프리캐시가 로그인 페이지를 받으면 안 됨)', () => {
+    const res = proxy(request('/~offline', false));
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.status).toBe(200);
+  });
+
   it('access 쿠키 있고 보호 경로 접근 → 통과', () => {
     const res = proxy(request('/', true));
     expect(res.headers.get('location')).toBeNull();
