@@ -504,3 +504,15 @@
 - issues: 소셜 로그인은 :3002 직접 접속이라 OAuth redirect URI 불일치로 미실측(예상된 제약, T-014 범위 밖) → 운영 배포본에서 T-013 이 확인. 운영 nginx 경유 `Service-Worker-Allowed` 헤더 통과도 T-013 에서 곁눈질.
 - date: 2026-09-20
 
+### T-013 iOS/Android 홈화면 PWA 검증 (QA, 실기기)
+- verdict: PASS — 사용자 실기기 실측("모두 성공"), 개발자 QA 대행(사용자 지시), 2026-09-20. 운영 master c0bb595(T-014 포함).
+- tests: 검증 태스크라 자동 테스트 없음. 개발자 외부 대조: `/serwist/sw.js` 200 + `Service-Worker-Allowed: /`(DSM·nginx 통과), 프리캐시 29건, `/~offline` 200 "연결 없음", `/manifest.webmanifest` 200.
+- checked (사용자 실기기, 홈화면 설치 앱):
+  acceptance ① 홈화면 설치 — PASS.
+  acceptance ② 소셜 로그인 3사 왕복 — PASS. D-003 open(iOS 홈화면 앱에서 OAuth 가 Safari 로 빠지는 문제)은 D-021 state 방식(`next` 를 서버가 보관)으로 실기기에서 재현되지 않음 → open 닫음.
+  acceptance ③ 마이크 권한 — PASS(보이스 모드 진입).
+  acceptance ④ 백그라운드 복귀 후 세션 유지 — PASS.
+  T-014 이월 — 오프라인 콜드 오픈 "연결 없음" + 복귀 "다시 시도" PASS, `Service-Worker-Allowed` 운영 통과(개발자 대조).
+- issues: 없음. 기기·OS 버전 세부는 사용자 미기재.
+- date: 2026-09-20
+

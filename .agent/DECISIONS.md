@@ -27,7 +27,7 @@
 - rationale: "앱 껐다 켜도 로그인 유지" 요건 = 장기 refresh 쿠키. localStorage 토큰은 PWA/XSS 관점에서 배제. Homepage 프로젝트와 같은 패턴이라 재사용 가능.
 - alternatives: Spring Session + JDBC — 세션 테이블 관리가 늘고 SSE 장기 연결과 궁합이 나쁨. 기각.
 - impact: `auth/*`, `global/security/*`, SCHEMA.md `users`/`social_accounts`/`refresh_tokens`, API.md `/auth/*`
-- open: iOS 홈화면 PWA에서 OAuth redirect가 Safari로 빠지는 문제 — T-013에서 실기기 검증 후 필요 시 결정 추가.
+- ~~open: iOS 홈화면 PWA에서 OAuth redirect가 Safari로 빠지는 문제~~ → T-013 실기기 검증(2026-09-20) 3사 왕복 PASS, 재현 안 됨. 닫음(개발자 대행 기록, 사용자 실측).
 - date: 2026-09-13
 
 ### D-004 API는 context-path `/api`, 프론트는 같은 오리진만 호출

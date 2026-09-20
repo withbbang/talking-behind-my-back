@@ -536,14 +536,15 @@
 - qa: PASS (QA_REPORT.md 2026-09-20, 사용자 지시로 개발자 대행). 미실측 항목(Naver·Kakao 운영 로그인, SSE 장시간, PWA)은 사용 중 확인.
 
 ## T-013 iOS/Android 홈화면 PWA 검증
-- status: TODO
+- status: DONE
 - owner: QA
 - milestone: M5
 - blocked_by: ~~T-012, T-014~~ (둘 다 DONE 2026-09-20) — **T-014 가 master 에 배포된 뒤** 실기기로.
 - acceptance:
   - 홈화면 설치, 소셜 로그인 3사 왕복, 마이크 권한, 백그라운드 복귀 후 세션 유지. 실패는 inbox/to-ceo.md.
   - (T-014 이월) 운영 https 에서 `/serwist/sw.js` 응답에 `Service-Worker-Allowed: /` 통과, 홈화면 앱 오프라인 콜드 오픈 → "연결 없음".
-- note: 2026-09-20 착수 대기. 배포 순서 `feature_20260914` → `dev` → `master`(--no-ff) 후 5분 내 NAS 반영.
+- qa: PASS, QA_REPORT.md 2026-09-20 (사용자 실기기 "모두 성공", master c0bb595).
+- note: 2026-09-20 배포(c0bb595) 후 실기기 검증 완료. D-003 open(iOS OAuth Safari 이탈) 재현 안 됨 → 닫음.
 
 ## T-014 서비스워커(PWA 오프라인 셸) — T-001 에서 분리
 - status: DONE
