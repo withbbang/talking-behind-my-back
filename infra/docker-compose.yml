@@ -4,9 +4,8 @@
 # 네트워크 구조
 #   인터넷 → DSM 리버스 프록시(TLS 종료, chat.example.com → localhost:8080)
 #          → nginx(8080) → web(3000) / api(8080)
-#   api → omniroute(20128) → 외부 LLM 공급자
 #   api → mysql(3306)
-#   api → STT/TTS: OmniRoute /v1/audio/* 경유 (D-027). STT = Groq(OmniRoute 대시보드 키), TTS = edge-tts 사이드카(D-028) / Clova 는 스텁
+#   api → 외부 AI 직접 호출 (D-044): LLM = Claude(롤백 Gemini), STT = Groq, TTS = Azure Speech. 키는 전부 .env
 
 name: ${APP_NAME:-talking-behind-my-back}
 
@@ -34,7 +33,7 @@ services:
   api:
     image: ghcr.io/${GH_OWNER}/${APP_NAME}-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    env_file: .env                     # OAuth 키, JWT, STT/TTS 모델명 등 (.env.example 참고). 공급자 키는 OmniRoute 대시보드에(D-027)
+    env_file: .env                     # OAuth 키, JWT, AI 공급자 키(Anthropic·Groq·Azure·Gemini) 등 (.env.example 참고, D-044)
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: Asia/Seoul
@@ -44,7 +43,6 @@ services:
       DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       DB_USERNAME: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
-      OMNIROUTE_BASE_URL: http://omniroute:20128/v1
     tmpfs:
       # STT 업로드 임시 파일 — 디스크에 남기지 않음. tmpfs 는 Dockerfile 의 chown 을 덮어써 root 소유가 되고 spring 유저가
       # 못 쓴다(T-012 NAS 실측). mode= 는 이미지에 디렉터리가 있으면 무시되므로 uid/gid 로 소유자 지정 — Dockerfile 의 spring(100:101)
@@ -52,8 +50,6 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      omniroute:
-        condition: service_started
 
   mysql:
     image: mysql:8.4
@@ -79,28 +75,3 @@ services:
       timeout: 5s
       retries: 30
       start_period: 300s              # NAS HDD 에서 첫 초기화(데이터 디렉터리 생성)만 2분 이상 — 그동안 실패는 안 센다 (T-012 실측)
-
-  omniroute:
-    image: diegosouzapw/omniroute:latest
-    restart: unless-stopped
-    stop_grace_period: 40s
-    ports:
-      - "20128:20128"                  # 대시보드. LAN 전용 — 공유기 포트포워딩/DSM 리버스 프록시 등록 금지
-    env_file: .env.omniroute
-    volumes:
-      - ${DATA_DIR}/omniroute:/app/data
-    depends_on:
-      - edge-tts
-
-  # TTS 사이드카 (D-028): Edge "Read Aloud" 음성을 OpenAI 호환 API 로. OmniRoute 에 "OpenAI 호환" 공급자
-  # (http://edge-tts:5050/v1)로 등록. 호스트 포트 없음. 비공식 API 라 MS 가 막으면 OmniRoute 콤보 폴백(gtts/ko)으로.
-  edge-tts:
-    image: travisvn/openai-edge-tts:latest@sha256:af8df8fb39719623cb6c3dbcba87ab65813030d97e20ae436d3161a53d41d72a   # 비공식 Edge API 의존 — digest 고정(2026-02-18 빌드). 올릴 땐 curl 로 한국어 TTS 확인 후
-    restart: unless-stopped
-    environment:
-      PORT: 5050
-      REQUIRE_API_KEY: "False"
-      DEFAULT_VOICE: ko-KR-SunHiNeural
-      DEFAULT_RESPONSE_FORMAT: mp3
-    # NAS 메모리: 파이썬 프로세스 1개, 유휴 ~60MB
-    mem_limit: 256m

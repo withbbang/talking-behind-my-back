@@ -15,13 +15,12 @@ chat-app/                        ← 단일 모노레포
 │   ├── web/                     # Next.js 16 PWA (사용자 앱 + 어드민)
 │   └── api/                     # Spring Boot 4.1 (MyBatis, Flyway)
 ├── infra/                       # NAS에 그대로 복사되는 배포 디렉토리
-│   ├── docker-compose.yml       # 운영: nginx, web, api, mysql, omniroute
-│   ├── docker-compose.dev.yml   # 로컬: nginx(:3000), mysql, omniroute
+│   ├── docker-compose.yml       # 운영: nginx, web, api, mysql
+│   ├── docker-compose.dev.yml   # 로컬: nginx(:3000), mysql
 │   ├── nginx/default.conf       # 운영 (DSM 리버스 프록시 뒤)
 │   ├── nginx/dev.conf           # 로컬 (:3000 → next dev :3001 / api :8080)
 │   ├── mysql/init/01-schema.sql # DB 레벨 설정만 (테이블은 Flyway)
 │   ├── .env.example             # → .env (NAS에만 존재)
-│   └── .env.omniroute.example   # → .env.omniroute
 └── .github/workflows/
     ├── ci.yml                   # dev/master PR: lint/typecheck/test/build
     └── deploy.yml               # master push: GHCR 빌드 → NAS scp+ssh 배포
@@ -70,16 +69,16 @@ apps/web/
 apps/api/src/main/java/com/example/chat/
 ├── ChatApplication.java               # ✅ @ConfigurationPropertiesScan
 ├── global/
-│   ├── config/    ✅ SecurityConfig(뼈대), WebClientConfig(OmniRoute)   · T-004: JwtAuthFilter 등록
+│   ├── config/    ✅ SecurityConfig(뼈대), WebClientConfig(LLM 롤백용)   · T-004: JwtAuthFilter 등록
 │   ├── security/  T-004: JwtProvider, JwtAuthFilter, CookieUtil, CookieAuthorizationRequestRepository
 │   └── error/     ✅ ErrorCode, BusinessException, ErrorResponse, GlobalExceptionHandler
 ├── user/          ✅ User(Role/Status), UserMapper
 ├── chatroom/      ✅ ChatRoom(autoTitle), ChatRoomMapper                 · T-006: Controller/Service
 ├── message/       ✅ Message(Role/InputType), MessageMapper             · T-007: ChatController(SSE), ChatService
 ├── persona/       ❌ T-019(D-017) 로 삭제 — 시스템 프롬프트는 chat_rooms.ai_personality/ai_prompt
-├── llm/           ✅ LlmProperties                                       · T-007: OmniRouteClient, dto/
+├── llm/           ✅ LlmProperties                                       · ClaudeClient(기본, D-040) · OpenAiCompatLlmClient(Gemini 롤백, D-044)
 ├── auth/          T-004: AuthController, CustomOAuth2UserService, OAuth2SuccessHandler, userinfo/, SocialAccount, RefreshToken + 매퍼
-├── speech/        T-009: SttProvider/TtsProvider, omniroute/, clova/, SpeechProperties, SpeechController
+├── speech/        SttProvider/TtsProvider, groq/(STT) · azure/(TTS) · clova/(스텁), TtsVoiceResolver(D-042), SpeechController
 └── admin/         T-011: AdminController, PersonaService, StatsService
 
 src/main/resources/
@@ -103,7 +102,7 @@ src/test/
 
 텍스트
 1. `POST /api/rooms/{id}/messages` `{content, inputType}` → USER 메시지 저장 + `touchOnNewMessage`
-2. 활성 페르소나 시스템 프롬프트 + 최근 `LLM_CONTEXT_MAX_MESSAGES`개 → OmniRoute `stream=true`
+2. 활성 페르소나 시스템 프롬프트 + 최근 `LLM_CONTEXT_MAX_MESSAGES`개 → Claude Messages API 스트리밍(D-040, 롤백 Gemini)
 3. 델타를 SSE로 클라이언트에 중계, 클라이언트는 말풍선에 이어붙임
 4. 스트림 종료 시 ASSISTANT 메시지 저장, 마지막 SSE 이벤트로 `messageId`/토큰 수 전달
 5. 방에 진행 중 요청이 있으면 409 — 한 방에 동시 1건
@@ -120,27 +119,24 @@ src/test/
 ## 로컬 개발
 
 ```
-cd infra && docker compose -f docker-compose.dev.yml up -d   # nginx :3000, mysql :3306, omniroute :20128
+cd infra && docker compose -f docker-compose.dev.yml up -d   # nginx :3000, mysql :3306
 cd apps/api && ./gradlew bootRun                              # :8080/api (Flyway 가 V1 적용)
 cd apps/web && npm run dev                                    # :3001 — 브라우저는 http://localhost:3000
 ```
 
 테스트: `cd apps/web && npm test` / `cd apps/api && ./gradlew test` (api 테스트는 compose MySQL 필요).
-OmniRoute 대시보드 `http://localhost:20128` 에서 공급자 연결 + 모델 alias `chat-default` 생성 후 채팅 가능.
+AI 공급자 키는 `apps/api/src/main/resources/application-secret.yml`(gitignore)에: `app.llm.claude.api-key`, `app.speech.groq.api-key`, `app.speech.azure.key`(+`region`). 롤백 테스트 시 `app.llm.provider: gemini` + `app.llm.api-key`.
 
 ## 첫 배포 순서
 
 1. 도메인 DNS → 공유기 443 → NAS. DSM 리버스 프록시: `chat.example.com` → `http://localhost:8080`
    (인증서는 DSM Let's Encrypt). 사용자 지정 헤더에서 `X-Forwarded-For` 전달 확인.
-2. NAS에 `/volume1/docker/chat-app` 생성, `infra/*` 복사, `.env`/`.env.omniroute` 작성.
-3. `docker compose --env-file .env up -d mysql omniroute edge-tts` → `http://<NAS-IP>:20128` 에서 공급자 연결,
-   모델 alias 생성, API 키 발급 → `.env`의 `OMNIROUTE_API_KEY`, `LLM_MODEL`에 기입.
-   STT/TTS 도 여기서 (D-028, 둘 다 무료):
-   - **STT = Groq**: Providers → Groq → Add Connection 에 Groq API 키(console.groq.com/keys, 무료 티어). 저장하면 `whisper-large-v3(-turbo)` 가 자동 임포트. `.env` `STT_MODEL=groq/whisper-large-v3`(turbo 는 한국어 오전사가 있어 non-turbo).
-   - **TTS = edge-tts 사이드카**: Providers → "Add OpenAI Compatible" — Name 아무거나, **Prefix `edge`**, API Type **Audio Speech**, Base URL `http://edge-tts:5050/v1`, Model ID `tts-1` → Add.
-     생긴 노드에서 Connections → Add: API Key 는 아무 문자열(사이드카가 검사 안 함, 비우면 OmniRoute 가 "No credentials"), Default Model `tts-1` → Save → "Import from /models".
-     `.env.omniroute` 의 `AUDIO_REMOTE_PROVIDER_NODES=true` 가 없으면 OmniRoute 가 localhost 밖 노드를 거부한다. `.env` `TTS_MODEL=edge/tts-1`, `TTS_VOICE=ko-KR-SunHiNeural`. **D-044: TTS 는 Azure AI Speech(F0) 직접 — `TTS_PROVIDER=azure` + `AZURE_SPEECH_KEY`·`AZURE_SPEECH_REGION`. 이 edge 노드 등록은 더 필요 없다**(edge-tts 는 MS 403, T-041 에서 compose 제거).
-   - 확인: `curl -X POST http://<NAS-IP>:20128/v1/audio/speech -H 'Authorization: Bearer <OMNIROUTE_API_KEY>' -H 'Content-Type: application/json' -d '{"model":"edge/tts-1","input":"안녕","voice":"ko-KR-SunHiNeural"}' -o t.mp3`
+2. NAS에 `/volume1/docker/chat-app` 생성, `infra/*` 복사, `.env` 작성(`infra/.env.example`).
+3. AI 공급자 키를 `.env` 에 (D-044, 게이트웨이 없음 — api 가 직접 호출):
+   - **LLM = Claude**: console.anthropic.com → `ANTHROPIC_API_KEY`(`LLM_PROVIDER=claude`). 롤백용 Gemini 는 aistudio.google.com → `GEMINI_API_KEY`(선택).
+   - **STT = Groq**: console.groq.com/keys(무료 티어) → `GROQ_API_KEY`, `STT_MODEL=whisper-large-v3`(turbo 는 한국어 오전사).
+   - **TTS = Azure AI Speech F0**: portal.azure.com → Speech 리소스(Free F0, 무료 체험 30일 안에 종량제 전환 필요 — F0 는 과금 없음) → 키 및 엔드포인트 → `AZURE_SPEECH_KEY`·`AZURE_SPEECH_REGION`.
+   - 확인: `curl -s -o t.mp3 -w '%{http_code}' https://<region>.tts.speech.microsoft.com/cognitiveservices/v1 -H 'Ocp-Apim-Subscription-Key: <키>' -H 'Content-Type: application/ssml+xml' -H 'X-Microsoft-OutputFormat: audio-24khz-48kbitrate-mono-mp3' --data-binary "<speak version='1.0' xml:lang='ko-KR'><voice name='ko-KR-SunHiNeural'>안녕</voice></speak>"`
 4. 구글/네이버/카카오 개발자 콘솔에 redirect URI 등록 → `.env`에 키 기입.
 5. GitHub Variables/Secrets 등록(deploy.yml 상단 참고) → master push → 자동 배포.
 6. iOS 홈화면 PWA에서 소셜 로그인 왕복이 되는지 실기기로 확인 (Safari로 튀어나가는 이슈).
