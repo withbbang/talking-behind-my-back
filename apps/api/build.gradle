@@ -26,7 +26,7 @@ dependencies {
 	// 인증: 소셜 로그인만(D-003). registration 프로퍼티는 T-004 에서 추가 — 없으면 OAuth2 자동구성이 조용히 꺼진다.
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
-	// OmniRoute SSE 소비용 reactive WebClient (D-006, D-008). 전체 webflux 가 아니라 client 스타터만.
+	// 외부 HTTP 호출용 reactive WebClient — Gemini 롤백 SSE·Groq STT·Azure TTS (D-044). 전체 webflux 가 아니라 client 스타터만.
 	implementation 'org.springframework.boot:spring-boot-starter-webclient'
 	// 채팅 LLM Claude 직접 호출(D-040). Boot BOM 미관리 → 버전 명시.
 	implementation 'com.anthropic:anthropic-java:2.65.0'
@@ -49,7 +49,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
-	// T-007 OmniRoute SSE 클라이언트 테스트용 fake 서버. Boot 4 BOM 은 OkHttp 를 관리하지 않으므로 버전 명시.
+	// 외부 공급자 클라이언트(LLM·STT·TTS) 테스트용 fake 서버. Boot 4 BOM 은 OkHttp 를 관리하지 않으므로 버전 명시.
 	testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
 	testCompileOnly 'org.projectlombok:lombok'
 	testAnnotationProcessor 'org.projectlombok:lombok'

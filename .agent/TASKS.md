@@ -829,5 +829,5 @@
   - `LLM_PROVIDER=gemini` 롤백이 Gemini OpenAI 호환 엔드포인트로 스트리밍.
   - compose(dev/prod)·deploy.yml·README·.env.example 에서 omniroute·edge-tts·.env.omniroute 제거, NAS 메모리 기록.
 - test: `GroqSttProviderTest`(OmniRoute STT 테스트 이식 — Bearer 키·`/openai/v1/audio/transcriptions`·`whisper-large-v3`), `OpenAiCompatLlmClientTest`(구 OmniRouteClientTest), `LlmProviderSelectionTest` 기본 claude·gemini 롤백, `DefaultSpeechProvidersTest`(기본 groq/azure), OmniRoute TTS 테스트 삭제, `SpeechProperties.ttsModel` 제거. api 335 passed, web speechApi 3 passed. 실측: Groq 직접 m4a(Safari 형식) ko/en 자동 감지·정확 전사 0.3초(Cloudflare 차단 없음), 사용자 앱 Chrome·Safari 보이스 모드 전체(STT→Claude→Azure) 정상. compose dev/prod config 파싱 OK, 로컬 omniroute·edge-tts 컨테이너 제거.
-- qa: PASS 로컬 (QA_REPORT.md 2026-10-13), 운영 항목은 배포 후
+- qa: PASS 로컬+운영 (QA_REPORT.md 2026-10-13, master 112a823 배포, NAS 메모리 ~2.1GB 절감)
 - note: 2026-10-13 등록·착수. Gemini 롤백 실측(2026-10-13): Gemini OpenAI 호환 직접 스트림 200·usage 포함, 8081 `--app.llm.provider=gemini` 인스턴스에서 실제 메시지 → ASSISTANT `model=gemini-flash-lite-latest` 저장(영어 질문에 영어 답, D-042), 시험 방 삭제. 이때 두 번째 인스턴스를 `gradlew bootRun` 으로 띄워 8080 devtools 재시작이 멈춤 — 교훈대로 `java` 직접 실행할 것(재기동으로 복구). NAS 의 `data/omniroute` 디렉터리는 배포 후 수동 삭제 가능. CEO/기획자 소유 문서 동기화는 inbox/to-ceo.md.

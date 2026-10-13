@@ -16,7 +16,7 @@
 | 프론트 | Next.js PWA |
 | 백엔드 | Spring Boot |
 | DB | MySQL + MyBatis |
-| LLM API | OmniRoute (OpenAI 호환 게이트웨이, 자체 호스팅) |
+| LLM API | Claude API 직접 호출(Haiku 5.5, D-040), 롤백 Gemini 직접(D-044). ~~OmniRoute 게이트웨이~~ — D-044 로 제거 |
 
 ## 기능 요건 (사용자 제시)
 1. 소셜 로그인만 가능 (구글 / 네이버 / 카카오). 이메일·비밀번호 가입 없음.
@@ -30,7 +30,7 @@
 2. 신규 채팅방 자동 이동.
 3. 대화 시작 시 채팅방 히스토리 +1.
 4. 이전 채팅방에서 대화 계속 진행 가능.
-5. 대화 입력 → 입력 대화 저장 → OmniRoute에 대화방 세션의 내용 전체 질의 요청 → 응답 → 응답 저장 → 응답 display, 반복.
+5. 대화 입력 → 입력 대화 저장 → LLM(원문: OmniRoute, D-040·D-044 로 Claude 직접)에 대화방 세션의 내용 전체 질의 요청 → 응답 → 응답 저장 → 응답 display, 반복.
 
 ## 확정된 해석 (DECISIONS.md 근거)
 - "세션 유지" = HttpOnly refresh 쿠키(30일) 기반 자동 재로그인. (D-003)
@@ -43,7 +43,7 @@
 
 ## 제약
 - 1인 개발. 배포 대상은 NAS 한 대 (CPU/메모리 제한 — JVM 힙 768m 기준 설계).
-- OmniRoute 대시보드는 LAN에서만 접근. 외부 노출 금지.
+- ~~OmniRoute 대시보드는 LAN에서만 접근~~ — D-044 로 OmniRoute 제거. AI 공급자 키(Anthropic·Groq·Azure·Gemini)는 `infra/.env` 에만, 코드·문서 금지.
 - 오디오 원본은 저장하지 않는다. 텍스트만 DB에 남긴다.
 - 외부 유료 API(STT/TTS/LLM)는 비용이 발생하므로 호출 횟수·길이 상한이 설계에 포함되어야 한다.
 
@@ -56,4 +56,4 @@
 | 보이스 모드 | 녹음→STT→응답→TTS→재녹음이 자동 반복되는 UI 상태. |
 | 페르소나 | LLM 시스템 프롬프트. 어드민이 편집, 활성 1개. |
 | 컨텍스트 윈도우 | LLM에 전달하는 최근 N개 메시지 + 시스템 프롬프트. |
-| OmniRoute | 자체 호스팅 LLM 게이트웨이. `/v1/chat/completions` OpenAI 호환. 모델 alias로 공급자 추상화. |
+| OmniRoute | (D-044 로 제거) 자체 호스팅 LLM 게이트웨이였음. 지금은 공급자 직접 호출 — LLM Claude, STT Groq, TTS Azure Speech. |

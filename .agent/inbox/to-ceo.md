@@ -80,7 +80,7 @@
 - date: 2026-09-18
 
 
-### [개발자 → CEO/기획자] D-044 OmniRoute 제거 — 소유 문서 동기화 요청 (2026-10-13)
+### [개발자 → CEO/기획자] D-044 OmniRoute 제거 — 소유 문서 동기화 요청 (2026-10-13) [처리됨 2026-10-13 — 사용자 지시 "전부 진행" 으로 개발자 대행 갱신]
 - 결정은 D-044(사용자 결정)로 기록됨. 개발자 소유 문서(API.md·SCHEMA.md·README·infra·CLAUDE.md)는 T-041 에서 갱신 완료. 아래는 권한상 개발자가 못 쓰는 파일:
   - CONTEXT.md(기획자) L19·L33·L46·L59: 기술 스택/용어의 "OmniRoute(LLM 게이트웨이)" → "Claude API 직접(D-040), STT Groq·TTS Azure 직접(D-044)". L46 "대시보드 LAN 전용" 삭제.
   - PLAN.md(기획자) L81: "OmniRoute 공급자/키 설정" → "AI 공급자 키(.env) 설정".

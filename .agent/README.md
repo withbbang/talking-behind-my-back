@@ -7,7 +7,7 @@
 ## 프로젝트 개요 (TL;DR)
 심심이 같은 음성 대화 앱. 소셜 로그인(구글/네이버/카카오)만 지원, 채팅방 여러 개,
 방마다 텍스트/음성(STT/TTS) 대화, 음성 대화도 텍스트로 기록. 별도 어드민 페이지.
-스택: Next.js PWA + Spring Boot(MyBatis) + MySQL + OmniRoute(LLM 게이트웨이), Synology NAS Docker 배포.
+스택: Next.js PWA + Spring Boot(MyBatis) + MySQL + 외부 AI 직접 호출(LLM Claude · STT Groq · TTS Azure Speech, D-044), Synology NAS Docker 배포.
 혼자 개발. 배포 대상은 NAS 한 대. 비용·메모리 제약이 설계 기준에 포함된다.
 
 ## 파일 지도 + 쓰기 권한 (충돌 방지 핵심 규칙)
@@ -34,7 +34,7 @@ API.md·SCHEMA.md는 개발자가 쓰지만, 계약이 바뀌면 기획자·QA�
 - 사이클: **RED**(실패 테스트) → **GREEN**(통과 최소 구현) → **REFACTOR**.
 - 프론트: Vitest + React Testing Library — `cd apps/web && npm test`
 - 백엔드: JUnit5 + AssertJ + MockMvc — `cd apps/api && ./gradlew test`
-- 외부 API(OmniRoute, STT/TTS, OAuth)는 인터페이스 뒤에 두고 테스트는 fake로 격리한다.
+- 외부 API(LLM, STT/TTS, OAuth)는 인터페이스 뒤에 두고 테스트는 fake로 격리한다.
 - 원칙: 테스트 없는 구현은 "완료"가 아니다. QA는 테스트 존재/통과를 함께 검증한다.
 
 ## 한 사이클 워크플로우
