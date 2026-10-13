@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * T-007 전송·AI 잡·컨텍스트·사용량·과거 조회 + T-031 가시성(D-037). 실제 매퍼 위에서 @Transactional 롤백.
- * AI 잡은 SyncAiTestConfig 로 동기 실행(같은 트랜잭션), OmniRoute 는 FakeLlm. SSE 는 EventRecorder 로 수신 확인.
+ * AI 잡은 SyncAiTestConfig 로 동기 실행(같은 트랜잭션), LLM 은 FakeLlm. SSE 는 EventRecorder 로 수신 확인.
  * `events` = 개설자 구독, `guestEvents` = 참여자 구독 — AI 모드 이벤트가 상대에게 새지 않는지 본다.
  */
 @SpringBootTest

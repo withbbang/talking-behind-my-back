@@ -7,14 +7,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.web.reactive.function.client.WebClient;
 
 /**
- * OmniRoute 호출용 WebClient (D-006). SSE 스트림 소비는 T-007 OmniRouteClient 에서.
- * 응답 본문 상한을 두지 않는다(스트림). 타임아웃은 요청 단위로 OmniRouteClient 가 건다.
+ * OpenAI 호환 LLM(Gemini 롤백, D-044) 호출용 WebClient. SSE 스트림 소비는 OpenAiCompatLlmClient 에서.
+ * 응답 본문 상한을 두지 않는다(스트림). 타임아웃은 요청 단위로 OpenAiCompatLlmClient 가 건다.
  */
 @Configuration
 public class WebClientConfig {
 
 	@Bean
-	public WebClient omniRouteWebClient(WebClient.Builder builder, LlmProperties props) {
+	public WebClient llmWebClient(WebClient.Builder builder, LlmProperties props) {
 		WebClient.Builder b = builder
 			.baseUrl(props.baseUrl())
 			.codecs(c -> c.defaultCodecs().maxInMemorySize(-1));

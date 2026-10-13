@@ -25,9 +25,6 @@ app:
     secret: ${JWT_SECRET}
   cookie:
     secure: true
-  llm:
-    api-key: ${OMNIROUTE_API_KEY}
-    model: ${LLM_MODEL}
 
 management:
   endpoint:

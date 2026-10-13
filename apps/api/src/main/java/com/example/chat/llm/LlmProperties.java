@@ -4,7 +4,7 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * app.llm.* (application.yml). OmniRoute 는 OpenAI 호환 /v1 (D-006).
+ * app.llm.* (application.yml). base-url/api-key/model/reasoning-effort 는 Gemini OpenAI 호환 롤백 경로(D-044), context·timeout 은 공통. Claude 는 app.llm.claude.*.
  */
 @ConfigurationProperties(prefix = "app.llm")
 public record LlmProperties(

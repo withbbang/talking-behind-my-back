@@ -27,7 +27,7 @@
 - rationale: "앱 껐다 켜도 로그인 유지" 요건 = 장기 refresh 쿠키. localStorage 토큰은 PWA/XSS 관점에서 배제. Homepage 프로젝트와 같은 패턴이라 재사용 가능.
 - alternatives: Spring Session + JDBC — 세션 테이블 관리가 늘고 SSE 장기 연결과 궁합이 나쁨. 기각.
 - impact: `auth/*`, `global/security/*`, SCHEMA.md `users`/`social_accounts`/`refresh_tokens`, API.md `/auth/*`
-- open: iOS 홈화면 PWA에서 OAuth redirect가 Safari로 빠지는 문제 — T-013에서 실기기 검증 후 필요 시 결정 추가.
+- ~~open: iOS 홈화면 PWA에서 OAuth redirect가 Safari로 빠지는 문제~~ → T-013 실기기 검증(2026-09-20) 3사 왕복 PASS, 재현 안 됨. 닫음(개발자 대행 기록, 사용자 실측).
 - date: 2026-09-13
 
 ### D-004 API는 context-path `/api`, 프론트는 같은 오리진만 호출
@@ -384,6 +384,62 @@
 - alternatives: `@serwist/next` + `next build --webpack` — 빌드 느려지고 Next 16 기본 경로 이탈, 기각. 수동 `public/sw.js` — 프리캐시 없음, 기각. 인앱 오프라인 배너 — DESIGN.md 없는 UI 라 이번 범위 밖.
 - impact: `apps/web` `next.config.ts`·`app/sw.ts`·`app/serwist/[path]/route.ts`·`app/~offline/page.tsx`·`app/providers.tsx`·`proxy.ts`·`vitest.config.ts`(sw.ts 제외). devDependencies `@serwist/turbopack`·`serwist`·`esbuild`. nginx·Dockerfile·CI 변경 없음. `.gitignore` 의 `public/sw.js` 줄은 무해(사용 안 함).
 - date: 2026-09-20 (개발자 대행 기록, 사용자 결정)
+
+### D-040 채팅 LLM 은 Claude API 직접 호출(Haiku 5.5, effort low) — OmniRoute 경로는 스위치로 유지 (D-006·D-027 원칙의 예외)
+- decision:
+  (1) 채팅 답변 생성만 Anthropic Claude API(`POST /v1/messages`, 공식 Java SDK `com.anthropic:anthropic-java`)로 직접 호출한다. STT/TTS 는 그대로 OmniRoute 경유(D-027·D-028).
+  (2) 모델 `claude-haiku-5-5`, `output_config.effort=low`, thinking 은 모델 기본(adaptive, 화면 비노출). 값은 env `CLAUDE_MODEL`·`CLAUDE_EFFORT`·`CLAUDE_MAX_TOKENS` 로 바꿀 수 있다.
+  (3) **OmniRoute(Gemini) 채팅 경로는 남긴다.** `LLM_PROVIDER=claude|omniroute` 로 선택(`LlmClient` 구현체 `ClaudeClient`/`OmniRouteClient` 중 하나만 빈 등록). 장애·비용 문제 시 `.env` 한 줄로 무료 Gemini 롤백.
+  (4) 키는 `ANTHROPIC_API_KEY`(`infra/.env`, 로컬은 `application-secret.yml`). 코드·문서에 값 금지.
+  (5) 컨텍스트는 기존 `AiContextBuilder` 결과를 그대로 변환한다 — `system` 역할은 `system` 파라미터로, 연속된 같은 역할은 한 턴으로 합치고(2인 방 USER 연속), 맨 앞 assistant 턴은 버린다(Claude 는 user 로 시작해야 함). 끝은 T-031 규칙대로 트리거 USER.
+  (6) `stop_reason=refusal` 은 오류(`LlmException`) — D-018 대로 부분 응답 폐기. Haiku 5.5 는 서버측 refusal fallback 미지원이라 쓰지 않는다.
+  (7) 프롬프트 캐싱은 이번엔 켜지 않는다. 최근 N개 창이 메시지마다 한 칸씩 밀려 창이 찬 뒤엔 캐시가 매번 깨지고(쓰기 할증만 남음), 페르소나 프롬프트는 모델 최소 캐시 길이에 못 미친다.
+- rationale: 사용자 결정("사고과정은 claude api 로"). 응답 품질을 Claude 로 올리되 음성 무료 구성(D-028)과 롤백 수단은 유지. Haiku 5.5 는 1M 토큰당 $0.10/$0.50 로 컨텍스트 30개 기준 호출당 0.1원 안팎.
+- alternatives: OmniRoute 에 Anthropic 공급자를 연결(앱 코드 변경 없음) — 사용자가 직접 호출 선택. OmniRouteClient 삭제(완전 교체) — 롤백 불가라 기각. Opus 5.5/Sonnet 5.5 — 사용자 Haiku 선택.
+- impact: `apps/api` `llm/ClaudeClient`·`ClaudeProperties`·`LlmProperties.provider`·`OmniRouteClient`(조건부 빈)·`build.gradle`(anthropic-java)·`application*.yml`, `infra/.env.example`. API.md·SCHEMA.md 계약 변경 없음(`messages.model` 에 `claude-haiku-5-5` 저장). TASKS 교훈 "외부 AI 는 전부 OmniRoute" 에 예외 표기. → T-036
+- date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — Haiku 5.5·effort low·"남겨두는 걸로")
+
+### D-041 TTS 기본을 OmniRoute 내장 `gtts/ko` 로 전환 — edge-tts 사이드카 MS 403 (D-028 폴백 발동)
+- decision: `TTS_MODEL` 기본값을 `edge/tts-1` → `gtts/ko` 로 바꾼다(`application.yml`·`.env.example`). 키·노드 등록 불필요. `TTS_VOICE` 기본값도 `ko-KR-SunHiNeural` → `ko` — OmniRoute gTTS 는 모델명(`gtts/ko` 의 `ko`)이 아니라 **`voice` 를 언어코드로 쓰고** `^[a-z]{2,3}(-xx)?$` 가 아니면 `en` 으로 떨어진다(사용자 실측 "한국어 발음이 전혀 아님" → OmniRoute `normalizeGttsLang(voice)` 확인). 여성 1종.
+  edge-tts 사이드카와 OmniRoute `edge` 노드는 compose·README 에 남겨 둔다 — 업스트림이 403 을 고친 릴리스를 내면 `TTS_MODEL=edge/tts-1`·`TTS_VOICE=ko-KR-SunHiNeural` 로 env 만 되돌린다.
+- rationale: 2026-10-13 실측 — edge-tts(2026-02-18 빌드, edge-tts 7.2.7)가 `speech.platform.bing.com` handshake 403. 사용자 결정 순서 (A) 이미지 최신화 → 최신 태그가 같은 빌드, 라이브러리 7.2.8 로 올려도 403, 업스트림 수정 PR(rany2/edge-tts #491) 미머지·v2 토큰 이슈 open 이라 불가.
+  (B) `gtts/ko`: OmniRoute 경유 200 mp3(24kHz mono, 0.3~0.4초), `voice=ko` 일 때 Groq 자동 감지 `Korean`·정확 전사로 확인. 품질은 Edge 보다 낮음(D-028 에서 이미 감수한 폴백).
+- alternatives: (A) edge-tts 최신화 — 위 사유로 불가. 유료 TTS(OpenAI 등) — D-028 무료 원칙과 충돌, 보류. OmniRoute 콤보(edge→gtts 자동 폴백) — edge 가 상시 403 이라 지금은 이득 없음, 백로그 유지.
+- impact: `apps/api` `application.yml` 기본값, `infra/.env.example`, README#첫-배포-순서 주석. 운영 NAS `infra/.env` 의 `TTS_MODEL=gtts/ko`·`TTS_VOICE=ko` 로 바꿔야 반영(env 가 기본값보다 우선). 코드·테스트 변경 없음. → T-037
+- date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "A부터 해보고 안 되면 B로")
+
+### D-042 답변·음성 언어를 사용자 언어에 맞춘다 — 프롬프트 언어 지시 + TTS 문자 종류 판정
+- decision:
+  (1) **답변 언어:** AI system 프롬프트 맨 끝에 언어 지시를 항상 붙인다 — "사용자의 마지막 메시지 언어로 답한다(앞의 [이름] 라벨은 제외). 단 위 지시가 답변 언어를 따로 정했다면 그 지시를 따른다." 방 커스텀 프롬프트·프리셋 모두 적용.
+  (2) **음성 언어:** voice 를 지정하지 않은 TTS 요청은 api 가 **답변 텍스트의 문자 종류**로 언어를 판정한다 — 한글→ko, 가나(히라가나·가타카나)→ja, 가나 없는 한자→zh, 라틴→en, 문자 없음(숫자·이모지만)→판정 안 함. 가장 많은 문자군 기준, 동률이면 ko.
+  (3) 언어→voice 는 설정 표(`app.speech.tts-language.voices`, 기본 gTTS 코드 `ko/en/ja/zh-CN`, env `TTS_VOICE_KO/EN/JA/ZH`)로 바꾼다. 표에 없거나 판정 불가면 `TTS_VOICE` 기본. `TTS_AUTO_LANGUAGE=false` 면 판정 끔. 요청에 voice 가 오면 그대로 우선.
+  (4) API·DB·web 계약 변경 없음. web 이 문장/1,000자 단위로 나눠 보내면 조각마다 판정한다.
+- rationale: 사용자 요청 "질문·인식 언어에 따라 답하게". A안(문자 종류)은 계약 변경 없이 듣기 버튼·보이스 모드 모두에 적용되고, B안(STT 인식 언어 저장·전달)은 스키마·API·web 변경이 크고 타이핑 메시지는 결국 A 가 필요.
+- alternatives: B안 — 기각(위). 라틴 계열 세분(fr/es/de) — 문자만으로 불가, 필요 시 별도 T.
+- impact: `message/AiContextBuilder`(LANGUAGE_INSTRUCTION), `speech/{TtsLanguage, TtsLanguageProperties, TtsVoiceResolver, SpeechService}`, `application.yml`, `infra/.env.example`. → T-038
+- date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "1 + A")
+
+### D-043 TTS 1차 Edge(언어별 여성 음성) → 실패 시 gTTS 폴백, 10분 쿨다운 (D-041 보완)
+- decision:
+  (1) 1차 `TTS_MODEL=edge/tts-1`, voice 는 D-042 언어 표를 **여성 Neural 음성**으로(ko SunHi · en Aria · ja Nanami · zh Xiaoxiao). 기본 `TTS_VOICE=ko-KR-SunHiNeural`.
+  (2) 1차가 실패(`SpeechException`)하면 같은 요청을 폴백 `TTS_FALLBACK_MODEL=gtts/ko` 로 다시 보낸다. 폴백 voice 는 **별도 언어 표**(gTTS 언어코드 ko/en/ja/zh-CN, 기본 `TTS_FALLBACK_VOICE=ko`). 언어 판정은 한 번만 하고 두 표에 쓴다. 요청에 voice 가 오면 1차에만 쓴다.
+  (3) 1차 실패 후 `TTS_FALLBACK_COOLDOWN_SECONDS`(기본 600) 동안은 1차를 건너뛰고 폴백으로 바로 간다. 지나면 1차 재시도, 성공하면 정상 복귀. 폴백 모델이 비면 폴백·쿨다운 없음(기존 동작).
+  (4) OmniRoute 콤보 폴백은 쓰지 않는다 — 같은 voice 를 다음 공급자로 넘겨 gTTS 가 `ko-KR-SunHiNeural` 을 받으면 영어 발음(D-041 원인)이 되기 때문.
+- rationale: 사용자 요청 "A(Edge) 기본, 오류나면 D(gTTS)" — gTTS 는 언어마다 성별이 고정(en 여 / ko 남)이라 목소리 일관성은 Edge 로만 가능. 쿨다운 없으면 Edge 403 동안 문장마다 ~0.35초 지연. 사이드카 이미지는 digest 고정이라 **업스트림 수정 후 이미지를 올리기 전까지는 실제로 폴백(gTTS)만 나온다** — 사용자 인지.
+- alternatives: OmniRoute 콤보 — (4) 로 기각. OpenAI TTS 단일 voice — 유료, 보류. 현행 gTTS 고정 — 이미지 갱신 시 수동 env 전환 필요해 기각.
+- impact: `speech/{TtsProvider(model 인자), OmniRouteTtsProvider, ClovaTtsProvider, TtsVoiceResolver, TtsFallback, TtsFallbackProperties, SpeechService}`, `application.yml`, `infra/.env.example`, README. D-041 기본값(gtts/ko 1차) 대체. → T-039
+- date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "A default, 오류나면 D", 쿨다운 10분)
+
+### D-044 OmniRoute 제거 — STT Groq 직접 · TTS Azure Speech(F0) 단독 · LLM Claude + Gemini 직접 롤백 (D-006·D-027·D-028 원칙 폐기)
+- decision:
+  (1) **TTS = Azure AI Speech F0**(Neural 월 50만 자 무료) REST 직접 호출(`TTS_PROVIDER=azure`). voice 는 D-042/D-043 언어별 여성 표(SunHi·Aria·Nanami·Xiaoxiao) 그대로. **폴백 없음** — Azure 장애·한도 초과 시 음성만 실패(`SPEECH_UPSTREAM_ERROR`), 텍스트 답은 정상. D-043 폴백 구조(TtsFallback)는 공급자가 하나라 의미가 없어 제거.
+  (2) **STT = Groq Whisper 직접**(`https://api.groq.com/openai/v1`, OpenAI 호환, 무료 하루 28,800초·2,000회 — 10초 최소 과금). 자동 언어 감지 유지(D-042 와 맞물림). Azure STT(F0 월 5시간·후보 언어 지정·Safari 형식 미확인)는 기각.
+  (3) **LLM = Claude**(D-040) 유지, 롤백 `LLM_PROVIDER=gemini` 는 Gemini OpenAI 호환 엔드포인트를 직접 호출(기존 OpenAI 호환 스트림 클라이언트 재사용).
+  (4) compose·deploy·README 에서 `omniroute`·`edge-tts` 서비스, `.env.omniroute` 를 제거. 공급자 키는 전부 `infra/.env`(`ANTHROPIC_API_KEY`·`AZURE_SPEECH_KEY`·`GROQ_API_KEY`·`GEMINI_API_KEY`).
+- rationale: 사용자 결정. TTS 무료·목소리 일관성(Edge 403 이후 gTTS 는 언어마다 성별이 다름)은 Azure 공식 F0 가 해결. OmniRoute 는 NAS 최대 컨테이너(649MiB, edge-tts 48MiB)이고 대시보드 수동 설정·chown·DSM 방화벽 등 배포 마찰의 원인. 사용량은 앱 `daily_usage` 가 이미 집계, 공급자 교체는 env 스위치로 가능해 게이트웨이 이점이 작아짐.
+- alternatives: Azure STT — (2) 사유로 기각. Google Cloud TTS 폴백 — 결제 계정·구현 추가 대비 이득 작아 기각. gTTS 폴백 때문에 OmniRoute 잔류 — 메모리 절감 포기라 기각. Gemini 롤백 제거 — 무료 롤백 수단 유지 위해 기각.
+- impact: T-040(Azure TTS + 폴백 제거), T-041(Groq STT 직접·Gemini 직접 롤백·OmniRoute/edge-tts 인프라 제거·문서). 메모리 "외부 AI 는 OmniRoute 경유" 폐기, TASKS 교훈 갱신.
+- date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "STT 는 Groq 직접, TTS 는 Azure", 폴백 없음, Gemini 직접 롤백)
 
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 

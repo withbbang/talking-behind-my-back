@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Primary;
 
 /**
  * T-007 서비스/컨트롤러 테스트용: AI 잡을 호출 스레드에서 동기로 돌리고(테스트 트랜잭션 안에서 롤백 가능),
- * OmniRoute 는 스크립트형 fake 로 바꾼다. `@Import(SyncAiTestConfig.class)` 로 쓴다.
+ * LLM 은 스크립트형 fake 로 바꾼다. `@Import(SyncAiTestConfig.class)` 로 쓴다.
  */
 @TestConfiguration
 public class SyncAiTestConfig {

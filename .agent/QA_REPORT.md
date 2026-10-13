@@ -504,3 +504,55 @@
 - issues: 소셜 로그인은 :3002 직접 접속이라 OAuth redirect URI 불일치로 미실측(예상된 제약, T-014 범위 밖) → 운영 배포본에서 T-013 이 확인. 운영 nginx 경유 `Service-Worker-Allowed` 헤더 통과도 T-013 에서 곁눈질.
 - date: 2026-09-20
 
+### T-013 iOS/Android 홈화면 PWA 검증 (QA, 실기기)
+- verdict: PASS — 사용자 실기기 실측("모두 성공"), 개발자 QA 대행(사용자 지시), 2026-09-20. 운영 master c0bb595(T-014 포함).
+- tests: 검증 태스크라 자동 테스트 없음. 개발자 외부 대조: `/serwist/sw.js` 200 + `Service-Worker-Allowed: /`(DSM·nginx 통과), 프리캐시 29건, `/~offline` 200 "연결 없음", `/manifest.webmanifest` 200.
+- checked (사용자 실기기, 홈화면 설치 앱):
+  acceptance ① 홈화면 설치 — PASS.
+  acceptance ② 소셜 로그인 3사 왕복 — PASS. D-003 open(iOS 홈화면 앱에서 OAuth 가 Safari 로 빠지는 문제)은 D-021 state 방식(`next` 를 서버가 보관)으로 실기기에서 재현되지 않음 → open 닫음.
+  acceptance ③ 마이크 권한 — PASS(보이스 모드 진입).
+  acceptance ④ 백그라운드 복귀 후 세션 유지 — PASS.
+  T-014 이월 — 오프라인 콜드 오픈 "연결 없음" + 복귀 "다시 시도" PASS, `Service-Worker-Allowed` 운영 통과(개발자 대조).
+- issues: 없음. 기기·OS 버전 세부는 사용자 미기재.
+- date: 2026-09-20
+
+
+### T-036 채팅 LLM Claude API 직접 호출 + 공급자 스위치 (api)
+- verdict: PASS — 사용자 로컬 실측 + 개발자 대조, 개발자 QA 대행(사용자 지시 "QA 종료 처리"), 2026-10-13.
+- tests: 존재 / `ClaudeClientTest` 5·`LlmProviderSelectionTest` 3. 최종 코드 기준 api 335 passed, web 411 passed·lint 0 error·typecheck 통과(에이전트 실행).
+- checked: ① 1인 방 텍스트 답 델타 스트림·저장 `messages.model=claude-haiku-5-5`·`daily_usage` 토큰 집계(DB 대조). ② 보이스(STT→Claude) 답 저장. ③ 롤백 스위치 — T-041 에서 `gemini` 로 바뀐 뒤 8081 롤백 인스턴스 실측 PASS.
+- issues: 2인 방 연속 USER 병합·refusal·키 오류 → error 이벤트는 단위 테스트로만 확인(실 2인 방 미실측). 오늘 만든 Anthropic 키는 30일 만료 — 운영은 별도 키 권장.
+- date: 2026-10-13
+
+### T-037 TTS 복구 — gTTS(ko) 전환 (infra)
+- verdict: PASS → 대체됨(T-040·D-044). 당시 실측: OmniRoute `gtts/ko`+`voice=ko` 한국어 발음(STT 자동 감지 Korean), edge-tts MS 403 원인·(A) 불가 확인. 이후 TTS 가 Azure 로 바뀌고 OmniRoute·gTTS 가 제거돼 현재 코드엔 남지 않음.
+- tests: 설정 변경(기본 voice 단언 갱신). 
+- issues: 없음(대체).
+- date: 2026-10-13
+
+### T-038 사용자 언어로 답변 + TTS 언어 자동 선택 (api)
+- verdict: PASS — 사용자 앱 실측("발화 언어에 따라 답변 잘 함"), 개발자 QA 대행, 2026-10-13.
+- tests: 존재 / `TtsLanguageTest` 7·`TtsVoiceResolverTest` 5·`SpeechServiceTest`·`AiContextBuilderTest` 보강. 전체 통과(위 수치).
+- checked: 영어 질문→영어 답·영어 발음, 한국어→한국어. Azure 전환 후에도 언어별 여성 voice 선택 유지(T-040 실측).
+- issues: 라틴 계열(fr/es)은 en 발음(D-042 범위 밖). 방 프롬프트 "항상 한국어" 우선 규칙은 미실측.
+- date: 2026-10-13
+
+### T-039 TTS 1차 Edge(여성) → gTTS 폴백 + 10분 쿨다운 (api)
+- verdict: 대체됨(종료) — D-044 로 TTS 가 Azure 단독(폴백 없음)이 되며 T-040 에서 폴백 코드(TtsFallback·tts-fallback)를 제거. 당시 단위 테스트 9건 통과·api 기동 확인, 앱 청취 실측 전 대체.
+- tests: 제거됨(T-040).
+- issues: 없음(대체).
+- date: 2026-10-13
+
+### T-040 TTS 를 Azure Speech(F0) 직접 호출로 + 폴백 제거 (api)
+- verdict: PASS — 사용자 앱 실측("둘 다 여자 목소리 잘 나와"), 개발자 QA 대행, 2026-10-13.
+- tests: 존재 / `AzureTtsProviderTest` 6·`DefaultSpeechProvidersTest`. 전체 통과(위 수치).
+- checked: Azure F0(koreacentral) ko SunHi·en Aria 200 mp3 ~0.37초, 생성 음성의 STT 자동 감지 Korean/English 정확(개발자), 앱 듣기·보이스 모드 여성 음성(사용자).
+- issues: Azure 무료 체험 30일 안에 종량제 전환 필요(안 하면 구독 비활성 → TTS 중단). 특수문자 SSML 이스케이프·키 오류 경로는 단위 테스트만.
+- date: 2026-10-13
+
+### T-041 OmniRoute 제거 — Groq STT 직접 · Gemini 직접 롤백 · 인프라/문서 정리 (api, infra)
+- verdict: PASS(로컬) — 사용자 앱 실측("두 브라우저 전부 잘 됨") + 개발자 실측, 개발자 QA 대행, 2026-10-13. 운영 항목은 배포 후 확인.
+- tests: 존재 / `GroqSttProviderTest`·`OpenAiCompatLlmClientTest`·`LlmProviderSelectionTest`·`DefaultSpeechProvidersTest`. api 335·web 411 passed.
+- checked: Groq 직접 m4a(Safari 형식) ko/en 자동 감지·정확 전사 0.3초, Chrome·Safari 보이스 모드 STT→Claude→Azure 전체(사용자), Gemini 롤백 8081 인스턴스 메시지 저장 `model=gemini-flash-lite-latest`(개발자), compose dev/prod config 파싱, 로컬 omniroute·edge-tts 제거 후 정상 동작, secret yml 키 4종 경로·실호출 200.
+- issues: 운영 미실측 — NAS `docker ps` 에 omniroute·edge-tts 없음(`--remove-orphans`), 메모리 절감 수치, NAS `.env` 키 반영 후 기능 확인 → 배포 직후 확인. CEO/기획자 소유 문서 동기화는 inbox/to-ceo.md 대기.
+- date: 2026-10-13

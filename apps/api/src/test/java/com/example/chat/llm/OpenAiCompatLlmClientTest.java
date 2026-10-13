@@ -16,13 +16,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.reactive.function.client.WebClient;
 
 /**
- * T-007 OmniRoute(OpenAI 호환) 스트림 파싱. MockWebServer 로 격리(외부 호출 없음).
+ * T-007 OpenAI 호환 chat/completions 스트림 파싱 — 지금은 Gemini 직접 롤백 경로(D-044). MockWebServer 로 격리(외부 호출 없음).
  * 스프링 컨텍스트 없이 WebClient 를 직접 만든다 — WebClientConfig 는 baseUrl/헤더만 얹으므로 여기서 검증할 게 없다.
  */
-class OmniRouteClientTest {
+class OpenAiCompatLlmClientTest {
 
 	private MockWebServer server;
-	private OmniRouteClient client;
+	private OpenAiCompatLlmClient client;
 
 	@BeforeEach
 	void setUp() throws IOException {
@@ -36,14 +36,14 @@ class OmniRouteClientTest {
 		server.shutdown();
 	}
 
-	private OmniRouteClient newClient(int timeoutSeconds) {
+	private OpenAiCompatLlmClient newClient(int timeoutSeconds) {
 		return newClient(timeoutSeconds, "");
 	}
 
-	private OmniRouteClient newClient(int timeoutSeconds, String reasoningEffort) {
+	private OpenAiCompatLlmClient newClient(int timeoutSeconds, String reasoningEffort) {
 		LlmProperties props = new LlmProperties(server.url("/v1").toString(), "", "test-model", 30, timeoutSeconds, reasoningEffort);
 		WebClient webClient = WebClient.builder().baseUrl(props.baseUrl()).build();
-		return new OmniRouteClient(webClient, props);
+		return new OpenAiCompatLlmClient(webClient, props);
 	}
 
 	private static MockResponse sse(String... events) {
