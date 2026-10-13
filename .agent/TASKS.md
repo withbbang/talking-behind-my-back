@@ -787,3 +787,18 @@
 - test: `TtsLanguageTest` 7(ko/한영 혼합 ko/en/ja/zh/판정 불가/동률 ko), `TtsVoiceResolverTest` 5(표 매핑·판정 불가·표에 없음·auto off·표 없음), `SpeechServiceTest` voice 생략 시 언어 선택 +1, `AiContextBuilderTest` 언어 지시 끝 +1·프리셋 정확 일치 갱신. 전체 332 passed. 실측: 같은 프롬프트로 영어 질문→영어 답, 한국어→한국어 반말 / gTTS `voice=en` → Groq 자동 감지 English.
 - qa:
 - note: 2026-10-13 착수. 사용자 앱 실측 — 발화 언어대로 답변 확인. gTTS 는 언어마다 성별이 달라(en 여 / ko 남) 고정 불가 → T-039.
+
+## T-039 TTS 1차 Edge(여성) → gTTS 폴백 + 10분 쿨다운 (api) — D-043
+- status: REVIEW
+- owner: 개발자
+- milestone: M3
+- spec: D-043, D-042, D-041, `speech/SpeechService`
+- blocked_by: 없음
+- acceptance:
+  - 1차 성공: `edge/tts-1` + 언어별 여성 voice.
+  - 1차 실패: 같은 요청을 `gtts/ko` + 언어코드 voice 로 재시도해 200, 사용량 1회만 집계.
+  - 쿨다운(기본 600초) 동안 1차 호출 없음, 지나면 1차 재시도. 폴백 모델 비면 기존처럼 1차 실패 = `SPEECH_UPSTREAM_ERROR`. 둘 다 실패해도 `SPEECH_UPSTREAM_ERROR`.
+  - 로컬 실측: Edge 403 상태에서 보이스 재생 정상(gTTS), 로그에 1차 실패 WARN 은 쿨다운당 1회.
+- test: `TtsFallbackTest` 4(쿨다운 경계 599,999/600,000ms·폴백 끔·voice 빈 값 기동 실패), `SpeechServiceTest` 폴백 흐름 5(1차 성공 모델·voice, 1차 실패→gtts/ko+폴백 표·사용량 1회, 쿨다운 생략·만료 후 1차, 요청 voice 는 1차만, 둘 다 실패 5xx). 테스트 프로파일은 폴백 끔(공유 컨텍스트 상태 누수 방지). 전체 341 passed. api 재기동 health 200.
+- qa:
+- note: 2026-10-13 착수. 사이드카 이미지가 digest 고정이라 업스트림 수정 후 이미지 갱신 전까지는 폴백만 동작(사용자 인지). 앱 청취 실측 전 커밋(사용자가 Azure 전환 결정 — T-040 이 1차를 Azure 로 바꾸므로 폴백 구조만 재사용).

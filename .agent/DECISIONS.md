@@ -419,6 +419,17 @@
 - impact: `message/AiContextBuilder`(LANGUAGE_INSTRUCTION), `speech/{TtsLanguage, TtsLanguageProperties, TtsVoiceResolver, SpeechService}`, `application.yml`, `infra/.env.example`. → T-038
 - date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "1 + A")
 
+### D-043 TTS 1차 Edge(언어별 여성 음성) → 실패 시 gTTS 폴백, 10분 쿨다운 (D-041 보완)
+- decision:
+  (1) 1차 `TTS_MODEL=edge/tts-1`, voice 는 D-042 언어 표를 **여성 Neural 음성**으로(ko SunHi · en Aria · ja Nanami · zh Xiaoxiao). 기본 `TTS_VOICE=ko-KR-SunHiNeural`.
+  (2) 1차가 실패(`SpeechException`)하면 같은 요청을 폴백 `TTS_FALLBACK_MODEL=gtts/ko` 로 다시 보낸다. 폴백 voice 는 **별도 언어 표**(gTTS 언어코드 ko/en/ja/zh-CN, 기본 `TTS_FALLBACK_VOICE=ko`). 언어 판정은 한 번만 하고 두 표에 쓴다. 요청에 voice 가 오면 1차에만 쓴다.
+  (3) 1차 실패 후 `TTS_FALLBACK_COOLDOWN_SECONDS`(기본 600) 동안은 1차를 건너뛰고 폴백으로 바로 간다. 지나면 1차 재시도, 성공하면 정상 복귀. 폴백 모델이 비면 폴백·쿨다운 없음(기존 동작).
+  (4) OmniRoute 콤보 폴백은 쓰지 않는다 — 같은 voice 를 다음 공급자로 넘겨 gTTS 가 `ko-KR-SunHiNeural` 을 받으면 영어 발음(D-041 원인)이 되기 때문.
+- rationale: 사용자 요청 "A(Edge) 기본, 오류나면 D(gTTS)" — gTTS 는 언어마다 성별이 고정(en 여 / ko 남)이라 목소리 일관성은 Edge 로만 가능. 쿨다운 없으면 Edge 403 동안 문장마다 ~0.35초 지연. 사이드카 이미지는 digest 고정이라 **업스트림 수정 후 이미지를 올리기 전까지는 실제로 폴백(gTTS)만 나온다** — 사용자 인지.
+- alternatives: OmniRoute 콤보 — (4) 로 기각. OpenAI TTS 단일 voice — 유료, 보류. 현행 gTTS 고정 — 이미지 갱신 시 수동 env 전환 필요해 기각.
+- impact: `speech/{TtsProvider(model 인자), OmniRouteTtsProvider, ClovaTtsProvider, TtsVoiceResolver, TtsFallback, TtsFallbackProperties, SpeechService}`, `application.yml`, `infra/.env.example`, README. D-041 기본값(gtts/ko 1차) 대체. → T-039
+- date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "A default, 오류나면 D", 쿨다운 10분)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)
