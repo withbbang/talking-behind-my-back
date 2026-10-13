@@ -773,3 +773,17 @@
 - test: 설정 변경만(로직 없음) — 단위 테스트 추가 없음. 실측: OmniRoute `gtts/ko`+`voice=ko` 200 mp3, Groq 자동 감지 Korean·정확 전사(처음엔 voice 를 SunHi 로 둬 영어 발음 — 사용자 지적으로 원인 확인), api 재기동 health 200. `SpeechControllerIntegrationTest` 기본 voice 단언 `ko` 로 갱신, 전체 318 passed. 앱 재생 한국어 발음은 QA(사용자 청취).
 - qa:
 - note: 증상 — edge-tts(2026-02-18 빌드)가 `wss://speech.platform.bing.com/...readaloud` handshake 403 → OmniRoute 500 → api 500. STT(Groq)·Claude 답은 정상. (A) 불가(최신 이미지=같은 빌드, edge-tts 7.2.8 도 403, 업스트림 수정 미배포) → (B) D-041.
+
+## T-038 사용자 언어로 답변 + TTS 언어 자동 선택 (api) — D-042
+- status: REVIEW
+- owner: 개발자
+- milestone: M3
+- spec: D-042, D-041, `message/AiContextBuilder`, `speech/SpeechService`
+- blocked_by: 없음
+- acceptance:
+  - system 프롬프트 끝에 언어 지시가 항상 붙는다(1인·2인 방, 커스텀·프리셋).
+  - voice 없는 TTS: 한글→ko, 가나→ja, 한자만→zh-CN, 라틴→en 으로 voice 를 고른다. 판정 불가·표에 없음→`TTS_VOICE`. 요청 voice 우선. `TTS_AUTO_LANGUAGE=false` 면 항상 기본.
+  - 실측: 영어로 물으면 영어 답 + 영어 발음, 한국어는 그대로 한국어.
+- test: `TtsLanguageTest` 7(ko/한영 혼합 ko/en/ja/zh/판정 불가/동률 ko), `TtsVoiceResolverTest` 5(표 매핑·판정 불가·표에 없음·auto off·표 없음), `SpeechServiceTest` voice 생략 시 언어 선택 +1, `AiContextBuilderTest` 언어 지시 끝 +1·프리셋 정확 일치 갱신. 전체 332 passed. 실측: 같은 프롬프트로 영어 질문→영어 답, 한국어→한국어 반말 / gTTS `voice=en` → Groq 자동 감지 English.
+- qa:
+- note: 2026-10-13 착수. 사용자 앱 실측 — 발화 언어대로 답변 확인. gTTS 는 언어마다 성별이 달라(en 여 / ko 남) 고정 불가 → T-039.

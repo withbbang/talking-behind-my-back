@@ -408,6 +408,17 @@
 - impact: `apps/api` `application.yml` 기본값, `infra/.env.example`, README#첫-배포-순서 주석. 운영 NAS `infra/.env` 의 `TTS_MODEL=gtts/ko`·`TTS_VOICE=ko` 로 바꿔야 반영(env 가 기본값보다 우선). 코드·테스트 변경 없음. → T-037
 - date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "A부터 해보고 안 되면 B로")
 
+### D-042 답변·음성 언어를 사용자 언어에 맞춘다 — 프롬프트 언어 지시 + TTS 문자 종류 판정
+- decision:
+  (1) **답변 언어:** AI system 프롬프트 맨 끝에 언어 지시를 항상 붙인다 — "사용자의 마지막 메시지 언어로 답한다(앞의 [이름] 라벨은 제외). 단 위 지시가 답변 언어를 따로 정했다면 그 지시를 따른다." 방 커스텀 프롬프트·프리셋 모두 적용.
+  (2) **음성 언어:** voice 를 지정하지 않은 TTS 요청은 api 가 **답변 텍스트의 문자 종류**로 언어를 판정한다 — 한글→ko, 가나(히라가나·가타카나)→ja, 가나 없는 한자→zh, 라틴→en, 문자 없음(숫자·이모지만)→판정 안 함. 가장 많은 문자군 기준, 동률이면 ko.
+  (3) 언어→voice 는 설정 표(`app.speech.tts-language.voices`, 기본 gTTS 코드 `ko/en/ja/zh-CN`, env `TTS_VOICE_KO/EN/JA/ZH`)로 바꾼다. 표에 없거나 판정 불가면 `TTS_VOICE` 기본. `TTS_AUTO_LANGUAGE=false` 면 판정 끔. 요청에 voice 가 오면 그대로 우선.
+  (4) API·DB·web 계약 변경 없음. web 이 문장/1,000자 단위로 나눠 보내면 조각마다 판정한다.
+- rationale: 사용자 요청 "질문·인식 언어에 따라 답하게". A안(문자 종류)은 계약 변경 없이 듣기 버튼·보이스 모드 모두에 적용되고, B안(STT 인식 언어 저장·전달)은 스키마·API·web 변경이 크고 타이핑 메시지는 결국 A 가 필요.
+- alternatives: B안 — 기각(위). 라틴 계열 세분(fr/es/de) — 문자만으로 불가, 필요 시 별도 T.
+- impact: `message/AiContextBuilder`(LANGUAGE_INSTRUCTION), `speech/{TtsLanguage, TtsLanguageProperties, TtsVoiceResolver, SpeechService}`, `application.yml`, `infra/.env.example`. → T-038
+- date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "1 + A")
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)

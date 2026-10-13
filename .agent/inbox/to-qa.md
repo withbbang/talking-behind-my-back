@@ -407,3 +407,14 @@
 - 근거 파일: `apps/api/src/main/resources/application.yml`, `infra/.env.example`, README#첫-배포-순서, D-041
 - 범위 외: 답변 언어별 TTS 언어 자동 선택(T-038), edge-tts 복귀(업스트림 수정 대기).
 - date: 2026-10-13
+
+### [개발자 → QA] T-038 사용자 언어로 답변 + TTS 언어 자동 선택 — 검증 요청
+- 무엇: system 프롬프트 끝 언어 지시(D-042 1) + voice 없는 TTS 는 답변 문자 종류로 ko/en/ja/zh-CN 선택(D-042 2·3).
+- 검증 포인트:
+  (1) 영어로 묻기(텍스트·보이스) → 영어 답 + 듣기/보이스 재생이 영어 발음.
+  (2) 한국어로 다시 묻기 → 한국어 답 + 한국어 발음(직전 영어에 끌려가지 않음).
+  (3) 방 프롬프트에 "항상 한국어로 답해" 를 넣으면 영어로 물어도 한국어(방 지시 우선).
+  (4) 이모지만 있는 답 등 판정 불가 → 기본(ko) 발음, 오류 없음.
+- 근거 파일: `speech/{TtsLanguage,TtsVoiceResolver,TtsLanguageProperties,SpeechService}.java`, `message/AiContextBuilder.java`, `application.yml`
+- 범위 외: 라틴 계열 세분(fr/es → 모두 en 발음), STT 인식 언어 저장(B안).
+- date: 2026-10-13
