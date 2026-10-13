@@ -140,3 +140,10 @@ app:
     clova-voice-client-secret: ${CLOVA_VOICE_CLIENT_SECRET:}
     tts-voice: ${TTS_VOICE:ko}                  # 항상 보낸다. gtts 는 이 값을 언어코드로 쓴다(형식 안 맞으면 en, D-041). edge/tts-1 로 돌아가면 ko-KR-SunHiNeural (D-028)
     timeout-seconds: ${SPEECH_TIMEOUT_SECONDS:30}
+    tts-language:                             # D-042: voice 없는 TTS 는 답변 텍스트 문자 종류로 언어 판정 → 아래 표의 voice. 판정 불가·표에 없음 → tts-voice
+      auto: ${TTS_AUTO_LANGUAGE:true}
+      voices:                                 # gTTS 는 voice 를 언어코드로 씀(D-041). edge/tts-1 복귀 시 ko-KR-SunHiNeural·en-US-AriaNeural 등으로
+        ko: ${TTS_VOICE_KO:ko}
+        en: ${TTS_VOICE_EN:en}
+        ja: ${TTS_VOICE_JA:ja}
+        zh: ${TTS_VOICE_ZH:zh-CN}

@@ -101,7 +101,11 @@ class SpeechServiceTest {
 		usage = mock(DailyUsageMapper.class);
 		SpeechProperties props = new SpeechProperties("fake", "fake", tmpDir.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
 			"openai/whisper-1", "openai/tts-1", "", "", "", "", "alloy", 30);
-		service = new SpeechService(stt, tts, usage, props, app);
+		service = new SpeechService(stt, tts, usage, props, app, voices(props));
+	}
+
+	private static TtsVoiceResolver voices(SpeechProperties props) {
+		return new TtsVoiceResolver(new TtsLanguageProperties(true, java.util.Map.of("ko", "ko", "en", "en")), props.ttsVoice());
 	}
 
 	private static MockMultipartFile webm(byte[] bytes) {
@@ -234,7 +238,7 @@ class SpeechServiceTest {
 			Path rel = Path.of("build", "tmp", "speech-rel-test");
 			SpeechProperties props = new SpeechProperties("fake", "fake", rel.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
 				"openai/whisper-large-v3", "edge/tts-1", "", "", "", "", "alloy", 30);
-			SpeechService relService = new SpeechService(stt, tts, usage, props, app);
+			SpeechService relService = new SpeechService(stt, tts, usage, props, app, voices(props));
 
 			relService.stt(7L, webm(new byte[]{1}), null);
 
@@ -265,7 +269,7 @@ class SpeechServiceTest {
 			SpeechProperties props = new SpeechProperties("fake", "fake", fresh.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
 				"openai/whisper-large-v3", "edge/tts-1", "", "", "", "", "alloy", 30);
 
-			new SpeechService(stt, tts, usage, props, app);
+			new SpeechService(stt, tts, usage, props, app, voices(props));
 
 			assertThat(Files.isDirectory(fresh)).isTrue();
 		}
@@ -312,8 +316,17 @@ class SpeechServiceTest {
 		}
 
 		@Test
-		void voice_생략_시_설정_기본값() {
+		void voice_생략_시_텍스트_언어로_고른다() {
+			service.tts(7L, "Hello, how are you?", null);
+			assertThat(tts.receivedVoice).isEqualTo("en");
+
 			service.tts(7L, "안녕", null);
+			assertThat(tts.receivedVoice).isEqualTo("ko");
+		}
+
+		@Test
+		void voice_생략에_판정_불가면_설정_기본값() {
+			service.tts(7L, "123 😀", null);
 
 			assertThat(tts.receivedVoice).isEqualTo("alloy");
 		}

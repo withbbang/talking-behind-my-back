@@ -30,15 +30,18 @@ public class SpeechService {
 	private final DailyUsageMapper usage;
 	private final SpeechProperties props;
 	private final AppProperties appProps;
+	private final TtsVoiceResolver voices;
 	/** 항상 절대 경로 — 상대 경로면 Tomcat 이 multipart location 기준으로 써서 삭제 경로와 어긋난다(T-009 리뷰). */
 	private final Path tmpDir;
 
-	public SpeechService(SttProvider stt, TtsProvider tts, DailyUsageMapper usage, SpeechProperties props, AppProperties appProps) {
+	public SpeechService(SttProvider stt, TtsProvider tts, DailyUsageMapper usage, SpeechProperties props, AppProperties appProps,
+		TtsVoiceResolver voices) {
 		this.stt = stt;
 		this.tts = tts;
 		this.usage = usage;
 		this.props = props;
 		this.appProps = appProps;
+		this.voices = voices;
 		this.tmpDir = Path.of(props.tmpDir()).toAbsolutePath().normalize();
 		// Tomcat 은 spring.servlet.multipart.location(= 같은 경로)이 없으면 첫 업로드에서 죽는다 → 기동 시 만든다
 		try {
@@ -89,7 +92,8 @@ public class SpeechService {
 		if (text.length() > props.maxTtsChars()) {
 			throw new BusinessException(ErrorCode.TEXT_TOO_LONG);
 		}
-		String v = voice == null || voice.isBlank() ? props.ttsVoice() : voice;
+		// 요청 voice 우선, 없으면 텍스트 언어로 고른다(D-042)
+		String v = voice == null || voice.isBlank() ? voices.resolve(text) : voice;
 		byte[] out;
 		try {
 			out = tts.synthesize(text, v);
