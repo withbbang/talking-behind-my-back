@@ -11,7 +11,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * LLM 컨텍스트 조립 (T-007). system = 유효 프롬프트(D-017) + 가중 지시 + 비공개 지시(D-019·D-037, 참여자가 있던 방만),
+ * LLM 컨텍스트 조립 (T-007). system = 유효 프롬프트(D-017) + 가중 지시 + 비공개 지시(D-019·D-037, 참여자가 있던 방만) + 언어 지시(D-042),
  * 그 뒤 최근 N개를 시간순으로. USER 는 `[개설자 닉]`/`[참여자 닉]` 라벨, ASSISTANT 는 그대로.
  * `HUMAN` 모드 USER 대화는 넣지 않는다(D-037) — 매퍼가 이미 걸러 오지만 여기서도 지킨다.
  * 라벨은 나간 멤버도 실제 닉으로(findAllByRoomId). 멤버 행이 없는 발신자는 `[참여자]`.
@@ -26,6 +26,10 @@ final class AiContextBuilder {
 		"두 사람은 각자 너와 따로 대화하며 서로의 대화를 볼 수 없다. 너는 둘의 대화를 모두 알고 있지만 상대가 한 말을 먼저 옮기지 말고 참고만 한다. "
 			+ "다만 상대가 무슨 말을 했는지 직접 물으면 그대로 알려준다. 마지막 메시지를 보낸 사람에게 답한다.";
 
+	/** D-042: 답은 사용자 언어로. 방 프롬프트가 언어를 정했으면 그쪽이 우선. 항상 system 맨 끝. */
+	static final String LANGUAGE_INSTRUCTION =
+		"답변 언어: 마지막 메시지를 보낸 사람이 쓴 언어로 답한다(메시지 앞 [이름] 라벨은 언어 판단에서 뺀다). 단 위 지시가 답변 언어를 따로 정했다면 그 지시를 따른다.";
+
 	private AiContextBuilder() {
 	}
 
@@ -34,7 +38,7 @@ final class AiContextBuilder {
 		Map<Long, RoomMember> byUser = allMembers.stream()
 			.collect(Collectors.toMap(RoomMember::getUserId, Function.identity(), (a, b) -> a));
 		List<ChatMessage> ctx = new ArrayList<>(recentDesc.size() + 1);
-		ctx.add(new ChatMessage("system", systemPrompt(room, allMembers)));
+		ctx.add(new ChatMessage("system", systemPrompt(room, allMembers) + "\n\n" + LANGUAGE_INSTRUCTION));
 		for (int i = recentDesc.size() - 1; i >= 0; i--) {
 			Message m = recentDesc.get(i);
 			if (m.getRole() == Message.Role.ASSISTANT) {

@@ -30,15 +30,18 @@ public class SpeechService {
 	private final DailyUsageMapper usage;
 	private final SpeechProperties props;
 	private final AppProperties appProps;
+	private final TtsVoiceResolver voices;
 	/** 항상 절대 경로 — 상대 경로면 Tomcat 이 multipart location 기준으로 써서 삭제 경로와 어긋난다(T-009 리뷰). */
 	private final Path tmpDir;
 
-	public SpeechService(SttProvider stt, TtsProvider tts, DailyUsageMapper usage, SpeechProperties props, AppProperties appProps) {
+	public SpeechService(SttProvider stt, TtsProvider tts, DailyUsageMapper usage, SpeechProperties props, AppProperties appProps,
+		TtsVoiceResolver voices) {
 		this.stt = stt;
 		this.tts = tts;
 		this.usage = usage;
 		this.props = props;
 		this.appProps = appProps;
+		this.voices = voices;
 		this.tmpDir = Path.of(props.tmpDir()).toAbsolutePath().normalize();
 		// Tomcat 은 spring.servlet.multipart.location(= 같은 경로)이 없으면 첫 업로드에서 죽는다 → 기동 시 만든다
 		try {
@@ -74,7 +77,7 @@ public class SpeechService {
 			if (t.durationMs() > props.maxAudioMs()) {
 				throw new BusinessException(ErrorCode.AUDIO_TOO_LONG);
 			}
-			// 공급자가 길이를 안 주면(OmniRoute 가 verbose_json 미지원 공급자로 보낸 경우) 클라이언트 실측으로 대신한다
+			// 공급자가 길이를 안 주면(verbose_json duration 누락) 클라이언트 실측으로 대신한다
 			long durationMs = t.durationMs() > 0 ? t.durationMs() : (clientDurationMs != null ? clientDurationMs : 0);
 			if (durationMs > 0) usage.addSttSeconds(userId, today(), ceilSeconds(durationMs));
 			return new SttResult(t.text(), durationMs, stt.name());
@@ -89,7 +92,8 @@ public class SpeechService {
 		if (text.length() > props.maxTtsChars()) {
 			throw new BusinessException(ErrorCode.TEXT_TOO_LONG);
 		}
-		String v = voice == null || voice.isBlank() ? props.ttsVoice() : voice;
+		// 요청 voice 우선, 없으면 텍스트 언어로 고른다(D-042). 폴백 없음 — 실패는 음성만 실패(D-044)
+		String v = voice == null || voice.isBlank() ? voices.resolve(text) : voice;
 		byte[] out;
 		try {
 			out = tts.synthesize(text, v);

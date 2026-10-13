@@ -130,7 +130,7 @@ data: {"replyTo":101,"text":"안녕하"}
 event: done                         # AI 응답 저장 완료. message 는 ASSISTANT Message. 트리거한 유저에게만
 data: {"replyTo":101,"message":{"id":102,"role":"ASSISTANT","senderUserId":null,"senderNickname":null,"content":"안녕하세요!","inputType":null,"mode":null,"createdAt":"..."},"promptTokens":320,"completionTokens":18}
 
-event: error                        # OmniRoute 실패/타임아웃/빈 응답 — ASSISTANT 미저장, 부분 델타 폐기. 트리거한 유저에게만
+event: error                        # LLM 실패/타임아웃/빈 응답/refusal — ASSISTANT 미저장, 부분 델타 폐기. 트리거한 유저에게만
 data: {"replyTo":101,"code":"LLM_UPSTREAM_ERROR","message":"AI 응답에 실패했습니다."}
 
 event: mode                         # PATCH mode / 참여자 나가기로 AI 복귀. 방 전원
@@ -168,15 +168,15 @@ Message:
 
 STT 200:
 ```json
-{ "text": "오늘 날씨 어때", "durationMs": 2400, "provider": "omniroute" }
+{ "text": "오늘 날씨 어때", "durationMs": 2400, "provider": "groq" }
 ```
 TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤더 `Cache-Control: private, max-age=3600`.
 
 - STT 400 `AUDIO_TOO_LONG`: `durationMs` 가 상한(60초)을 넘거나, 공급자가 돌려준 길이가 상한을 넘을 때(D-026). `audio` 가 비면 400 `VALIDATION_FAILED`(`details.audio`).
-- TTS 400 `TEXT_TOO_LONG`: `text` 1,000자 초과(Java `String.length()` = UTF-16 단위, 이모지는 2자 — 프론트 카운터도 같은 기준으로). 공백만이면 400 `VALIDATION_FAILED`(`details.text`). `voice` 생략 시 서버 기본값(`TTS_VOICE`).
+- TTS 400 `TEXT_TOO_LONG`: `text` 1,000자 초과(Java `String.length()` = UTF-16 단위, 이모지는 2자 — 프론트 카운터도 같은 기준으로). 공백만이면 400 `VALIDATION_FAILED`(`details.text`). `voice` 생략 시 서버가 `text` 의 문자 종류로 언어를 판정해 언어별 voice(D-042), 판정 불가면 `TTS_VOICE`.
 - 공급자 실패(연결/타임아웃/비 2xx)는 502 `SPEECH_UPSTREAM_ERROR`. 오디오는 `app.speech.tmp-dir` 에 잠시 저장 후 응답 전에 삭제된다(성공·실패 모두).
 - 사용량: STT 성공 시 `daily_usage.stt_seconds += ceil(공급자 보고 길이, 없으면 durationMs)`, TTS 성공 시 `tts_chars += text.length`. `durationMs` 응답도 같은 규칙(둘 다 없으면 0).
-- 공급자: 기본 `omniroute` = LLM 과 같은 OmniRoute 의 `/v1/audio/*`(D-027). 모델은 `STT_MODEL`/`TTS_MODEL`(`provider/model`).
+- 공급자(D-044): STT = `groq`(Groq Whisper 직접, `STT_MODEL`, 자동 언어 감지), TTS = `azure`(Azure Speech F0, voice 는 답변 언어별 여성 Neural — D-042). `clova` 는 스텁.
 
 프론트 보이스 모드는 `/speech/stt` → `POST /rooms/{id}/messages`(`inputType: "VOICE"`) → `done` 후 `/speech/tts`(assistant content) 순서로 호출한다. 별도 복합 엔드포인트는 두지 않는다.
 

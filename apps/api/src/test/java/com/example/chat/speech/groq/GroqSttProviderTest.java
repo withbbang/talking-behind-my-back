@@ -1,4 +1,4 @@
-package com.example.chat.speech.omniroute;
+package com.example.chat.speech.groq;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,12 +19,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.web.reactive.function.client.WebClient;
 
-/** T-009 OmniRoute `/v1/audio/transcriptions`(OpenAI 호환, verbose_json) 호출·파싱 (D-027). MockWebServer 로 격리. WebClient 는 WebClientConfig 의 omniRouteWebClient 와 같은 모양으로 직접 만든다. */
-class OmniRouteSttProviderTest {
+/** T-041 Groq `/openai/v1/audio/transcriptions`(OpenAI 호환, verbose_json) 직접 호출·파싱 (D-044). MockWebServer 로 격리. */
+class GroqSttProviderTest {
 
 	@TempDir Path tmp;
 	private MockWebServer server;
-	private OmniRouteSttProvider provider;
+	private GroqSttProvider provider;
 
 	@BeforeEach
 	void setUp() throws IOException {
@@ -38,12 +38,11 @@ class OmniRouteSttProviderTest {
 		server.shutdown();
 	}
 
-	private OmniRouteSttProvider newProvider(int timeoutSeconds) {
-		SpeechProperties props = new SpeechProperties("omniroute", "omniroute", tmp.toString(), 60, 1000,
-			"openai/whisper-1", "openai/tts-1", "", "", "", "", "alloy", timeoutSeconds);
-		WebClient webClient = WebClient.builder().baseUrl(server.url("/v1").toString())
-			.defaultHeader("Authorization", "Bearer omni-test").build();
-		return new OmniRouteSttProvider(webClient, props);
+	private GroqSttProvider newProvider(int timeoutSeconds) {
+		SpeechProperties props = new SpeechProperties("groq", "azure", tmp.toString(), 60, 1000,
+			"whisper-large-v3", "", "", "", "", "alloy", timeoutSeconds);
+		GroqSpeechProperties groq = new GroqSpeechProperties(server.url("/openai/v1").toString(), "groq-test");
+		return new GroqSttProvider(WebClient.builder(), groq, props);
 	}
 
 	private Path audioFile(String name, String content) throws IOException {
@@ -61,16 +60,16 @@ class OmniRouteSttProviderTest {
 
 		assertThat(t.text()).isEqualTo("오늘 날씨 어때");
 		assertThat(t.durationMs()).isEqualTo(2_400);
-		assertThat(provider.name()).isEqualTo("omniroute");
+		assertThat(provider.name()).isEqualTo("groq");
 
 		RecordedRequest req = server.takeRequest(1, TimeUnit.SECONDS);
-		assertThat(req.getPath()).isEqualTo("/v1/audio/transcriptions");
-		assertThat(req.getHeader("Authorization")).isEqualTo("Bearer omni-test");
+		assertThat(req.getPath()).isEqualTo("/openai/v1/audio/transcriptions");
+		assertThat(req.getHeader("Authorization")).isEqualTo("Bearer groq-test");
 		assertThat(req.getHeader("Content-Type")).startsWith("multipart/form-data");
 		String body = req.getBody().readUtf8();
 		assertThat(body).contains("name=\"file\"; filename=\"a.webm\"");
 		assertThat(body).contains("opus-bytes");
-		assertThat(body).contains("name=\"model\"").contains("openai/whisper-1");
+		assertThat(body).contains("name=\"model\"").contains("whisper-large-v3");
 		assertThat(body).contains("name=\"response_format\"").contains("verbose_json");
 	}
 

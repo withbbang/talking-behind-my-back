@@ -91,6 +91,16 @@ class AiContextBuilderTest {
 	}
 
 	@Test
+	void 언어_지시는_1인_2인_방_모두_맨_끝에_붙는다() {
+		List<RoomMember> onlyOwner = List.of(member(OWNER, RoomMember.Role.OWNER, "철수"));
+
+		assertThat(AiContextBuilder.build(room("너는 고양이다"), twoMembers, List.of()).get(0).content())
+			.endsWith(AiContextBuilder.LANGUAGE_INSTRUCTION);
+		assertThat(AiContextBuilder.build(room(null), onlyOwner, List.of()).get(0).content())
+			.endsWith(AiContextBuilder.LANGUAGE_INSTRUCTION);
+	}
+
+	@Test
 	void 커스텀_프롬프트_없으면_프리셋_문구() {
 		List<ChatMessage> ctx = AiContextBuilder.build(room(null), twoMembers, List.of());
 
@@ -104,7 +114,8 @@ class AiContextBuilderTest {
 
 		List<ChatMessage> ctx = AiContextBuilder.build(room(null), onlyOwner, List.of(user(1, OWNER, "혼잣말", RoomMode.AI)));
 
-		assertThat(ctx.get(0).content()).isEqualTo(AiPersonality.EMOTIONAL.systemPrompt());
+		assertThat(ctx.get(0).content())
+			.isEqualTo(AiPersonality.EMOTIONAL.systemPrompt() + "\n\n" + AiContextBuilder.LANGUAGE_INSTRUCTION);
 		assertThat(ctx.get(1).content()).isEqualTo("[개설자 철수] 혼잣말");
 	}
 

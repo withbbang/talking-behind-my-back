@@ -100,8 +100,12 @@ class SpeechServiceTest {
 		tts = new FakeTts();
 		usage = mock(DailyUsageMapper.class);
 		SpeechProperties props = new SpeechProperties("fake", "fake", tmpDir.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
-			"openai/whisper-1", "openai/tts-1", "", "", "", "", "alloy", 30);
-		service = new SpeechService(stt, tts, usage, props, app);
+			"openai/whisper-1", "", "", "", "", "alloy", 30);
+		service = new SpeechService(stt, tts, usage, props, app, voices(props));
+	}
+
+	private static TtsVoiceResolver voices(SpeechProperties props) {
+		return new TtsVoiceResolver(new TtsLanguageProperties(true, java.util.Map.of("ko", "ko", "en", "en")), props.ttsVoice());
 	}
 
 	private static MockMultipartFile webm(byte[] bytes) {
@@ -152,7 +156,7 @@ class SpeechServiceTest {
 
 		@Test
 		void 공급자가_길이를_안_주면_클라이언트_durationMs_로_사용량을_더하고_응답에도_그_값을_쓴다() {
-			stt.reply = new SttProvider.Transcript("안녕", 0);   // OmniRoute 가 다른 공급자로 보내면 duration 이 없을 수 있다
+			stt.reply = new SttProvider.Transcript("안녕", 0);   // 공급자가 duration 을 안 줄 수 있다
 
 			SpeechService.SttResult r = service.stt(7L, webm(new byte[]{1}), 4_200L);
 
@@ -233,8 +237,8 @@ class SpeechServiceTest {
 		void tmp_dir_가_상대_경로여도_공급자에는_절대_경로가_간다_그래야_삭제_경로와_같다() {
 			Path rel = Path.of("build", "tmp", "speech-rel-test");
 			SpeechProperties props = new SpeechProperties("fake", "fake", rel.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
-				"openai/whisper-large-v3", "edge/tts-1", "", "", "", "", "alloy", 30);
-			SpeechService relService = new SpeechService(stt, tts, usage, props, app);
+				"openai/whisper-large-v3", "", "", "", "", "alloy", 30);
+			SpeechService relService = new SpeechService(stt, tts, usage, props, app, voices(props));
 
 			relService.stt(7L, webm(new byte[]{1}), null);
 
@@ -263,9 +267,9 @@ class SpeechServiceTest {
 			Path fresh = tmpDir.resolve("nested").resolve("audio");
 			assertThat(Files.exists(fresh)).isFalse();
 			SpeechProperties props = new SpeechProperties("fake", "fake", fresh.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
-				"openai/whisper-large-v3", "edge/tts-1", "", "", "", "", "alloy", 30);
+				"openai/whisper-large-v3", "", "", "", "", "alloy", 30);
 
-			new SpeechService(stt, tts, usage, props, app);
+			new SpeechService(stt, tts, usage, props, app, voices(props));
 
 			assertThat(Files.isDirectory(fresh)).isTrue();
 		}
@@ -312,8 +316,17 @@ class SpeechServiceTest {
 		}
 
 		@Test
-		void voice_생략_시_설정_기본값() {
+		void voice_생략_시_텍스트_언어로_고른다() {
+			service.tts(7L, "Hello, how are you?", null);
+			assertThat(tts.receivedVoice).isEqualTo("en");
+
 			service.tts(7L, "안녕", null);
+			assertThat(tts.receivedVoice).isEqualTo("ko");
+		}
+
+		@Test
+		void voice_생략에_판정_불가면_설정_기본값() {
+			service.tts(7L, "123 😀", null);
 
 			assertThat(tts.receivedVoice).isEqualTo("alloy");
 		}

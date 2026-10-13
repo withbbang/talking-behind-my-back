@@ -9,7 +9,7 @@
 #   1. DSM → 제어판 → 터미널 및 SNMP → SSH 활성화 (포트 변경 권장)
 #   2. 배포 계정 ~/.ssh/authorized_keys 에 공개키 등록
 #   3. docker login ghcr.io -u <GH_OWNER> -p <read:packages PAT>  (비공개 이미지일 때)
-#   4. NAS_DEPLOY_DIR 에 .env / .env.omniroute 준비 (예제 파일 참고)
+#   4. NAS_DEPLOY_DIR 에 .env 준비 (infra/.env.example 참고 — AI 공급자 키 포함, D-044)
 #   5. Synology 는 docker.sock 이 root:root 660 이라 sudo 필요(visudo 없음):
 #      sudo sh -c 'echo "<배포계정> ALL=(root) NOPASSWD: /usr/local/bin/docker" > /etc/sudoers.d/<배포계정> && chmod 440 /etc/sudoers.d/<배포계정>'
 #      확인: ssh <배포계정>@NAS 'sudo -n /usr/local/bin/docker ps'
@@ -120,13 +120,11 @@ jobs:
             if grep -q '^IMAGE_TAG=' .env; then sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${{ github.sha }}/" .env; else echo "IMAGE_TAG=${{ github.sha }}" >> .env; fi
             # Synology Docker 는 bind mount 대상 디렉터리를 자동 생성하지 않는다 ("Bind mount failed: ... does not exist")
             DATA_DIR=$(grep '^DATA_DIR=' .env | cut -d= -f2- | awk '{print $1}')
-            mkdir -p "${DATA_DIR:-./data}/mysql" "${DATA_DIR:-./data}/omniroute"
+            mkdir -p "${DATA_DIR:-./data}/mysql"
             # docker.sock 이 root:root 660 이면 sudoers NOPASSWD(상단 주석 5번) 경유. 비밀번호를 요구하면 즉시 실패(-n)
             if docker ps >/dev/null 2>&1; then DOCKER=docker; else DOCKER="sudo -n docker"; fi
-            # omniroute 는 node(1000) 로 돌아 배포 계정 소유 디렉터리에 storage.sqlite 를 못 쓴다(설정이 메모리에만 남음, T-012 실측).
-            # 배포 계정은 chown 권한이 없으니 컨테이너로 소유자 변경. mysql 은 entrypoint 가 스스로 chown 하므로 불필요
-            $DOCKER run --rm -v "$(cd "${DATA_DIR:-./data}" && pwd)/omniroute:/d" alpine:3.20 chown 1000:1000 /d
             $DOCKER compose --env-file .env pull web api
+            # --remove-orphans: compose 에서 뺀 서비스(omniroute·edge-tts, D-044) 컨테이너도 정리된다
             $DOCKER compose --env-file .env up -d --remove-orphans
             $DOCKER image prune -f
             $DOCKER compose --env-file .env ps

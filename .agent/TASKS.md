@@ -44,7 +44,7 @@
   `InvalidClientRegistrationIdException` 은 package-private(IllegalArgumentException 하위).
 - **MyBatis XML 안 SQL 의 `<>` 는 XML 파싱 오류.** `!=` 로. `bootRun` 중 `gradlew test` 를 돌리면 devtools 가 재시작하는데 그때 리소스가 깨져 있으면 앱이 죽은 채 남는다 — 고친 뒤 bootRun 재기동.
 - **RTL `getByText` 는 한 `<p>` 안에서 `<br/>` 로 나뉜 줄을 못 잡는다.** 여러 줄 카피는 줄마다 `<span className="block">`.
-- **외부 AI 호출(LLM·STT·TTS)은 전부 OmniRoute 경유가 기본.** 새 외부 API 를 붙일 때 "직접 호출" 로 설계하지 말고 OmniRoute `/v1/*` 지원부터 확인(T-009 에서 OpenAI 직접 호출로 갔다가 되돌림). 로컬 OmniRoute 에 `curl -X POST … /v1/<path>` 로 404 인지 400 인지 보면 안다.
+- **외부 AI 는 공급자 직접 호출(D-044, OmniRoute 제거).** LLM = Claude(롤백 Gemini OpenAI 호환), STT = Groq, TTS = Azure Speech F0. 새 공급자는 공식 API/SDK 무료 티어부터 조사해 사용자에게 선택지로 — 임의 결정 금지. 키는 `infra/.env`·로컬 `application-secret.yml`.
 - **hydration 전 인라인 스크립트로 React 가 렌더한 `<meta>`/`<title>` 을 바꾸면 React 19 가 hoistable 매칭에 실패해 같은 태그를 하나 더 꽂는다**(T-020 theme-color 중복 실측). 첫 페인트 전엔 `<html>` 속성만 건드리고 메타는 마운트 후 갱신. `'use client'` 모듈의 문자열 상수를 서버 컴포넌트(layout)에서 import 하면 클라이언트 참조가 되니 상수는 지시어 없는 모듈로 분리.
 - **업로드 상한 실측 파일은 26,214,401B 이상.** "26MB" 를 26,000,000B 로 만들면 25MiB 미만이라 nginx(25m)·Boot(25MB) 를 통과해 공급자까지 갔다가 502 가 난다(T-009 QA).
 - **`MediaRecorder.stop()` 은 `stop` 이벤트가 비동기라 자동 종료 트리거가 둘(VAD·상한)이면 두 번 불려 InvalidStateError.** finish 결과 Promise 를 세션에 저장해 한 번만(T-026). 공유 Promise 에 `.finally()` 를 붙이면 거절이 한 번 더 unhandled 로 새니 `.then(after, after)` 로.
@@ -59,8 +59,9 @@
 - **MySQL 은 UPDATE 대상 테이블을 서브쿼리에서 다시 읽지 못한다**(파생 테이블로 감싸도 머지되면 1093). 백필은 `CREATE TEMPORARY TABLE … AS SELECT` 로 한 번 끊고 JOIN UPDATE(T-031 V4). 빈 DB 에서는 백필이 0행이라 "성공"만 보이니 더미 데이터를 넣어 결과를 눈으로 확인할 것.
 - **`docker exec -i mysql < file.sql` 은 한글이 깨져 1064**(클라이언트 charset 기본값). `--default-character-set=utf8mb4` 를 붙인다.
 - **포커스된 엘리먼트를 `disabled` 로 만들면 브라우저가 포커스를 뗀다**(다시 활성화해도 복원 안 됨) — 전송 직후 잠기는 입력창·값이 비면 disabled 되는 전송 버튼 둘 다 해당(T-034). 잠금으로 가리는 UI 는 "풀릴 때 포커스를 어디로 돌려줄지" 를 같이 정할 것. **jsdom 은 이 blur 를 흉내내지 않으니** 테스트에서 `el.blur()` 로 그 지점을 직접 재현해야 한다.
+- **OmniRoute gTTS 는 언어를 모델명이 아니라 `voice` 로 정한다** — `gtts/ko` 여도 `voice=ko-KR-SunHiNeural` 이면 `en` 으로 떨어져 영어 발음(T-037). 200 mp3 만 보고 "동작" 판정 금지 — STT 자동 감지(`verbose_json` `language`)로 언어까지 확인.
 - **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
-- **"로그에 안 찍힌다" 는 응답 단언으로 검증되지 않는다** — logback `ListAppender` 를 핸들러 로거에 붙여 레벨을 단언한다(T-033). api 로그를 실측할 땐 사용자 bootRun(:8080)을 건드리지 말고 `ps` 에서 뽑은 같은 클래스패스로 `java -Dserver.port=8081 … ChatApplication` 두 번째 인스턴스를 띄워 로그를 파일로 받는다. **클라이언트 끊김은 다음 하트비트(20초) 쓰기 시점에야 예외로 드러난다** — 끊고 바로 로그를 보면 아직 없다.
+- **"로그에 안 찍힌다" 는 응답 단언으로 검증되지 않는다** — logback `ListAppender` 를 핸들러 로거에 붙여 레벨을 단언한다(T-033). api 로그를 실측할 땐 사용자 bootRun(:8080)을 건드리지 말고 `ps` 에서 뽑은 같은 클래스패스로 `java -Dserver.port=8081 … ChatApplication` 두 번째 인스턴스를 띄워(**`gradlew bootRun` 으로 두 번째를 띄우면 재컴파일로 8080 devtools 가 재시작하다 멈춘다** — T-041 재발) 로그를 파일로 받는다. **클라이언트 끊김은 다음 하트비트(20초) 쓰기 시점에야 예외로 드러난다** — 끊고 바로 로그를 보면 아직 없다.
 - **GH Actions `vars.*` 는 Settings → Secrets and variables → Actions 의 Repository variables 탭에 있어야 읽힌다.** Secrets 탭이나 Environment 범위(job 에 `environment:` 없음)에 넣으면 빈 문자열 → `ghcr.io/owner/-api` invalid reference (T-012, master push 10회 실패). 레포명 폴백(`vars.X || github.event.repository.name`)을 둬서 없어도 돌게 했다.
 - **Synology 비대화형 SSH(GH Actions·`ssh host cmd`)는 PATH 에 `/usr/local/bin` 이 없고, `docker.sock` 은 root:root 660 + docker 그룹 없음, `visudo`·SFTP 없음.** deploy 스크립트는 `export PATH=/usr/local/bin:$PATH` + `sudo -n docker`(sudoers.d NOPASSWD), Mac 에서 파일 올릴 땐 `scp -O`(레거시 프로토콜). `ls -l` 모드 비트는 보는 계정의 ACL 유효권한으로 합성돼 계정마다 다르게 보인다 — 실제 권한은 `synoacltool -get`(T-012).
 - **DSM 방화벽은 도커 브리지 안 컨테이너끼리 트래픽도 FORWARD 체인에서 걸러 DROP 한다**(`bridge-nf-call-iptables=1`). 증상: 같은 compose 인데 DNS 는 풀리고 TCP 는 timeout. 제어판 → 보안 → 방화벽에 소스 `172.16.0.0/255.240.0.0` 허용 규칙을 DROP 위에(T-012).
@@ -536,14 +537,15 @@
 - qa: PASS (QA_REPORT.md 2026-09-20, 사용자 지시로 개발자 대행). 미실측 항목(Naver·Kakao 운영 로그인, SSE 장시간, PWA)은 사용 중 확인.
 
 ## T-013 iOS/Android 홈화면 PWA 검증
-- status: TODO
+- status: DONE
 - owner: QA
 - milestone: M5
 - blocked_by: ~~T-012, T-014~~ (둘 다 DONE 2026-09-20) — **T-014 가 master 에 배포된 뒤** 실기기로.
 - acceptance:
   - 홈화면 설치, 소셜 로그인 3사 왕복, 마이크 권한, 백그라운드 복귀 후 세션 유지. 실패는 inbox/to-ceo.md.
   - (T-014 이월) 운영 https 에서 `/serwist/sw.js` 응답에 `Service-Worker-Allowed: /` 통과, 홈화면 앱 오프라인 콜드 오픈 → "연결 없음".
-- note: 2026-09-20 착수 대기. 배포 순서 `feature_20260914` → `dev` → `master`(--no-ff) 후 5분 내 NAS 반영.
+- qa: PASS, QA_REPORT.md 2026-09-20 (사용자 실기기 "모두 성공", master c0bb595).
+- note: 2026-09-20 배포(c0bb595) 후 실기기 검증 완료. D-003 open(iOS OAuth Safari 이탈) 재현 안 됨 → 닫음.
 
 ## T-014 서비스워커(PWA 오프라인 셸) — T-001 에서 분리
 - status: DONE
@@ -741,3 +743,91 @@
 - test: 코드 변경 없음. 기존 `voiceMachine.test.ts`(STREAM_DONE replyTo 필터), `useVoiceMode.test.tsx`(2인 방 상대 done 무시) 가 클라이언트 필터를, api `MessageServiceTest`(가시성 `visibleToUserId`)·`RoomEventBusTest`(`publishTo` 유저 타겟 발행)가 서버 쪽을 이미 덮는다.
 - qa: PASS (QA_REPORT.md 2026-09-19, 사용자 실측 — 대기 체감 안 거슬림, 제안 B 미개설)
 - note: 백로그 "2인 방 보이스 모드 동시 사용 시 TTS 재생 충돌 처리(모두 허용 결정, M3 에서 확인)" 를 T 로 승격(2026-09-19). 조사 결과 충돌은 D-029 (6) 클라이언트 `replyTo` 필터 + D-037 서버 유저 타겟 발행으로 두 겹 차단, `ROOM_BUSY` 는 유저 단위라 동시 전송도 통과 — 남은 일은 실측 확인뿐. 실측 절차는 inbox/to-qa.md.
+
+## T-036 채팅 LLM Claude API 직접 호출 + 공급자 스위치 (api) — D-040
+- status: DONE
+- owner: 개발자
+- milestone: M3
+- spec: D-040, D-006, D-018, `llm/LlmClient.java`
+- blocked_by: 없음
+- acceptance:
+  - `LLM_PROVIDER=claude` 면 `ClaudeClient`, `omniroute`(기본) 면 `OmniRouteClient` 만 `LlmClient` 빈으로 뜬다.
+  - Claude 요청: 모델 `claude-haiku-5-5`·`effort=low`·`stream=true`, system 프롬프트는 `system` 파라미터, 연속 같은 역할 병합, 앞쪽 assistant 제거.
+  - 텍스트 델타가 순서대로 `onDelta` 로 흐르고 Result 에 전체 본문·입력/출력 토큰·응답 모델이 담긴다.
+  - HTTP 오류·타임아웃·`refusal` 은 `LlmException`.
+  - 키는 env/secret yml 로만. 기존 OmniRoute 테스트·전체 `./gradlew test` 통과.
+- test: `ClaudeClientTest` 5(델타 순서·usage 합산·thinking 비노출, 요청 본문 model/effort/system/병합/앞 assistant 제거, refusal·400·타임아웃 → LlmException), `LlmProviderSelectionTest` 3(기본 omniroute·claude·omniroute). 전체 `./gradlew test` 318/318 통과. `LLM_PROVIDER=claude` 로 8081 기동·health 200 확인.
+- qa: PASS (QA_REPORT.md 2026-10-13, 사용자 실측 + 개발자 QA 대행)
+- note: 2026-10-13 착수. 프롬프트 캐싱은 D-040 (7) 로 보류. SDK `anthropic-java` 2.65.0 — Jackson 2 는 Boot BOM 2.21.4 로 올라가도 동작(테스트·기동 확인). 사용자 실측(2026-10-13, 로컬 Chrome): 텍스트·보이스(STT→Claude) 답 저장 `model=claude-haiku-5-5`·토큰 집계 확인. 같은 실측에서 TTS(edge-tts 사이드카 MS 403) 고장 발견 — T-036 무관, 별도 T 예정.
+
+## T-037 TTS 복구 — edge-tts 사이드카 MS 403 (infra) — T-036 실측 중 발견
+- status: DONE
+- owner: 개발자
+- milestone: M3
+- spec: D-028, `infra/docker-compose*.yml` edge-tts
+- blocked_by: 없음
+- acceptance:
+  - OmniRoute `POST /v1/audio/speech {"model": TTS_MODEL}` 한국어가 200 + 재생 가능한 mp3.
+  - 앱 보이스 모드·듣기 버튼에서 AI 답 음성 재생, api `SPEECH_UPSTREAM_ERROR` 없음.
+  - 순서(사용자 결정 2026-10-13): (A) edge-tts 이미지 최신 digest 로 올려 확인 → 실패 시 (B) OmniRoute 내장 `gtts/ko` 로 `TTS_MODEL` 전환(D-028 폴백, D-번호 기록).
+- test: 설정 변경만(로직 없음) — 단위 테스트 추가 없음. 실측: OmniRoute `gtts/ko`+`voice=ko` 200 mp3, Groq 자동 감지 Korean·정확 전사(처음엔 voice 를 SunHi 로 둬 영어 발음 — 사용자 지적으로 원인 확인), api 재기동 health 200. `SpeechControllerIntegrationTest` 기본 voice 단언 `ko` 로 갱신, 전체 318 passed. 앱 재생 한국어 발음은 QA(사용자 청취).
+- qa: PASS → 대체됨 T-040 (QA_REPORT.md 2026-10-13)
+- note: 증상 — edge-tts(2026-02-18 빌드)가 `wss://speech.platform.bing.com/...readaloud` handshake 403 → OmniRoute 500 → api 500. STT(Groq)·Claude 답은 정상. (A) 불가(최신 이미지=같은 빌드, edge-tts 7.2.8 도 403, 업스트림 수정 미배포) → (B) D-041.
+
+## T-038 사용자 언어로 답변 + TTS 언어 자동 선택 (api) — D-042
+- status: DONE
+- owner: 개발자
+- milestone: M3
+- spec: D-042, D-041, `message/AiContextBuilder`, `speech/SpeechService`
+- blocked_by: 없음
+- acceptance:
+  - system 프롬프트 끝에 언어 지시가 항상 붙는다(1인·2인 방, 커스텀·프리셋).
+  - voice 없는 TTS: 한글→ko, 가나→ja, 한자만→zh-CN, 라틴→en 으로 voice 를 고른다. 판정 불가·표에 없음→`TTS_VOICE`. 요청 voice 우선. `TTS_AUTO_LANGUAGE=false` 면 항상 기본.
+  - 실측: 영어로 물으면 영어 답 + 영어 발음, 한국어는 그대로 한국어.
+- test: `TtsLanguageTest` 7(ko/한영 혼합 ko/en/ja/zh/판정 불가/동률 ko), `TtsVoiceResolverTest` 5(표 매핑·판정 불가·표에 없음·auto off·표 없음), `SpeechServiceTest` voice 생략 시 언어 선택 +1, `AiContextBuilderTest` 언어 지시 끝 +1·프리셋 정확 일치 갱신. 전체 332 passed. 실측: 같은 프롬프트로 영어 질문→영어 답, 한국어→한국어 반말 / gTTS `voice=en` → Groq 자동 감지 English.
+- qa: PASS (QA_REPORT.md 2026-10-13, 사용자 실측)
+- note: 2026-10-13 착수. 사용자 앱 실측 — 발화 언어대로 답변 확인. gTTS 는 언어마다 성별이 달라(en 여 / ko 남) 고정 불가 → T-039.
+
+## T-039 TTS 1차 Edge(여성) → gTTS 폴백 + 10분 쿨다운 (api) — D-043
+- status: DONE
+- owner: 개발자
+- milestone: M3
+- spec: D-043, D-042, D-041, `speech/SpeechService`
+- blocked_by: 없음
+- acceptance:
+  - 1차 성공: `edge/tts-1` + 언어별 여성 voice.
+  - 1차 실패: 같은 요청을 `gtts/ko` + 언어코드 voice 로 재시도해 200, 사용량 1회만 집계.
+  - 쿨다운(기본 600초) 동안 1차 호출 없음, 지나면 1차 재시도. 폴백 모델 비면 기존처럼 1차 실패 = `SPEECH_UPSTREAM_ERROR`. 둘 다 실패해도 `SPEECH_UPSTREAM_ERROR`.
+  - 로컬 실측: Edge 403 상태에서 보이스 재생 정상(gTTS), 로그에 1차 실패 WARN 은 쿨다운당 1회.
+- test: `TtsFallbackTest` 4(쿨다운 경계 599,999/600,000ms·폴백 끔·voice 빈 값 기동 실패), `SpeechServiceTest` 폴백 흐름 5(1차 성공 모델·voice, 1차 실패→gtts/ko+폴백 표·사용량 1회, 쿨다운 생략·만료 후 1차, 요청 voice 는 1차만, 둘 다 실패 5xx). 테스트 프로파일은 폴백 끔(공유 컨텍스트 상태 누수 방지). 전체 341 passed. api 재기동 health 200.
+- qa: 대체됨 — T-040 에서 폴백 제거 (QA_REPORT.md 2026-10-13)
+- note: 2026-10-13 착수. 사이드카 이미지가 digest 고정이라 업스트림 수정 후 이미지 갱신 전까지는 폴백만 동작(사용자 인지). 앱 청취 실측 전 커밋(사용자가 Azure 전환 결정 — T-040 이 1차를 Azure 로 바꾸므로 폴백 구조만 재사용).
+
+## T-040 TTS 를 Azure Speech(F0) 직접 호출로 + 폴백 제거 (api) — D-044 (1)
+- status: DONE
+- owner: 개발자
+- milestone: M3
+- spec: D-044, D-042, `speech/TtsProvider`
+- blocked_by: 없음 (실측은 사용자 Azure 키 필요)
+- acceptance:
+  - `TTS_PROVIDER=azure` 면 `AzureTtsProvider` 만 TtsProvider 빈. `POST https://{region}.tts.speech.microsoft.com/cognitiveservices/v1`, 헤더 `Ocp-Apim-Subscription-Key`·`X-Microsoft-OutputFormat`(mp3), 본문 SSML(`xml:lang` 은 voice 접두, 텍스트 XML 이스케이프).
+  - HTTP 오류·타임아웃·빈 본문 → SpeechException → `SPEECH_UPSTREAM_ERROR`.
+  - D-043 폴백(TtsFallback·tts-fallback 설정) 제거, 언어별 voice 표는 유지.
+  - 실측: 한국어·영어 답 모두 여성 음성 재생.
+- test: `AzureTtsProviderTest` 6(SSML·키·출력형식 헤더·mp3 그대로, xml:lang=voice 접두·XML 이스케이프, 429→SpeechException, 빈 본문, 타임아웃, region 기본 주소), `AzureTtsSelectionTest` 1. D-043 폴백 테스트 9건 제거. 전체 339 passed. 실측(Azure F0 koreacentral, 키는 secret yml): ko SunHi·en Aria 200 mp3 ~0.37초, Groq 자동 감지 Korean/English 정확 전사. api `TTS_PROVIDER=azure` 기본으로 재기동 health 200.
+- qa: PASS (QA_REPORT.md 2026-10-13, 사용자 실측)
+- note: 2026-10-13 착수. 사용자 앱 실측 — 한국어·영어 모두 여자 목소리 재생 확인.
+
+## T-041 OmniRoute 제거 — Groq STT 직접 · Gemini 직접 롤백 · 인프라/문서 정리 (api, infra) — D-044 (2)~(4)
+- status: DONE
+- owner: 개발자
+- milestone: M3
+- spec: D-044
+- blocked_by: 없음 (T-040 REVIEW)
+- acceptance:
+  - STT 가 `api.groq.com/openai/v1/audio/transcriptions`(모델 `whisper-large-v3`, `GROQ_API_KEY`)로 동작, 자동 언어 감지·Safari mp4 실측.
+  - `LLM_PROVIDER=gemini` 롤백이 Gemini OpenAI 호환 엔드포인트로 스트리밍.
+  - compose(dev/prod)·deploy.yml·README·.env.example 에서 omniroute·edge-tts·.env.omniroute 제거, NAS 메모리 기록.
+- test: `GroqSttProviderTest`(OmniRoute STT 테스트 이식 — Bearer 키·`/openai/v1/audio/transcriptions`·`whisper-large-v3`), `OpenAiCompatLlmClientTest`(구 OmniRouteClientTest), `LlmProviderSelectionTest` 기본 claude·gemini 롤백, `DefaultSpeechProvidersTest`(기본 groq/azure), OmniRoute TTS 테스트 삭제, `SpeechProperties.ttsModel` 제거. api 335 passed, web speechApi 3 passed. 실측: Groq 직접 m4a(Safari 형식) ko/en 자동 감지·정확 전사 0.3초(Cloudflare 차단 없음), 사용자 앱 Chrome·Safari 보이스 모드 전체(STT→Claude→Azure) 정상. compose dev/prod config 파싱 OK, 로컬 omniroute·edge-tts 컨테이너 제거.
+- qa: PASS 로컬 (QA_REPORT.md 2026-10-13), 운영 항목은 배포 후
+- note: 2026-10-13 등록·착수. Gemini 롤백 실측(2026-10-13): Gemini OpenAI 호환 직접 스트림 200·usage 포함, 8081 `--app.llm.provider=gemini` 인스턴스에서 실제 메시지 → ASSISTANT `model=gemini-flash-lite-latest` 저장(영어 질문에 영어 답, D-042), 시험 방 삭제. 이때 두 번째 인스턴스를 `gradlew bootRun` 으로 띄워 8080 devtools 재시작이 멈춤 — 교훈대로 `java` 직접 실행할 것(재기동으로 복구). NAS 의 `data/omniroute` 디렉터리는 배포 후 수동 삭제 가능. CEO/기획자 소유 문서 동기화는 inbox/to-ceo.md.

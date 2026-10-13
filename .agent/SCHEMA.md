@@ -101,7 +101,7 @@
 | input_type | VARCHAR(20) | NULL | USER만: TEXT / VOICE |
 | mode | VARCHAR(20) | NULL | 발신 당시 방 모드 AI / HUMAN (V2). 컨텍스트 필터·라벨링·통계용 |
 | visible_to_user_id | BIGINT UNSIGNED | FK users, NULL | **NULL = 방 전원, 값 = 그 유저만 볼 수 있다** (V4, D-037) |
-| model | VARCHAR(100) | NULL | ASSISTANT만: OmniRoute가 실제 사용한 모델 |
+| model | VARCHAR(100) | NULL | ASSISTANT만: 공급자가 실제 사용한 모델(예: `claude-haiku-5-5`, D-040) |
 | prompt_tokens | INT UNSIGNED | NULL | ASSISTANT만 |
 | completion_tokens | INT UNSIGNED | NULL | ASSISTANT만 |
 | created_at | DATETIME(3) | NOT NULL | |

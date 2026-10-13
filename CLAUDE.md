@@ -33,8 +33,8 @@ TASKS.md 상단 "진행 중 얻은 교훈"은 착수마다 다시 본다.
 ## 자주 쓰는 명령
 
 ```
-cp infra/.env.example infra/.env && cp infra/.env.omniroute.example infra/.env.omniroute   # 최초 1회, 값 채우기
-cd infra && docker compose -f docker-compose.dev.yml up -d   # nginx :3000 + MySQL + OmniRoute
+cp infra/.env.example infra/.env   # 최초 1회, 값 채우기(AI 공급자 키는 로컬이면 application-secret.yml 도 가능)
+cd infra && docker compose -f docker-compose.dev.yml up -d   # nginx :3000 + MySQL
 cd apps/api && ./gradlew bootRun                              # :8080/api
 cd apps/web && npm run dev                                    # :3001 — 브라우저는 http://localhost:3000 (nginx 경유)
 cd apps/web && npm test && npm run lint && npm run typecheck

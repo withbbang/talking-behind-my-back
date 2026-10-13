@@ -6,12 +6,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 
-/** D-028: tts-voice 를 비우면 OmniRoute 가 alloy 를 넣어 Edge 사이드카가 500 — 기동 시점에 막는다. */
+/** D-028: tts-voice 는 비면 안 된다 — 판정 불가 시 기본 voice(D-042). 기동 시점에 막는다. */
 class SpeechPropertiesTest {
 
 	private static SpeechProperties props(String voice, int timeout) {
-		return new SpeechProperties("omniroute", "omniroute", "/tmp/audio", 60, 1000,
-			"groq/whisper-large-v3", "edge/tts-1", "", "", "", "", voice, timeout);
+		return new SpeechProperties("groq", "azure", "/tmp/audio", 60, 1000,
+			"whisper-large-v3", "", "", "", "", voice, timeout);
 	}
 
 	@Test
