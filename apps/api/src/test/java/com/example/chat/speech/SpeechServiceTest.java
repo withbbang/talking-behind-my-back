@@ -19,10 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -80,25 +77,14 @@ class SpeechServiceTest {
 	static class FakeTts implements TtsProvider {
 		String receivedText;
 		String receivedVoice;
-		String receivedModel;
-		final List<String> calls = new ArrayList<>();   // "model|voice"
-		final Set<String> failingModels = new HashSet<>();
 		byte[] reply = new byte[]{1, 2, 3};
 		RuntimeException failWith;
 
 		@Override
 		public byte[] synthesize(String text, String voice) {
-			return synthesize(text, voice, null);
-		}
-
-		@Override
-		public byte[] synthesize(String text, String voice, String model) {
 			receivedText = text;
 			receivedVoice = voice;
-			receivedModel = model;
-			calls.add(model + "|" + voice);
 			if (failWith != null) throw failWith;
-			if (failingModels.contains(model)) throw new SpeechException(model + " responded 500", null);
 			return reply;
 		}
 
@@ -115,11 +101,7 @@ class SpeechServiceTest {
 		usage = mock(DailyUsageMapper.class);
 		SpeechProperties props = new SpeechProperties("fake", "fake", tmpDir.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
 			"openai/whisper-1", "openai/tts-1", "", "", "", "", "alloy", 30);
-		service = new SpeechService(stt, tts, usage, props, app, voices(props), noFallback());
-	}
-
-	private static TtsFallback noFallback() {
-		return new TtsFallback(new TtsFallbackProperties("", "", null, 600), System::currentTimeMillis);
+		service = new SpeechService(stt, tts, usage, props, app, voices(props));
 	}
 
 	private static TtsVoiceResolver voices(SpeechProperties props) {
@@ -256,7 +238,7 @@ class SpeechServiceTest {
 			Path rel = Path.of("build", "tmp", "speech-rel-test");
 			SpeechProperties props = new SpeechProperties("fake", "fake", rel.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
 				"openai/whisper-large-v3", "edge/tts-1", "", "", "", "", "alloy", 30);
-			SpeechService relService = new SpeechService(stt, tts, usage, props, app, voices(props), noFallback());
+			SpeechService relService = new SpeechService(stt, tts, usage, props, app, voices(props));
 
 			relService.stt(7L, webm(new byte[]{1}), null);
 
@@ -287,7 +269,7 @@ class SpeechServiceTest {
 			SpeechProperties props = new SpeechProperties("fake", "fake", fresh.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
 				"openai/whisper-large-v3", "edge/tts-1", "", "", "", "", "alloy", 30);
 
-			new SpeechService(stt, tts, usage, props, app, voices(props), noFallback());
+			new SpeechService(stt, tts, usage, props, app, voices(props));
 
 			assertThat(Files.isDirectory(fresh)).isTrue();
 		}
@@ -376,79 +358,6 @@ class SpeechServiceTest {
 				.isInstanceOf(BusinessException.class)
 				.extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(ErrorCode.SPEECH_UPSTREAM_ERROR);
 
-			verify(usage, never()).addTtsChars(anyLong(), any(), anyInt());
-		}
-	}
-
-	@Nested
-	@DisplayName("tts 폴백 (D-043)")
-	class TtsFallbackFlow {
-
-		private final AtomicLong now = new AtomicLong(1_000_000);
-		private SpeechService fb;
-
-		@BeforeEach
-		void setUpFallback() {
-			SpeechProperties props = new SpeechProperties("fake", "fake", tmpDir.toString(), MAX_AUDIO_SECONDS, MAX_TTS_CHARS,
-				"openai/whisper-1", "edge/tts-1", "", "", "", "", "ko-KR-SunHiNeural", 30);
-			TtsVoiceResolver primaryVoices = new TtsVoiceResolver(
-				new TtsLanguageProperties(true, java.util.Map.of("ko", "ko-KR-SunHiNeural", "en", "en-US-AriaNeural")), props.ttsVoice());
-			TtsFallback fallback = new TtsFallback(
-				new TtsFallbackProperties("gtts/ko", "ko", java.util.Map.of("ko", "ko", "en", "en"), 600), now::get);
-			fb = new SpeechService(stt, tts, usage, props, app, primaryVoices, fallback);
-		}
-
-		@Test
-		void 일차가_되면_일차_모델과_언어별_voice() {
-			fb.tts(7L, "Hello there", null);
-
-			assertThat(tts.calls).containsExactly("edge/tts-1|en-US-AriaNeural");
-		}
-
-		@Test
-		void 일차가_실패하면_폴백_모델과_폴백_언어표_voice_로_재시도하고_사용량은_한_번() {
-			tts.failingModels.add("edge/tts-1");
-
-			byte[] out = fb.tts(7L, "Hello there", null);
-
-			assertThat(out).isEqualTo(new byte[]{1, 2, 3});
-			assertThat(tts.calls).containsExactly("edge/tts-1|en-US-AriaNeural", "gtts/ko|en");
-			verify(usage).addTtsChars(7L, today(), "Hello there".length());
-		}
-
-		@Test
-		void 쿨다운_동안은_일차를_건너뛰고_지나면_다시_일차() {
-			tts.failingModels.add("edge/tts-1");
-			fb.tts(7L, "안녕", null);
-			tts.calls.clear();
-
-			fb.tts(7L, "안녕", null);
-			assertThat(tts.calls).containsExactly("gtts/ko|ko");
-
-			now.addAndGet(600_000);
-			tts.calls.clear();
-			tts.failingModels.clear();
-			fb.tts(7L, "안녕", null);
-			assertThat(tts.calls).containsExactly("edge/tts-1|ko-KR-SunHiNeural");
-		}
-
-		@Test
-		void 요청_voice_는_일차에만_쓰고_폴백은_언어표() {
-			tts.failingModels.add("edge/tts-1");
-
-			fb.tts(7L, "안녕", "ko-KR-InJoonNeural");
-
-			assertThat(tts.calls).containsExactly("edge/tts-1|ko-KR-InJoonNeural", "gtts/ko|ko");
-		}
-
-		@Test
-		void 둘_다_실패하면_SPEECH_UPSTREAM_ERROR_이고_사용량은_안_더한다() {
-			tts.failingModels.add("edge/tts-1");
-			tts.failingModels.add("gtts/ko");
-
-			assertThatThrownBy(() -> fb.tts(7L, "안녕", null))
-				.isInstanceOf(BusinessException.class)
-				.extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(ErrorCode.SPEECH_UPSTREAM_ERROR);
 			verify(usage, never()).addTtsChars(anyLong(), any(), anyInt());
 		}
 	}

@@ -128,9 +128,9 @@ app:
     queue-size: ${AI_QUEUE_SIZE:16}
   speech:
     stt-provider: ${STT_PROVIDER:omniroute}   # omniroute | clova (D-027: 기본은 LLM 과 같은 OmniRoute 의 /v1/audio/*)
-    tts-provider: ${TTS_PROVIDER:omniroute}
+    tts-provider: ${TTS_PROVIDER:azure}           # azure | omniroute | clova (D-044: azure)
     stt-model: ${STT_MODEL:groq/whisper-large-v3}   # OmniRoute 규칙 provider/model (D-028: Groq 무료 티어, 대시보드에 키). turbo 는 "짜증나"→"찾았나" 오전사, non-turbo +0.2초
-    tts-model: ${TTS_MODEL:edge/tts-1}                    # D-043: 1차 edge-tts 사이드카(언어별 여성 음성). 실패 시 아래 tts-fallback(gTTS)
+    tts-model: ${TTS_MODEL:edge/tts-1}                    # tts-provider=omniroute 일 때만 사용(T-041 에서 제거 예정)
     tmp-dir: ${SPEECH_TMP_DIR:/tmp/audio}     # compose 에서 tmpfs
     max-audio-seconds: 60
     max-tts-chars: 1000
@@ -142,17 +142,13 @@ app:
     timeout-seconds: ${SPEECH_TIMEOUT_SECONDS:30}
     tts-language:                             # D-042: voice 없는 TTS 는 답변 텍스트 문자 종류로 언어 판정 → 아래 표의 voice. 판정 불가·표에 없음 → tts-voice
       auto: ${TTS_AUTO_LANGUAGE:true}
-      voices:                                 # 1차(Edge) 언어별 여성 Neural 음성 (D-043)
+      voices:                                 # 언어별 여성 Neural 음성 — Azure 이름 (D-043·D-044)
         ko: ${TTS_VOICE_KO:ko-KR-SunHiNeural}
         en: ${TTS_VOICE_EN:en-US-AriaNeural}
         ja: ${TTS_VOICE_JA:ja-JP-NanamiNeural}
         zh: ${TTS_VOICE_ZH:zh-CN-XiaoxiaoNeural}
-    tts-fallback:                             # D-043: 1차 실패 시 재시도. model 비우면 폴백 없음. 1차 실패 후 cooldown 동안 1차 생략
-      model: ${TTS_FALLBACK_MODEL:gtts/ko}
-      voice: ${TTS_FALLBACK_VOICE:ko}         # gTTS 는 voice 를 언어코드로 씀 — Edge 이름이면 영어 발음(D-041)
-      cooldown-seconds: ${TTS_FALLBACK_COOLDOWN_SECONDS:600}
-      voices:
-        ko: ${TTS_FALLBACK_VOICE_KO:ko}
-        en: ${TTS_FALLBACK_VOICE_EN:en}
-        ja: ${TTS_FALLBACK_VOICE_JA:ja}
-        zh: ${TTS_FALLBACK_VOICE_ZH:zh-CN}
+    azure:                                    # D-044: TTS_PROVIDER=azure — Azure AI Speech F0(Neural 월 50만 자 무료) REST 직접. 폴백 없음
+      key: ${AZURE_SPEECH_KEY:}               # 로컬은 application-secret.yml, 운영은 infra/.env
+      region: ${AZURE_SPEECH_REGION:koreacentral}
+      endpoint: ${AZURE_SPEECH_ENDPOINT:}     # 비우면 https://{region}.tts.speech.microsoft.com
+      output-format: ${AZURE_SPEECH_OUTPUT_FORMAT:audio-24khz-48kbitrate-mono-mp3}
