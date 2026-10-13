@@ -108,6 +108,14 @@ app:
     secure: false           # 로컬(http). 운영은 prod 에서 true
     same-site: Lax
   llm:
+    provider: ${LLM_PROVIDER:omniroute}     # claude | omniroute (D-040). claude 면 아래 claude.*, omniroute 면 base-url/model 사용
+    claude:
+      api-key: ${ANTHROPIC_API_KEY:}        # 로컬은 application-secret.yml, 운영은 infra/.env
+      base-url: ${CLAUDE_BASE_URL:}         # 비우면 SDK 기본(api.anthropic.com)
+      model: ${CLAUDE_MODEL:claude-haiku-5-5}
+      effort: ${CLAUDE_EFFORT:low}          # low|medium|high|xhigh|max. 비우면 모델 기본
+      max-tokens: ${CLAUDE_MAX_TOKENS:16000}
+      max-retries: ${CLAUDE_MAX_RETRIES:2}  # SDK 재시도(429/5xx/연결). 타임아웃은 아래 timeout-seconds 공통
     base-url: ${OMNIROUTE_BASE_URL:http://localhost:20128/v1}
     api-key: ${OMNIROUTE_API_KEY:}          # 로컬 OmniRoute 는 REQUIRE_API_KEY=false 라 비어도 됨
     model: ${LLM_MODEL:chat-default}

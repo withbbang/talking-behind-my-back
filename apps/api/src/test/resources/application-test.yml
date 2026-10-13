@@ -30,6 +30,7 @@ app:
   cookie:
     secure: false
   llm:
+    provider: omniroute            # 개발자 env LLM_PROVIDER 와 무관하게 고정. ClaudeClient 는 ClaudeClientTest(MockWebServer)
     base-url: http://localhost:1   # 테스트에서 실제 OmniRoute 를 부르면 안 된다 — MockWebServer 로 덮어씀
     api-key: ""
     model: test-model

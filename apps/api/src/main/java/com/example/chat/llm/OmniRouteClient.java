@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -20,6 +21,7 @@ import tools.jackson.databind.ObjectMapper;
  * `stream_options.include_usage` 로 마지막 청크에 usage 를 요청하며, 상류가 안 주면 토큰은 null.
  */
 @Component
+@ConditionalOnProperty(name = "app.llm.provider", havingValue = "omniroute", matchIfMissing = true)   // D-040 스위치
 public class OmniRouteClient implements LlmClient {
 
 	private final WebClient webClient;
