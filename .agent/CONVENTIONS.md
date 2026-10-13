@@ -16,7 +16,7 @@
 
 ## 공통
 - 시크릿은 코드·문서·커밋 어디에도 쓰지 않는다. `infra/.env`(gitignore), 로컬은 `apps/api/src/main/resources/application-secret.yml`(gitignore) 또는 환경변수.
-- 외부 API(OmniRoute, OpenAI/Clova, OAuth)는 반드시 인터페이스 뒤에. 테스트는 fake/mock.
+- 외부 API(Claude/Gemini, Groq, Azure Speech, Clova, OAuth)는 반드시 인터페이스 뒤에. 테스트는 fake/mock(HTTP 는 MockWebServer).
 - 시간은 저장·전송 UTC, 표시만 KST.
 - 로그에 메시지 본문·오디오·토큰을 남기지 않는다. ID와 길이만.
 
@@ -41,16 +41,16 @@
 - Flyway: `V{n}__{snake_desc}.sql`. Flyway 가 DDL 을 단독 소유(D-009). 운영 DDL 수동 실행 금지. init SQL 에 테이블 생성 금지.
 - 예외: 비즈니스 예외는 `BusinessException(ErrorCode)` 하나. `GlobalExceptionHandler`가 API.md 에러 형식으로 변환. 새 코드는 API.md 에 먼저.
 - SSE: **`SseEmitter`** 로 통일(D-018, T-007). 방 단위 브로드캐스트는 `message/RoomEventBus`(구독·발행·하트비트 `: ping` 20초·끊김 제거) 하나만 거친다. 컨트롤러가 emitter 를 직접 만들지 않는다. emitter 타임아웃은 0(무제한).
-- 외부 LLM 호출은 `llm/LlmClient` 인터페이스 뒤에(구현 `OmniRouteClient`). 테스트는 `message/SyncAiTestConfig`(FakeLlm + 동기 실행기)를 `@Import`.
+- 외부 LLM 호출은 `llm/LlmClient` 인터페이스 뒤에(구현 `ClaudeClient` 기본 · `OpenAiCompatLlmClient` Gemini 롤백, `LLM_PROVIDER` 로 하나만 빈 — D-040·D-044). 테스트는 `message/SyncAiTestConfig`(FakeLlm + 동기 실행기)를 `@Import`.
 - 트랜잭션: 스트리밍 중 DB 트랜잭션을 열어두지 않는다. USER 저장 → 커밋 → 스트림 → ASSISTANT 저장 → 커밋.
 - 테스트: JUnit5 + AssertJ. 매퍼는 `@SpringBootTest + @Transactional`(로컬 compose MySQL / CI MySQL 서비스, 롤백). 예외핸들러 같은 순수 로직은 직접 호출 단위 테스트(Homepage 방식). HTTP 레벨은 실제 컨트롤러 `@WebMvcTest` — 테스트 클래스 안의 nested 컨트롤러는 Boot 4 에서 등록되지 않는다. 외부 HTTP는 MockWebServer(4.12.0).
 - 설정: `application.yml`(공통, `${ENV:기본값}` — 기본값은 로컬 compose 기준) / `-prod`(비밀은 기본값 없이 `${ENV}` 만) / `-test`. 프로파일별 시크릿 파일은 gitignore.
 
 ## 인프라 (infra, .github)
-- compose 서비스 이름은 `nginx`, `web`, `api`, `mysql`, `omniroute` 고정(nginx upstream이 참조).
+- compose 서비스 이름은 `nginx`, `web`, `api`, `mysql` 고정(nginx upstream이 참조). `omniroute`·`edge-tts` 는 D-044 로 제거.
 - NAS의 `.env`는 GitHub에 없다. 새 환경변수를 추가하면 `.env.example`과 deploy.yml 상단 주석을 같이 갱신하고 TASKS.md에 "NAS .env 수동 반영 필요" 표시.
 - 이미지 태그는 커밋 SHA. `latest`는 편의용.
-- 로컬 `docker-compose.dev.yml` 은 nginx(:3000) + mysql + omniroute 만. web/api 는 호스트에서 직접 실행.
+- 로컬 `docker-compose.dev.yml` 은 nginx(:3000) + mysql 만. web/api 는 호스트에서 직접 실행, AI 공급자 키는 `application-secret.yml`.
 
 ## 문서
 - 각 `.agent/*.md` 상단 3~5줄 TL;DR 유지.
