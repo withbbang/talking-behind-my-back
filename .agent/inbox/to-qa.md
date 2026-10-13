@@ -418,3 +418,14 @@
 - 근거 파일: `speech/{TtsLanguage,TtsVoiceResolver,TtsLanguageProperties,SpeechService}.java`, `message/AiContextBuilder.java`, `application.yml`
 - 범위 외: 라틴 계열 세분(fr/es → 모두 en 발음), STT 인식 언어 저장(B안).
 - date: 2026-10-13
+
+### [개발자 → QA] T-040 TTS Azure Speech(F0) 직접 호출 — 검증 요청
+- 무엇: `TTS_PROVIDER=azure`(기본). SSML REST → mp3, 언어별 여성 voice(D-042 표). D-043 폴백 제거 — Azure 실패 시 음성만 실패.
+- 검증 포인트:
+  (1) 한국어·영어 답 듣기/보이스 → 둘 다 여성(SunHi·Aria). 사용자 실측 완료.
+  (2) 특수문자(`&`, `<`, 따옴표) 포함 답 재생 정상(SSML 이스케이프).
+  (3) 키를 틀리게 하면 `SPEECH_UPSTREAM_ERROR`, 텍스트 답은 정상.
+  (4) Azure 포털 사용량(문자 수)이 늘고 계층이 Free F0 로 유지.
+- 근거 파일: `speech/azure/{AzureTtsProvider,AzureSpeechProperties}.java`, `application.yml`, `infra/.env.example`, D-044
+- 범위 외: OmniRoute 제거·STT 직접(T-041).
+- date: 2026-10-13

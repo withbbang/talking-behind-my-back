@@ -430,6 +430,17 @@
 - impact: `speech/{TtsProvider(model 인자), OmniRouteTtsProvider, ClovaTtsProvider, TtsVoiceResolver, TtsFallback, TtsFallbackProperties, SpeechService}`, `application.yml`, `infra/.env.example`, README. D-041 기본값(gtts/ko 1차) 대체. → T-039
 - date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "A default, 오류나면 D", 쿨다운 10분)
 
+### D-044 OmniRoute 제거 — STT Groq 직접 · TTS Azure Speech(F0) 단독 · LLM Claude + Gemini 직접 롤백 (D-006·D-027·D-028 원칙 폐기)
+- decision:
+  (1) **TTS = Azure AI Speech F0**(Neural 월 50만 자 무료) REST 직접 호출(`TTS_PROVIDER=azure`). voice 는 D-042/D-043 언어별 여성 표(SunHi·Aria·Nanami·Xiaoxiao) 그대로. **폴백 없음** — Azure 장애·한도 초과 시 음성만 실패(`SPEECH_UPSTREAM_ERROR`), 텍스트 답은 정상. D-043 폴백 구조(TtsFallback)는 공급자가 하나라 의미가 없어 제거.
+  (2) **STT = Groq Whisper 직접**(`https://api.groq.com/openai/v1`, OpenAI 호환, 무료 하루 28,800초·2,000회 — 10초 최소 과금). 자동 언어 감지 유지(D-042 와 맞물림). Azure STT(F0 월 5시간·후보 언어 지정·Safari 형식 미확인)는 기각.
+  (3) **LLM = Claude**(D-040) 유지, 롤백 `LLM_PROVIDER=gemini` 는 Gemini OpenAI 호환 엔드포인트를 직접 호출(기존 OpenAI 호환 스트림 클라이언트 재사용).
+  (4) compose·deploy·README 에서 `omniroute`·`edge-tts` 서비스, `.env.omniroute` 를 제거. 공급자 키는 전부 `infra/.env`(`ANTHROPIC_API_KEY`·`AZURE_SPEECH_KEY`·`GROQ_API_KEY`·`GEMINI_API_KEY`).
+- rationale: 사용자 결정. TTS 무료·목소리 일관성(Edge 403 이후 gTTS 는 언어마다 성별이 다름)은 Azure 공식 F0 가 해결. OmniRoute 는 NAS 최대 컨테이너(649MiB, edge-tts 48MiB)이고 대시보드 수동 설정·chown·DSM 방화벽 등 배포 마찰의 원인. 사용량은 앱 `daily_usage` 가 이미 집계, 공급자 교체는 env 스위치로 가능해 게이트웨이 이점이 작아짐.
+- alternatives: Azure STT — (2) 사유로 기각. Google Cloud TTS 폴백 — 결제 계정·구현 추가 대비 이득 작아 기각. gTTS 폴백 때문에 OmniRoute 잔류 — 메모리 절감 포기라 기각. Gemini 롤백 제거 — 무료 롤백 수단 유지 위해 기각.
+- impact: T-040(Azure TTS + 폴백 제거), T-041(Groq STT 직접·Gemini 직접 롤백·OmniRoute/edge-tts 인프라 제거·문서). 메모리 "외부 AI 는 OmniRoute 경유" 폐기, TASKS 교훈 갱신.
+- date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "STT 는 Groq 직접, TTS 는 Azure", 폴백 없음, Gemini 직접 롤백)
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)
