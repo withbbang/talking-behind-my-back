@@ -59,6 +59,7 @@
 - **MySQL 은 UPDATE 대상 테이블을 서브쿼리에서 다시 읽지 못한다**(파생 테이블로 감싸도 머지되면 1093). 백필은 `CREATE TEMPORARY TABLE … AS SELECT` 로 한 번 끊고 JOIN UPDATE(T-031 V4). 빈 DB 에서는 백필이 0행이라 "성공"만 보이니 더미 데이터를 넣어 결과를 눈으로 확인할 것.
 - **`docker exec -i mysql < file.sql` 은 한글이 깨져 1064**(클라이언트 charset 기본값). `--default-character-set=utf8mb4` 를 붙인다.
 - **포커스된 엘리먼트를 `disabled` 로 만들면 브라우저가 포커스를 뗀다**(다시 활성화해도 복원 안 됨) — 전송 직후 잠기는 입력창·값이 비면 disabled 되는 전송 버튼 둘 다 해당(T-034). 잠금으로 가리는 UI 는 "풀릴 때 포커스를 어디로 돌려줄지" 를 같이 정할 것. **jsdom 은 이 blur 를 흉내내지 않으니** 테스트에서 `el.blur()` 로 그 지점을 직접 재현해야 한다.
+- **OmniRoute gTTS 는 언어를 모델명이 아니라 `voice` 로 정한다** — `gtts/ko` 여도 `voice=ko-KR-SunHiNeural` 이면 `en` 으로 떨어져 영어 발음(T-037). 200 mp3 만 보고 "동작" 판정 금지 — STT 자동 감지(`verbose_json` `language`)로 언어까지 확인.
 - **thinking 모델(Gemini 2.5 `*-latest`)은 스트리밍에서 본문이 빈다** — 추론에 토큰을 다 씀. 요청에 `reasoning_effort:"none"`(옵션 `LLM_REASONING_EFFORT`) 을 실어 끈다. OmniRoute 게이트웨이는 무료지만 뒤 공급자(Gemini 무료)는 rate limit 이 낮아 연타 시 429/빈 응답(D-031).
 - **"로그에 안 찍힌다" 는 응답 단언으로 검증되지 않는다** — logback `ListAppender` 를 핸들러 로거에 붙여 레벨을 단언한다(T-033). api 로그를 실측할 땐 사용자 bootRun(:8080)을 건드리지 말고 `ps` 에서 뽑은 같은 클래스패스로 `java -Dserver.port=8081 … ChatApplication` 두 번째 인스턴스를 띄워 로그를 파일로 받는다. **클라이언트 끊김은 다음 하트비트(20초) 쓰기 시점에야 예외로 드러난다** — 끊고 바로 로그를 보면 아직 없다.
 - **GH Actions `vars.*` 는 Settings → Secrets and variables → Actions 의 Repository variables 탭에 있어야 읽힌다.** Secrets 탭이나 Environment 범위(job 에 `environment:` 없음)에 넣으면 빈 문자열 → `ghcr.io/owner/-api` invalid reference (T-012, master push 10회 실패). 레포명 폴백(`vars.X || github.event.repository.name`)을 둬서 없어도 돌게 했다.
@@ -758,3 +759,17 @@
 - test: `ClaudeClientTest` 5(델타 순서·usage 합산·thinking 비노출, 요청 본문 model/effort/system/병합/앞 assistant 제거, refusal·400·타임아웃 → LlmException), `LlmProviderSelectionTest` 3(기본 omniroute·claude·omniroute). 전체 `./gradlew test` 318/318 통과. `LLM_PROVIDER=claude` 로 8081 기동·health 200 확인.
 - qa:
 - note: 2026-10-13 착수. 프롬프트 캐싱은 D-040 (7) 로 보류. SDK `anthropic-java` 2.65.0 — Jackson 2 는 Boot BOM 2.21.4 로 올라가도 동작(테스트·기동 확인). 사용자 실측(2026-10-13, 로컬 Chrome): 텍스트·보이스(STT→Claude) 답 저장 `model=claude-haiku-5-5`·토큰 집계 확인. 같은 실측에서 TTS(edge-tts 사이드카 MS 403) 고장 발견 — T-036 무관, 별도 T 예정.
+
+## T-037 TTS 복구 — edge-tts 사이드카 MS 403 (infra) — T-036 실측 중 발견
+- status: REVIEW
+- owner: 개발자
+- milestone: M3
+- spec: D-028, `infra/docker-compose*.yml` edge-tts
+- blocked_by: 없음
+- acceptance:
+  - OmniRoute `POST /v1/audio/speech {"model": TTS_MODEL}` 한국어가 200 + 재생 가능한 mp3.
+  - 앱 보이스 모드·듣기 버튼에서 AI 답 음성 재생, api `SPEECH_UPSTREAM_ERROR` 없음.
+  - 순서(사용자 결정 2026-10-13): (A) edge-tts 이미지 최신 digest 로 올려 확인 → 실패 시 (B) OmniRoute 내장 `gtts/ko` 로 `TTS_MODEL` 전환(D-028 폴백, D-번호 기록).
+- test: 설정 변경만(로직 없음) — 단위 테스트 추가 없음. 실측: OmniRoute `gtts/ko`+`voice=ko` 200 mp3, Groq 자동 감지 Korean·정확 전사(처음엔 voice 를 SunHi 로 둬 영어 발음 — 사용자 지적으로 원인 확인), api 재기동 health 200. `SpeechControllerIntegrationTest` 기본 voice 단언 `ko` 로 갱신, 전체 318 passed. 앱 재생 한국어 발음은 QA(사용자 청취).
+- qa:
+- note: 증상 — edge-tts(2026-02-18 빌드)가 `wss://speech.platform.bing.com/...readaloud` handshake 403 → OmniRoute 500 → api 500. STT(Groq)·Claude 답은 정상. (A) 불가(최신 이미지=같은 빌드, edge-tts 7.2.8 도 403, 업스트림 수정 미배포) → (B) D-041.

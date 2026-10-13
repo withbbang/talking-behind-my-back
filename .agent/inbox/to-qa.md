@@ -397,3 +397,13 @@
 - 근거 파일: `apps/api/src/main/java/com/example/chat/llm/{ClaudeClient,ClaudeProperties,OmniRouteClient}.java`, `application.yml`, `infra/.env.example`
 - 범위 외: 프롬프트 캐싱(D-040 7), 운영 `.env` 실값·NAS 반영은 배포 시.
 - date: 2026-10-13
+
+### [개발자 → QA] T-037 TTS 복구 — gTTS(ko) 전환 — 검증 요청
+- 무엇: edge-tts 사이드카가 MS 403 으로 막혀 TTS 기본을 OmniRoute 내장 `gtts/ko` + `TTS_VOICE=ko` 로 전환(D-041). gTTS 는 voice 를 언어코드로 쓰므로 `ko` 필수.
+- 검증 포인트:
+  (1) 듣기 버튼·보이스 모드에서 AI 답이 **한국어 발음**으로 재생(영어식 발음이면 voice 설정 확인).
+  (2) 긴 답(1,000자 초과 분할) 순차 재생, api 로그 `SPEECH_UPSTREAM_ERROR` 없음, `daily_usage.tts_chars` 증가.
+  (3) 운영: NAS `infra/.env` 에 `TTS_MODEL=gtts/ko`·`TTS_VOICE=ko` 반영 후 같은 확인.
+- 근거 파일: `apps/api/src/main/resources/application.yml`, `infra/.env.example`, README#첫-배포-순서, D-041
+- 범위 외: 답변 언어별 TTS 언어 자동 선택(T-038), edge-tts 복귀(업스트림 수정 대기).
+- date: 2026-10-13

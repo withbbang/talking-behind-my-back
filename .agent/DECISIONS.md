@@ -399,6 +399,15 @@
 - impact: `apps/api` `llm/ClaudeClient`·`ClaudeProperties`·`LlmProperties.provider`·`OmniRouteClient`(조건부 빈)·`build.gradle`(anthropic-java)·`application*.yml`, `infra/.env.example`. API.md·SCHEMA.md 계약 변경 없음(`messages.model` 에 `claude-haiku-5-5` 저장). TASKS 교훈 "외부 AI 는 전부 OmniRoute" 에 예외 표기. → T-036
 - date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — Haiku 5.5·effort low·"남겨두는 걸로")
 
+### D-041 TTS 기본을 OmniRoute 내장 `gtts/ko` 로 전환 — edge-tts 사이드카 MS 403 (D-028 폴백 발동)
+- decision: `TTS_MODEL` 기본값을 `edge/tts-1` → `gtts/ko` 로 바꾼다(`application.yml`·`.env.example`). 키·노드 등록 불필요. `TTS_VOICE` 기본값도 `ko-KR-SunHiNeural` → `ko` — OmniRoute gTTS 는 모델명(`gtts/ko` 의 `ko`)이 아니라 **`voice` 를 언어코드로 쓰고** `^[a-z]{2,3}(-xx)?$` 가 아니면 `en` 으로 떨어진다(사용자 실측 "한국어 발음이 전혀 아님" → OmniRoute `normalizeGttsLang(voice)` 확인). 여성 1종.
+  edge-tts 사이드카와 OmniRoute `edge` 노드는 compose·README 에 남겨 둔다 — 업스트림이 403 을 고친 릴리스를 내면 `TTS_MODEL=edge/tts-1`·`TTS_VOICE=ko-KR-SunHiNeural` 로 env 만 되돌린다.
+- rationale: 2026-10-13 실측 — edge-tts(2026-02-18 빌드, edge-tts 7.2.7)가 `speech.platform.bing.com` handshake 403. 사용자 결정 순서 (A) 이미지 최신화 → 최신 태그가 같은 빌드, 라이브러리 7.2.8 로 올려도 403, 업스트림 수정 PR(rany2/edge-tts #491) 미머지·v2 토큰 이슈 open 이라 불가.
+  (B) `gtts/ko`: OmniRoute 경유 200 mp3(24kHz mono, 0.3~0.4초), `voice=ko` 일 때 Groq 자동 감지 `Korean`·정확 전사로 확인. 품질은 Edge 보다 낮음(D-028 에서 이미 감수한 폴백).
+- alternatives: (A) edge-tts 최신화 — 위 사유로 불가. 유료 TTS(OpenAI 등) — D-028 무료 원칙과 충돌, 보류. OmniRoute 콤보(edge→gtts 자동 폴백) — edge 가 상시 403 이라 지금은 이득 없음, 백로그 유지.
+- impact: `apps/api` `application.yml` 기본값, `infra/.env.example`, README#첫-배포-순서 주석. 운영 NAS `infra/.env` 의 `TTS_MODEL=gtts/ko`·`TTS_VOICE=ko` 로 바꿔야 반영(env 가 기본값보다 우선). 코드·테스트 변경 없음. → T-037
+- date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "A부터 해보고 안 되면 B로")
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)
