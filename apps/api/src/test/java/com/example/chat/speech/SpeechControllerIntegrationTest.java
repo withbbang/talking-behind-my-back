@@ -181,7 +181,7 @@ class SpeechControllerIntegrationTest {
 					.content("{\"text\":\"안녕\"}").cookie(access(me)))
 				.andExpect(status().isOk());
 
-			assertThat(tts.lastVoice).isEqualTo("ko");   // 한글 텍스트 → tts-language.voices.ko (D-042), gtts 언어코드 (D-041)
+			assertThat(tts.lastVoice).isEqualTo("ko-KR-SunHiNeural");   // 한글 텍스트 → tts-language.voices.ko (D-042·D-043)
 		}
 
 		@Test

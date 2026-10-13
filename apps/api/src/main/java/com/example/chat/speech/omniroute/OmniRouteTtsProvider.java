@@ -25,8 +25,13 @@ public class OmniRouteTtsProvider implements TtsProvider {
 
 	@Override
 	public byte[] synthesize(String text, String voice) {
+		return synthesize(text, voice, props.ttsModel());
+	}
+
+	@Override
+	public byte[] synthesize(String text, String voice, String model) {
 		Map<String, Object> body = Map.of(
-			"model", props.ttsModel(),
+			"model", model,
 			"input", text,
 			"voice", voice,
 			"response_format", "mp3");

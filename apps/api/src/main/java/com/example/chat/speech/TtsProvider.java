@@ -5,5 +5,10 @@ public interface TtsProvider {
 
 	byte[] synthesize(String text, String voice);
 
+	/** 모델을 요청마다 고른다(1차/폴백, D-043). 모델 개념이 없는 공급자는 무시. */
+	default byte[] synthesize(String text, String voice, String model) {
+		return synthesize(text, voice);
+	}
+
 	String name();
 }
