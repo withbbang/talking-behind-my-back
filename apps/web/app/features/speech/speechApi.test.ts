@@ -18,7 +18,7 @@ describe('speechApi (API.md#speech)', () => {
   });
 
   it('transcribe: multipart audio(확장자는 mime 기준) + durationMs → text', async () => {
-    apiFetchMock.mockResolvedValueOnce({ text: ' 진짜 짜증나 ', durationMs: 5880, provider: 'omniroute' });
+    apiFetchMock.mockResolvedValueOnce({ text: ' 진짜 짜증나 ', durationMs: 5880, provider: 'groq' });
     const blob = new Blob([new Uint8Array(3)], { type: 'audio/mp4' });
     const result = await transcribe({ blob, mimeType: 'audio/mp4', durationMs: 5900, hitLimit: false });
     expect(result).toEqual({ text: '진짜 짜증나', durationMs: 5880 });
@@ -33,7 +33,7 @@ describe('speechApi (API.md#speech)', () => {
   });
 
   it('transcribe: webm 은 audio.webm, codecs 파라미터는 떼고 content-type 을 보낸다', async () => {
-    apiFetchMock.mockResolvedValueOnce({ text: 'x', durationMs: 1000, provider: 'omniroute' });
+    apiFetchMock.mockResolvedValueOnce({ text: 'x', durationMs: 1000, provider: 'groq' });
     await transcribe({ blob: new Blob([]), mimeType: 'audio/webm;codecs=opus', durationMs: 1000, hitLimit: false });
     const file = (apiFetchMock.mock.calls[0][1]?.body as FormData).get('audio') as File;
     expect(file.name).toBe('audio.webm');

@@ -33,8 +33,8 @@ class AzureTtsProviderTest {
 	}
 
 	private AzureTtsProvider provider(int timeoutSeconds) {
-		SpeechProperties props = new SpeechProperties("omniroute", "azure", "/tmp/x", 60, 1000,
-			"whisper-large-v3", "", "", "", "", "", "ko-KR-SunHiNeural", timeoutSeconds);
+		SpeechProperties props = new SpeechProperties("groq", "azure", "/tmp/x", 60, 1000,
+			"whisper-large-v3", "", "", "", "", "ko-KR-SunHiNeural", timeoutSeconds);
 		AzureSpeechProperties azure = new AzureSpeechProperties("azure-test-key", "koreacentral",
 			server.url("/").toString(), "audio-24khz-48kbitrate-mono-mp3");
 		return new AzureTtsProvider(WebClient.builder(), azure, props);

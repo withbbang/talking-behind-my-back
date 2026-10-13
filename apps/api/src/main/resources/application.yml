@@ -108,7 +108,7 @@ app:
     secure: false           # 로컬(http). 운영은 prod 에서 true
     same-site: Lax
   llm:
-    provider: ${LLM_PROVIDER:omniroute}     # claude | omniroute (D-040). claude 면 아래 claude.*, omniroute 면 base-url/model 사용
+    provider: ${LLM_PROVIDER:claude}        # claude | gemini (D-040·D-044). claude 면 아래 claude.*, gemini 면 base-url/api-key/model(롤백)
     claude:
       api-key: ${ANTHROPIC_API_KEY:}        # 로컬은 application-secret.yml, 운영은 infra/.env
       base-url: ${CLAUDE_BASE_URL:}         # 비우면 SDK 기본(api.anthropic.com)
@@ -116,10 +116,11 @@ app:
       effort: ${CLAUDE_EFFORT:low}          # low|medium|high|xhigh|max. 비우면 모델 기본
       max-tokens: ${CLAUDE_MAX_TOKENS:16000}
       max-retries: ${CLAUDE_MAX_RETRIES:2}  # SDK 재시도(429/5xx/연결). 타임아웃은 아래 timeout-seconds 공통
-    base-url: ${OMNIROUTE_BASE_URL:http://localhost:20128/v1}
-    api-key: ${OMNIROUTE_API_KEY:}          # 로컬 OmniRoute 는 REQUIRE_API_KEY=false 라 비어도 됨
-    model: ${LLM_MODEL:chat-default}
-    reasoning-effort: ${LLM_REASONING_EFFORT:}   # thinking 모델(Gemini 2.5 등) 빈 응답 방지용 none. 비면 안 보냄(공급자 중립). 값 있으면 chat/completions 본문에 reasoning_effort 로 실림
+    # 롤백(LLM_PROVIDER=gemini): Gemini OpenAI 호환 엔드포인트 직접 호출 (D-044). 키는 Google AI Studio
+    base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-flash-lite-latest}
+    reasoning-effort: ${LLM_REASONING_EFFORT:}   # thinking 모델(gemini-flash-latest 등) 빈 응답 방지용 none(D-031). flash-lite 는 400 이라 비울 것
     context-max-messages: ${LLM_CONTEXT_MAX_MESSAGES:30}
     timeout-seconds: ${LLM_TIMEOUT_SECONDS:120}
   ai:                                       # AI 잡 스레드풀 (D-019). 초과 시 503 AI_BUSY
@@ -127,10 +128,9 @@ app:
     max-threads: ${AI_MAX_THREADS:4}
     queue-size: ${AI_QUEUE_SIZE:16}
   speech:
-    stt-provider: ${STT_PROVIDER:omniroute}   # omniroute | clova (D-027: 기본은 LLM 과 같은 OmniRoute 의 /v1/audio/*)
-    tts-provider: ${TTS_PROVIDER:azure}           # azure | omniroute | clova (D-044: azure)
-    stt-model: ${STT_MODEL:groq/whisper-large-v3}   # OmniRoute 규칙 provider/model (D-028: Groq 무료 티어, 대시보드에 키). turbo 는 "짜증나"→"찾았나" 오전사, non-turbo +0.2초
-    tts-model: ${TTS_MODEL:edge/tts-1}                    # tts-provider=omniroute 일 때만 사용(T-041 에서 제거 예정)
+    stt-provider: ${STT_PROVIDER:groq}        # groq | clova (D-044: Groq Whisper 직접)
+    tts-provider: ${TTS_PROVIDER:azure}       # azure | clova (D-044)
+    stt-model: ${STT_MODEL:whisper-large-v3}  # Groq 모델명(D-028·D-044). turbo 는 "짜증나"→"찾았나" 오전사, non-turbo +0.2초
     tmp-dir: ${SPEECH_TMP_DIR:/tmp/audio}     # compose 에서 tmpfs
     max-audio-seconds: 60
     max-tts-chars: 1000
@@ -138,7 +138,7 @@ app:
     clova-speech-secret: ${CLOVA_SPEECH_SECRET:}
     clova-voice-client-id: ${CLOVA_VOICE_CLIENT_ID:}
     clova-voice-client-secret: ${CLOVA_VOICE_CLIENT_SECRET:}
-    tts-voice: ${TTS_VOICE:ko-KR-SunHiNeural}   # 1차 기본 voice(판정 불가 시). 항상 보낸다 — 비우면 OmniRoute 가 alloy 를 넣어 Edge 500 (D-028)
+    tts-voice: ${TTS_VOICE:ko-KR-SunHiNeural}   # 언어 판정 불가 시 기본 voice(D-042). 비우면 기동 실패
     timeout-seconds: ${SPEECH_TIMEOUT_SECONDS:30}
     tts-language:                             # D-042: voice 없는 TTS 는 답변 텍스트 문자 종류로 언어 판정 → 아래 표의 voice. 판정 불가·표에 없음 → tts-voice
       auto: ${TTS_AUTO_LANGUAGE:true}
@@ -147,6 +147,9 @@ app:
         en: ${TTS_VOICE_EN:en-US-AriaNeural}
         ja: ${TTS_VOICE_JA:ja-JP-NanamiNeural}
         zh: ${TTS_VOICE_ZH:zh-CN-XiaoxiaoNeural}
+    groq:                                     # D-044: STT 직접 호출(OpenAI 호환). 무료 하루 28,800초·2,000회
+      base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
+      api-key: ${GROQ_API_KEY:}               # console.groq.com. 로컬은 application-secret.yml, 운영은 infra/.env
     azure:                                    # D-044: TTS_PROVIDER=azure — Azure AI Speech F0(Neural 월 50만 자 무료) REST 직접. 폴백 없음
       key: ${AZURE_SPEECH_KEY:}               # 로컬은 application-secret.yml, 운영은 infra/.env
       region: ${AZURE_SPEECH_REGION:koreacentral}

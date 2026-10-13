@@ -30,12 +30,12 @@ app:
   cookie:
     secure: false
   llm:
-    provider: omniroute            # 개발자 env LLM_PROVIDER 와 무관하게 고정. ClaudeClient 는 ClaudeClientTest(MockWebServer)
-    base-url: http://localhost:1   # 테스트에서 실제 OmniRoute 를 부르면 안 된다 — MockWebServer 로 덮어씀
+    provider: gemini               # 개발자 env LLM_PROVIDER 와 무관하게 고정(호출은 localhost:1). ClaudeClient 는 ClaudeClientTest(MockWebServer)
+    base-url: http://localhost:1   # 테스트에서 실제 공급자를 부르면 안 된다 — MockWebServer 로 덮어씀
     api-key: ""
     model: test-model
   speech:
-    # 공급자 호출은 app.llm.base-url(localhost:1) 을 타므로 실제로 나가지 않는다 — 단위 테스트는 MockWebServer, 컨트롤러는 FakeSpeechTestConfig
+    # 공급자 단위 테스트는 MockWebServer, 컨트롤러는 FakeSpeechTestConfig — 실제 Groq/Azure 호출 없음
     # 절대 경로여야 한다 — 상대 경로면 Tomcat multipart location 과 어긋난다(T-009 리뷰)
     tmp-dir: ${java.io.tmpdir}/chat-app-test-audio
 

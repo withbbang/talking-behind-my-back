@@ -141,7 +141,7 @@ class SpeechControllerIntegrationTest {
 
 		@Test
 		void 공급자_실패_502_SPEECH_UPSTREAM_ERROR() throws Exception {
-			stt.failWith = new SpeechException("omniroute stt responded 500", null);
+			stt.failWith = new SpeechException("groq stt responded 500", null);
 
 			mvc.perform(multipart("/speech/stt").file(audio(new byte[]{1})).cookie(access(me)))
 				.andExpect(status().isBadGateway())
@@ -208,7 +208,7 @@ class SpeechControllerIntegrationTest {
 
 		@Test
 		void 공급자_실패_502_SPEECH_UPSTREAM_ERROR() throws Exception {
-			tts.failWith = new SpeechException("omniroute tts responded 429", null);
+			tts.failWith = new SpeechException("azure tts responded 429", null);
 
 			mvc.perform(post("/speech/tts").contentType(MediaType.APPLICATION_JSON)
 					.content("{\"text\":\"안녕\"}").cookie(access(me)))

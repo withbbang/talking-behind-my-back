@@ -16,20 +16,20 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * OmniRoute(OpenAI 호환 /v1) `chat/completions` 스트림 소비 (D-006, T-007).
+ * OpenAI 호환 `chat/completions` 스트림 소비 (T-007). 지금은 Gemini OpenAI 호환 엔드포인트 직접 호출 = 롤백 경로(D-044).
  * 호출 스레드를 블록한다 — RoomAiExecutor 의 워커에서만 부른다. 델타는 콜백으로 흘리고 전체 본문·usage 는 Result 로.
  * `stream_options.include_usage` 로 마지막 청크에 usage 를 요청하며, 상류가 안 주면 토큰은 null.
  */
 @Component
-@ConditionalOnProperty(name = "app.llm.provider", havingValue = "omniroute", matchIfMissing = true)   // D-040 스위치
-public class OmniRouteClient implements LlmClient {
+@ConditionalOnProperty(name = "app.llm.provider", havingValue = "gemini")   // D-040·D-044 롤백 스위치
+public class OpenAiCompatLlmClient implements LlmClient {
 
 	private final WebClient webClient;
 	private final LlmProperties props;
 	private final ObjectMapper json = new ObjectMapper();
 
-	public OmniRouteClient(WebClient omniRouteWebClient, LlmProperties props) {
-		this.webClient = omniRouteWebClient;
+	public OpenAiCompatLlmClient(WebClient llmWebClient, LlmProperties props) {
+		this.webClient = llmWebClient;
 		this.props = props;
 	}
 
@@ -73,10 +73,10 @@ public class OmniRouteClient implements LlmClient {
 				})
 				.blockLast();
 		} catch (WebClientResponseException e) {
-			throw new LlmException("OmniRoute responded " + e.getStatusCode().value(), e);
+			throw new LlmException("LLM responded " + e.getStatusCode().value(), e);
 		} catch (RuntimeException e) {
 			Throwable cause = e.getCause() instanceof TimeoutException ? e.getCause() : e;
-			throw new LlmException("OmniRoute call failed: " + cause.getClass().getSimpleName(), e);
+			throw new LlmException("LLM call failed: " + cause.getClass().getSimpleName(), e);
 		}
 		return new Result(content.toString(), tokens[0], tokens[1], model[0] != null ? model[0] : props.model());
 	}

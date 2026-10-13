@@ -12,12 +12,12 @@ class LlmProviderSelectionTest {
 	private final ApplicationContextRunner runner = new ApplicationContextRunner()
 		.withBean(LlmProperties.class, () -> new LlmProperties("http://localhost:1", "", "m", 30, 30, ""))
 		.withBean(ClaudeProperties.class, () -> new ClaudeProperties("k", "http://localhost:1", "claude-haiku-5-5", "low", 16000, 0))
-		.withBean("omniRouteWebClient", WebClient.class, WebClient::create)
-		.withUserConfiguration(OmniRouteClient.class, ClaudeClient.class);
+		.withBean("llmWebClient", WebClient.class, WebClient::create)
+		.withUserConfiguration(OpenAiCompatLlmClient.class, ClaudeClient.class);
 
 	@Test
-	void defaultsToOmniRoute() {
-		runner.run(ctx -> assertThat(ctx).getBean(LlmClient.class).isInstanceOf(OmniRouteClient.class));
+	void defaultsToClaude() {
+		runner.run(ctx -> assertThat(ctx).getBean(LlmClient.class).isInstanceOf(ClaudeClient.class));
 	}
 
 	@Test
@@ -27,8 +27,8 @@ class LlmProviderSelectionTest {
 	}
 
 	@Test
-	void omniRouteWhenSelected() {
-		runner.withPropertyValues("app.llm.provider=omniroute")
-			.run(ctx -> assertThat(ctx).getBean(LlmClient.class).isInstanceOf(OmniRouteClient.class));
+	void geminiWhenSelected() {
+		runner.withPropertyValues("app.llm.provider=gemini")
+			.run(ctx -> assertThat(ctx).getBean(LlmClient.class).isInstanceOf(OpenAiCompatLlmClient.class));
 	}
 }

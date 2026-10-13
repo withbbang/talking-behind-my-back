@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
  * 전체 본문·usage·모델은 Result 로. `refusal` 은 오류로 취급해 부분 응답을 버린다(D-018).
  */
 @Component
-@ConditionalOnProperty(name = "app.llm.provider", havingValue = "claude")
+@ConditionalOnProperty(name = "app.llm.provider", havingValue = "claude", matchIfMissing = true)
 public class ClaudeClient implements LlmClient {
 
 	private final AnthropicClient client;
