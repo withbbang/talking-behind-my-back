@@ -50,7 +50,7 @@
   - 같은 이메일로 다른 공급자 로그인 시 정책(D-003 보완 예정)대로 동작한다.
 
 ### M2 텍스트 채팅 · SSE
-- api: rooms CRUD·멤버십·초대(T-006/016/017), 방 AI 프롬프트 편집(T-019, D-017), `POST /rooms/{id}/messages` 202 + `GET /rooms/{id}/events` SSE, 방당 직렬 큐, OmniRouteClient, 컨텍스트 윈도우(T-007, D-018).
+- api: rooms CRUD·멤버십·초대(T-006/016/017), 방 AI 프롬프트 편집(T-019, D-017), `POST /rooms/{id}/messages` 202 + `GET /rooms/{id}/events` SSE, 방당 직렬 큐, OmniRouteClient(→ D-040·D-044 로 ClaudeClient + Gemini 롤백 OpenAiCompatLlmClient), 컨텍스트 윈도우(T-007, D-018).
 - web: 채팅 셸(사이드바+메인), 방 생성, 메시지 목록, 스트리밍 말풍선, 모드/성격/프롬프트 편집, 409 처리(T-008), 초대 입장(T-018).
 - acceptance:
   - "+ 새 방" 으로 방이 생성되고 사이드바에 즉시 나타난다(D-010 draft 는 T-008 에서 폐기).
@@ -78,7 +78,7 @@
   - 정지된 회원은 로그인은 되지만 메시지 전송이 403.
 
 ### M5 NAS 배포 · PWA 검증
-- DSM 리버스 프록시, `.env` 작성, OmniRoute 공급자/키 설정, 첫 배포, iOS/Android 홈화면 설치.
+- DSM 리버스 프록시, `.env` 작성(AI 공급자 키 — D-044, 구 OmniRoute 공급자/키 설정), 첫 배포, iOS/Android 홈화면 설치.
 - acceptance:
   - `master` push 후 5분 내 NAS에서 새 이미지로 기동된다.
   - iOS 홈화면 PWA에서 소셜 로그인 왕복이 성공한다(또는 실패 시 D-번호로 대안 결정).

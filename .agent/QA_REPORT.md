@@ -551,8 +551,10 @@
 - date: 2026-10-13
 
 ### T-041 OmniRoute 제거 — Groq STT 직접 · Gemini 직접 롤백 · 인프라/문서 정리 (api, infra)
-- verdict: PASS(로컬) — 사용자 앱 실측("두 브라우저 전부 잘 됨") + 개발자 실측, 개발자 QA 대행, 2026-10-13. 운영 항목은 배포 후 확인.
+- verdict: PASS — 로컬(사용자 "두 브라우저 전부 잘 됨" + 개발자 실측) + 운영(배포 후 사용자 "이상 없음" + NAS 대조), 개발자 QA 대행, 2026-10-13.
 - tests: 존재 / `GroqSttProviderTest`·`OpenAiCompatLlmClientTest`·`LlmProviderSelectionTest`·`DefaultSpeechProvidersTest`. api 335·web 411 passed.
 - checked: Groq 직접 m4a(Safari 형식) ko/en 자동 감지·정확 전사 0.3초, Chrome·Safari 보이스 모드 STT→Claude→Azure 전체(사용자), Gemini 롤백 8081 인스턴스 메시지 저장 `model=gemini-flash-lite-latest`(개발자), compose dev/prod config 파싱, 로컬 omniroute·edge-tts 제거 후 정상 동작, secret yml 키 4종 경로·실호출 200.
-- issues: 운영 미실측 — NAS `docker ps` 에 omniroute·edge-tts 없음(`--remove-orphans`), 메모리 절감 수치, NAS `.env` 키 반영 후 기능 확인 → 배포 직후 확인. CEO/기획자 소유 문서 동기화는 inbox/to-ceo.md 대기.
+- 운영(2026-10-13, master 112a823, deploy run 38412083353 success): 사용자 앱 실측 이상 없음. NAS `docker ps` — api·web `112a823` 재생성, omniroute·edge-tts 컨테이너 없음(`--remove-orphans`), omniroute 이미지 수동 삭제·edge-tts 이미지는 `image prune` 으로 이미 정리. `data/omniroute`·`.env.omniroute` 삭제(사용자).
+  메모리(이 프로젝트 합계): 배포 전 ~2.96GiB(omniroute 1,949MiB·edge-tts 41·api 488·web 74·mysql 403·nginx 5) → 배포 후 ~0.85GiB(api 398·web 42·mysql 401·nginx 5), **약 2.1GB 절감**. 배포 중 health 502/000 약 70초(23:21:50~23:22:58).
+- issues: CEO/기획자 소유 문서 동기화는 inbox/to-ceo.md 대기. 교훈: 배포 완료 전에 `data/omniroute` 를 지워 구 api 가 잠시 설정 없는 OmniRoute 에 의존한 순간이 있었음(영향 없음) — 정리는 배포 완료 확인 후.
 - date: 2026-10-13
