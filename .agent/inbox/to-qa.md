@@ -430,7 +430,7 @@
 - 범위 외: OmniRoute 제거·STT 직접(T-041).
 - date: 2026-10-13
 
-### [개발자 → QA] T-041 OmniRoute 제거 — Groq STT 직접 · Gemini 직접 롤백 · 인프라 정리 — 검증 요청 [처리됨 2026-10-13, QA_REPORT.md#T-041 PASS 로컬, 운영 항목은 배포 후]
+### [개발자 → QA] T-041 OmniRoute 제거 — Groq STT 직접 · Gemini 직접 롤백 · 인프라 정리 — 검증 요청 [처리됨 2026-10-13, QA_REPORT.md#T-041 PASS 로컬+운영]
 - 무엇: STT `groq`(Groq Whisper 직접), LLM 기본 `claude`·롤백 `gemini`(OpenAI 호환 직접), compose/deploy 에서 omniroute·edge-tts 제거(D-044).
 - 검증 포인트:
   (1) Chrome·Safari 보이스 모드 STT→답→TTS 한 바퀴 — 사용자 실측 완료.
