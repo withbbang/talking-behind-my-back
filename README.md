@@ -139,7 +139,7 @@ OmniRoute 대시보드 `http://localhost:20128` 에서 공급자 연결 + 모델
    - **STT = Groq**: Providers → Groq → Add Connection 에 Groq API 키(console.groq.com/keys, 무료 티어). 저장하면 `whisper-large-v3(-turbo)` 가 자동 임포트. `.env` `STT_MODEL=groq/whisper-large-v3`(turbo 는 한국어 오전사가 있어 non-turbo).
    - **TTS = edge-tts 사이드카**: Providers → "Add OpenAI Compatible" — Name 아무거나, **Prefix `edge`**, API Type **Audio Speech**, Base URL `http://edge-tts:5050/v1`, Model ID `tts-1` → Add.
      생긴 노드에서 Connections → Add: API Key 는 아무 문자열(사이드카가 검사 안 함, 비우면 OmniRoute 가 "No credentials"), Default Model `tts-1` → Save → "Import from /models".
-     `.env.omniroute` 의 `AUDIO_REMOTE_PROVIDER_NODES=true` 가 없으면 OmniRoute 가 localhost 밖 노드를 거부한다. `.env` `TTS_MODEL=edge/tts-1`, `TTS_VOICE=ko-KR-SunHiNeural`.
+     `.env.omniroute` 의 `AUDIO_REMOTE_PROVIDER_NODES=true` 가 없으면 OmniRoute 가 localhost 밖 노드를 거부한다. `.env` `TTS_MODEL=edge/tts-1`, `TTS_VOICE=ko-KR-SunHiNeural`. **현재(D-041) 기본은 `TTS_MODEL=gtts/ko` + `TTS_VOICE=ko`**(gTTS 는 voice 를 언어코드로 씀) — edge-tts 가 MS 403 으로 막혀 있어 이 노드 등록은 업스트림 수정 후 복귀할 때만 필요.
    - 확인: `curl -X POST http://<NAS-IP>:20128/v1/audio/speech -H 'Authorization: Bearer <OMNIROUTE_API_KEY>' -H 'Content-Type: application/json' -d '{"model":"edge/tts-1","input":"안녕","voice":"ko-KR-SunHiNeural"}' -o t.mp3`
 4. 구글/네이버/카카오 개발자 콘솔에 redirect URI 등록 → `.env`에 키 기입.
 5. GitHub Variables/Secrets 등록(deploy.yml 상단 참고) → master push → 자동 배포.

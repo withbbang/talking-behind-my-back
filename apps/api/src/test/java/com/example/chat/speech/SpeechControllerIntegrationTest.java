@@ -181,7 +181,7 @@ class SpeechControllerIntegrationTest {
 					.content("{\"text\":\"안녕\"}").cookie(access(me)))
 				.andExpect(status().isOk());
 
-			assertThat(tts.lastVoice).isEqualTo("ko-KR-SunHiNeural");   // application.yml 기본값 (D-028)
+			assertThat(tts.lastVoice).isEqualTo("ko");   // application.yml 기본값 — gtts 언어코드 (D-041)
 		}
 
 		@Test
