@@ -79,3 +79,11 @@
 - 선택지: (1) 카드(권한 거부·오류)에서만 "다시" 유지, 정상 단계에선 숨김 — 최소 변경, 추천. (2) 오류 카드는 토스트 + 2초 뒤 자동 듣기 복귀, 권한 거부는 "권한 요청" 버튼만. (3) barge-in(말하는 중 마이크 열어 두고 발화 시 TTS 중단) — 에코 필터 필요, 별도 T 크기.
 - date: 2026-09-18
 
+
+### [개발자 → CEO/기획자] D-044 OmniRoute 제거 — 소유 문서 동기화 요청 (2026-10-13)
+- 결정은 D-044(사용자 결정)로 기록됨. 개발자 소유 문서(API.md·SCHEMA.md·README·infra·CLAUDE.md)는 T-041 에서 갱신 완료. 아래는 권한상 개발자가 못 쓰는 파일:
+  - CONTEXT.md(기획자) L19·L33·L46·L59: 기술 스택/용어의 "OmniRoute(LLM 게이트웨이)" → "Claude API 직접(D-040), STT Groq·TTS Azure 직접(D-044)". L46 "대시보드 LAN 전용" 삭제.
+  - PLAN.md(기획자) L81: "OmniRoute 공급자/키 설정" → "AI 공급자 키(.env) 설정".
+  - CONVENTIONS.md(CEO) L19·L44·L50·L53: 외부 API 예시에서 OmniRoute → Claude/Groq/Azure, 구현 `OmniRouteClient` → `ClaudeClient`/`OpenAiCompatLlmClient`, compose 서비스 목록에서 `omniroute` 제거, dev compose 는 nginx+mysql 만.
+  - .agent/README.md L10·L37: 스택 문구에서 OmniRoute 제거.
+- "네가 적어라" 하면 지시 범위 안에서 대행.

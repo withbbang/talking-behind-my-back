@@ -44,7 +44,7 @@
   `InvalidClientRegistrationIdException` 은 package-private(IllegalArgumentException 하위).
 - **MyBatis XML 안 SQL 의 `<>` 는 XML 파싱 오류.** `!=` 로. `bootRun` 중 `gradlew test` 를 돌리면 devtools 가 재시작하는데 그때 리소스가 깨져 있으면 앱이 죽은 채 남는다 — 고친 뒤 bootRun 재기동.
 - **RTL `getByText` 는 한 `<p>` 안에서 `<br/>` 로 나뉜 줄을 못 잡는다.** 여러 줄 카피는 줄마다 `<span className="block">`.
-- **외부 AI 호출(LLM·STT·TTS)은 전부 OmniRoute 경유가 기본.** 새 외부 API 를 붙일 때 "직접 호출" 로 설계하지 말고 OmniRoute `/v1/*` 지원부터 확인(T-009 에서 OpenAI 직접 호출로 갔다가 되돌림). 로컬 OmniRoute 에 `curl -X POST … /v1/<path>` 로 404 인지 400 인지 보면 안다. **예외: 채팅 LLM 은 D-040 으로 Claude API 직접(`LLM_PROVIDER=claude`), OmniRoute 는 롤백 스위치.**
+- **외부 AI 는 공급자 직접 호출(D-044, OmniRoute 제거).** LLM = Claude(롤백 Gemini OpenAI 호환), STT = Groq, TTS = Azure Speech F0. 새 공급자는 공식 API/SDK 무료 티어부터 조사해 사용자에게 선택지로 — 임의 결정 금지. 키는 `infra/.env`·로컬 `application-secret.yml`.
 - **hydration 전 인라인 스크립트로 React 가 렌더한 `<meta>`/`<title>` 을 바꾸면 React 19 가 hoistable 매칭에 실패해 같은 태그를 하나 더 꽂는다**(T-020 theme-color 중복 실측). 첫 페인트 전엔 `<html>` 속성만 건드리고 메타는 마운트 후 갱신. `'use client'` 모듈의 문자열 상수를 서버 컴포넌트(layout)에서 import 하면 클라이언트 참조가 되니 상수는 지시어 없는 모듈로 분리.
 - **업로드 상한 실측 파일은 26,214,401B 이상.** "26MB" 를 26,000,000B 로 만들면 25MiB 미만이라 nginx(25m)·Boot(25MB) 를 통과해 공급자까지 갔다가 502 가 난다(T-009 QA).
 - **`MediaRecorder.stop()` 은 `stop` 이벤트가 비동기라 자동 종료 트리거가 둘(VAD·상한)이면 두 번 불려 InvalidStateError.** finish 결과 Promise 를 세션에 저장해 한 번만(T-026). 공유 Promise 에 `.finally()` 를 붙이면 거절이 한 번 더 unhandled 로 새니 `.then(after, after)` 로.
@@ -819,15 +819,15 @@
 - note: 2026-10-13 착수. 사용자 앱 실측 — 한국어·영어 모두 여자 목소리 재생 확인.
 
 ## T-041 OmniRoute 제거 — Groq STT 직접 · Gemini 직접 롤백 · 인프라/문서 정리 (api, infra) — D-044 (2)~(4)
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M3
 - spec: D-044
-- blocked_by: T-040
+- blocked_by: 없음 (T-040 REVIEW)
 - acceptance:
   - STT 가 `api.groq.com/openai/v1/audio/transcriptions`(모델 `whisper-large-v3`, `GROQ_API_KEY`)로 동작, 자동 언어 감지·Safari mp4 실측.
   - `LLM_PROVIDER=gemini` 롤백이 Gemini OpenAI 호환 엔드포인트로 스트리밍.
   - compose(dev/prod)·deploy.yml·README·.env.example 에서 omniroute·edge-tts·.env.omniroute 제거, NAS 메모리 기록.
-- test:
+- test: `GroqSttProviderTest`(OmniRoute STT 테스트 이식 — Bearer 키·`/openai/v1/audio/transcriptions`·`whisper-large-v3`), `OpenAiCompatLlmClientTest`(구 OmniRouteClientTest), `LlmProviderSelectionTest` 기본 claude·gemini 롤백, `DefaultSpeechProvidersTest`(기본 groq/azure), OmniRoute TTS 테스트 삭제, `SpeechProperties.ttsModel` 제거. api 335 passed, web speechApi 3 passed. 실측: Groq 직접 m4a(Safari 형식) ko/en 자동 감지·정확 전사 0.3초(Cloudflare 차단 없음), 사용자 앱 Chrome·Safari 보이스 모드 전체(STT→Claude→Azure) 정상. compose dev/prod config 파싱 OK, 로컬 omniroute·edge-tts 컨테이너 제거.
 - qa:
-- note: 2026-10-13 등록.
+- note: 2026-10-13 등록·착수. Gemini 롤백은 키 미보유로 실측 못 함(코드·테스트만) — 키 생기면 `LLM_PROVIDER=gemini` 스모크. NAS 의 `data/omniroute` 디렉터리는 배포 후 수동 삭제 가능. CEO/기획자 소유 문서 동기화는 inbox/to-ceo.md.

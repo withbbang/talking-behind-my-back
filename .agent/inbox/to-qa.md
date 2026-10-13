@@ -429,3 +429,13 @@
 - 근거 파일: `speech/azure/{AzureTtsProvider,AzureSpeechProperties}.java`, `application.yml`, `infra/.env.example`, D-044
 - 범위 외: OmniRoute 제거·STT 직접(T-041).
 - date: 2026-10-13
+
+### [개발자 → QA] T-041 OmniRoute 제거 — Groq STT 직접 · Gemini 직접 롤백 · 인프라 정리 — 검증 요청
+- 무엇: STT `groq`(Groq Whisper 직접), LLM 기본 `claude`·롤백 `gemini`(OpenAI 호환 직접), compose/deploy 에서 omniroute·edge-tts 제거(D-044).
+- 검증 포인트:
+  (1) Chrome·Safari 보이스 모드 STT→답→TTS 한 바퀴 — 사용자 실측 완료.
+  (2) 운영 배포 후 NAS `docker ps` 에 omniroute·edge-tts 없음(`--remove-orphans`), `docker stats` 메모리 기록(이전 omniroute 649MiB).
+  (3) NAS `.env` 에 `ANTHROPIC_API_KEY`·`GROQ_API_KEY`·`AZURE_SPEECH_KEY`·`AZURE_SPEECH_REGION` 없으면 해당 기능만 실패(기동은 됨).
+  (4) (키 생기면) `LLM_PROVIDER=gemini` 롤백 스트리밍.
+- 근거 파일: `speech/groq/*`, `llm/OpenAiCompatLlmClient.java`, `application*.yml`, `infra/docker-compose*.yml`, `.github/workflows/deploy.yml`, README#첫-배포-순서
+- date: 2026-10-13
