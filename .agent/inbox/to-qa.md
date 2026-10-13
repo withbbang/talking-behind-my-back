@@ -384,3 +384,16 @@
 - 범위 외: 앱 사용 중 끊김 인앱 배너(D-039 3), iOS 실기기 → T-013.
 - date: 2026-09-20
 
+
+### [개발자 → QA] T-036 채팅 LLM Claude API 직접 호출 + 공급자 스위치 — 검증 요청
+- 무엇: `LLM_PROVIDER=claude` 면 채팅 답변을 Claude(`claude-haiku-5-5`, effort low)로 직접 생성, `omniroute` 면 기존 Gemini 경로. STT/TTS 는 변경 없음. 상세 D-040·TASKS.md#T-036 test.
+- 준비: 로컬 `application-secret.yml` 의 `app.llm.provider: claude` + `app.llm.claude.api-key`(또는 env `LLM_PROVIDER=claude`·`ANTHROPIC_API_KEY`) 후 bootRun 재기동.
+- 검증 포인트:
+  (1) 1인 방 텍스트 대화: 답이 델타로 흘러 나오고 완료 후 저장. DB `messages.model` = `claude-haiku-5-5`, `daily_usage` 토큰 증가.
+  (2) 2인 방(AI 모드)에서 둘이 연달아 보낸 뒤 AI 답: 400 없이 정상(연속 USER 병합), 각자 자기 질문에 답(T-031 규칙 유지).
+  (3) 보이스 모드 한 바퀴(STT → Claude 답 → TTS) 정상, 첫 음성까지 체감 지연 기록.
+  (4) 키를 틀리게 넣으면 `error` 이벤트 → 오류 말풍선, 부분 응답 저장 없음.
+  (5) `LLM_PROVIDER=omniroute` 로 되돌리면 Gemini 로 다시 답함(롤백).
+- 근거 파일: `apps/api/src/main/java/com/example/chat/llm/{ClaudeClient,ClaudeProperties,OmniRouteClient}.java`, `application.yml`, `infra/.env.example`
+- 범위 외: 프롬프트 캐싱(D-040 7), 운영 `.env` 실값·NAS 반영은 배포 시.
+- date: 2026-10-13

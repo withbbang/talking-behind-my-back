@@ -44,7 +44,7 @@
   `InvalidClientRegistrationIdException` 은 package-private(IllegalArgumentException 하위).
 - **MyBatis XML 안 SQL 의 `<>` 는 XML 파싱 오류.** `!=` 로. `bootRun` 중 `gradlew test` 를 돌리면 devtools 가 재시작하는데 그때 리소스가 깨져 있으면 앱이 죽은 채 남는다 — 고친 뒤 bootRun 재기동.
 - **RTL `getByText` 는 한 `<p>` 안에서 `<br/>` 로 나뉜 줄을 못 잡는다.** 여러 줄 카피는 줄마다 `<span className="block">`.
-- **외부 AI 호출(LLM·STT·TTS)은 전부 OmniRoute 경유가 기본.** 새 외부 API 를 붙일 때 "직접 호출" 로 설계하지 말고 OmniRoute `/v1/*` 지원부터 확인(T-009 에서 OpenAI 직접 호출로 갔다가 되돌림). 로컬 OmniRoute 에 `curl -X POST … /v1/<path>` 로 404 인지 400 인지 보면 안다.
+- **외부 AI 호출(LLM·STT·TTS)은 전부 OmniRoute 경유가 기본.** 새 외부 API 를 붙일 때 "직접 호출" 로 설계하지 말고 OmniRoute `/v1/*` 지원부터 확인(T-009 에서 OpenAI 직접 호출로 갔다가 되돌림). 로컬 OmniRoute 에 `curl -X POST … /v1/<path>` 로 404 인지 400 인지 보면 안다. **예외: 채팅 LLM 은 D-040 으로 Claude API 직접(`LLM_PROVIDER=claude`), OmniRoute 는 롤백 스위치.**
 - **hydration 전 인라인 스크립트로 React 가 렌더한 `<meta>`/`<title>` 을 바꾸면 React 19 가 hoistable 매칭에 실패해 같은 태그를 하나 더 꽂는다**(T-020 theme-color 중복 실측). 첫 페인트 전엔 `<html>` 속성만 건드리고 메타는 마운트 후 갱신. `'use client'` 모듈의 문자열 상수를 서버 컴포넌트(layout)에서 import 하면 클라이언트 참조가 되니 상수는 지시어 없는 모듈로 분리.
 - **업로드 상한 실측 파일은 26,214,401B 이상.** "26MB" 를 26,000,000B 로 만들면 25MiB 미만이라 nginx(25m)·Boot(25MB) 를 통과해 공급자까지 갔다가 502 가 난다(T-009 QA).
 - **`MediaRecorder.stop()` 은 `stop` 이벤트가 비동기라 자동 종료 트리거가 둘(VAD·상한)이면 두 번 불려 InvalidStateError.** finish 결과 Promise 를 세션에 저장해 한 번만(T-026). 공유 Promise 에 `.finally()` 를 붙이면 거절이 한 번 더 unhandled 로 새니 `.then(after, after)` 로.
@@ -742,3 +742,19 @@
 - test: 코드 변경 없음. 기존 `voiceMachine.test.ts`(STREAM_DONE replyTo 필터), `useVoiceMode.test.tsx`(2인 방 상대 done 무시) 가 클라이언트 필터를, api `MessageServiceTest`(가시성 `visibleToUserId`)·`RoomEventBusTest`(`publishTo` 유저 타겟 발행)가 서버 쪽을 이미 덮는다.
 - qa: PASS (QA_REPORT.md 2026-09-19, 사용자 실측 — 대기 체감 안 거슬림, 제안 B 미개설)
 - note: 백로그 "2인 방 보이스 모드 동시 사용 시 TTS 재생 충돌 처리(모두 허용 결정, M3 에서 확인)" 를 T 로 승격(2026-09-19). 조사 결과 충돌은 D-029 (6) 클라이언트 `replyTo` 필터 + D-037 서버 유저 타겟 발행으로 두 겹 차단, `ROOM_BUSY` 는 유저 단위라 동시 전송도 통과 — 남은 일은 실측 확인뿐. 실측 절차는 inbox/to-qa.md.
+
+## T-036 채팅 LLM Claude API 직접 호출 + 공급자 스위치 (api) — D-040
+- status: REVIEW
+- owner: 개발자
+- milestone: M3
+- spec: D-040, D-006, D-018, `llm/LlmClient.java`
+- blocked_by: 없음
+- acceptance:
+  - `LLM_PROVIDER=claude` 면 `ClaudeClient`, `omniroute`(기본) 면 `OmniRouteClient` 만 `LlmClient` 빈으로 뜬다.
+  - Claude 요청: 모델 `claude-haiku-5-5`·`effort=low`·`stream=true`, system 프롬프트는 `system` 파라미터, 연속 같은 역할 병합, 앞쪽 assistant 제거.
+  - 텍스트 델타가 순서대로 `onDelta` 로 흐르고 Result 에 전체 본문·입력/출력 토큰·응답 모델이 담긴다.
+  - HTTP 오류·타임아웃·`refusal` 은 `LlmException`.
+  - 키는 env/secret yml 로만. 기존 OmniRoute 테스트·전체 `./gradlew test` 통과.
+- test: `ClaudeClientTest` 5(델타 순서·usage 합산·thinking 비노출, 요청 본문 model/effort/system/병합/앞 assistant 제거, refusal·400·타임아웃 → LlmException), `LlmProviderSelectionTest` 3(기본 omniroute·claude·omniroute). 전체 `./gradlew test` 318/318 통과. `LLM_PROVIDER=claude` 로 8081 기동·health 200 확인.
+- qa:
+- note: 2026-10-13 착수. 프롬프트 캐싱은 D-040 (7) 로 보류. SDK `anthropic-java` 2.65.0 — Jackson 2 는 Boot BOM 2.21.4 로 올라가도 동작(테스트·기동 확인). 사용자 실측(2026-10-13, 로컬 Chrome): 텍스트·보이스(STT→Claude) 답 저장 `model=claude-haiku-5-5`·토큰 집계 확인. 같은 실측에서 TTS(edge-tts 사이드카 MS 403) 고장 발견 — T-036 무관, 별도 T 예정.

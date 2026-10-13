@@ -385,6 +385,20 @@
 - impact: `apps/web` `next.config.ts`·`app/sw.ts`·`app/serwist/[path]/route.ts`·`app/~offline/page.tsx`·`app/providers.tsx`·`proxy.ts`·`vitest.config.ts`(sw.ts 제외). devDependencies `@serwist/turbopack`·`serwist`·`esbuild`. nginx·Dockerfile·CI 변경 없음. `.gitignore` 의 `public/sw.js` 줄은 무해(사용 안 함).
 - date: 2026-09-20 (개발자 대행 기록, 사용자 결정)
 
+### D-040 채팅 LLM 은 Claude API 직접 호출(Haiku 5.5, effort low) — OmniRoute 경로는 스위치로 유지 (D-006·D-027 원칙의 예외)
+- decision:
+  (1) 채팅 답변 생성만 Anthropic Claude API(`POST /v1/messages`, 공식 Java SDK `com.anthropic:anthropic-java`)로 직접 호출한다. STT/TTS 는 그대로 OmniRoute 경유(D-027·D-028).
+  (2) 모델 `claude-haiku-5-5`, `output_config.effort=low`, thinking 은 모델 기본(adaptive, 화면 비노출). 값은 env `CLAUDE_MODEL`·`CLAUDE_EFFORT`·`CLAUDE_MAX_TOKENS` 로 바꿀 수 있다.
+  (3) **OmniRoute(Gemini) 채팅 경로는 남긴다.** `LLM_PROVIDER=claude|omniroute` 로 선택(`LlmClient` 구현체 `ClaudeClient`/`OmniRouteClient` 중 하나만 빈 등록). 장애·비용 문제 시 `.env` 한 줄로 무료 Gemini 롤백.
+  (4) 키는 `ANTHROPIC_API_KEY`(`infra/.env`, 로컬은 `application-secret.yml`). 코드·문서에 값 금지.
+  (5) 컨텍스트는 기존 `AiContextBuilder` 결과를 그대로 변환한다 — `system` 역할은 `system` 파라미터로, 연속된 같은 역할은 한 턴으로 합치고(2인 방 USER 연속), 맨 앞 assistant 턴은 버린다(Claude 는 user 로 시작해야 함). 끝은 T-031 규칙대로 트리거 USER.
+  (6) `stop_reason=refusal` 은 오류(`LlmException`) — D-018 대로 부분 응답 폐기. Haiku 5.5 는 서버측 refusal fallback 미지원이라 쓰지 않는다.
+  (7) 프롬프트 캐싱은 이번엔 켜지 않는다. 최근 N개 창이 메시지마다 한 칸씩 밀려 창이 찬 뒤엔 캐시가 매번 깨지고(쓰기 할증만 남음), 페르소나 프롬프트는 모델 최소 캐시 길이에 못 미친다.
+- rationale: 사용자 결정("사고과정은 claude api 로"). 응답 품질을 Claude 로 올리되 음성 무료 구성(D-028)과 롤백 수단은 유지. Haiku 5.5 는 1M 토큰당 $0.10/$0.50 로 컨텍스트 30개 기준 호출당 0.1원 안팎.
+- alternatives: OmniRoute 에 Anthropic 공급자를 연결(앱 코드 변경 없음) — 사용자가 직접 호출 선택. OmniRouteClient 삭제(완전 교체) — 롤백 불가라 기각. Opus 5.5/Sonnet 5.5 — 사용자 Haiku 선택.
+- impact: `apps/api` `llm/ClaudeClient`·`ClaudeProperties`·`LlmProperties.provider`·`OmniRouteClient`(조건부 빈)·`build.gradle`(anthropic-java)·`application*.yml`, `infra/.env.example`. API.md·SCHEMA.md 계약 변경 없음(`messages.model` 에 `claude-haiku-5-5` 저장). TASKS 교훈 "외부 AI 는 전부 OmniRoute" 에 예외 표기. → T-036
+- date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — Haiku 5.5·effort low·"남겨두는 걸로")
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)
