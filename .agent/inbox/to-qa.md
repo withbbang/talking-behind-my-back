@@ -385,7 +385,7 @@
 - date: 2026-09-20
 
 
-### [개발자 → QA] T-036 채팅 LLM Claude API 직접 호출 + 공급자 스위치 — 검증 요청
+### [개발자 → QA] T-036 채팅 LLM Claude API 직접 호출 + 공급자 스위치 — 검증 요청 [처리됨 2026-10-13, QA_REPORT.md#T-036 PASS]
 - 무엇: `LLM_PROVIDER=claude` 면 채팅 답변을 Claude(`claude-haiku-5-5`, effort low)로 직접 생성, `omniroute` 면 기존 Gemini 경로. STT/TTS 는 변경 없음. 상세 D-040·TASKS.md#T-036 test.
 - 준비: 로컬 `application-secret.yml` 의 `app.llm.provider: claude` + `app.llm.claude.api-key`(또는 env `LLM_PROVIDER=claude`·`ANTHROPIC_API_KEY`) 후 bootRun 재기동.
 - 검증 포인트:
@@ -398,7 +398,7 @@
 - 범위 외: 프롬프트 캐싱(D-040 7), 운영 `.env` 실값·NAS 반영은 배포 시.
 - date: 2026-10-13
 
-### [개발자 → QA] T-037 TTS 복구 — gTTS(ko) 전환 — 검증 요청
+### [개발자 → QA] T-037 TTS 복구 — gTTS(ko) 전환 — 검증 요청 [처리됨 2026-10-13, QA_REPORT.md#T-037 PASS → 대체됨(T-040)]
 - 무엇: edge-tts 사이드카가 MS 403 으로 막혀 TTS 기본을 OmniRoute 내장 `gtts/ko` + `TTS_VOICE=ko` 로 전환(D-041). gTTS 는 voice 를 언어코드로 쓰므로 `ko` 필수.
 - 검증 포인트:
   (1) 듣기 버튼·보이스 모드에서 AI 답이 **한국어 발음**으로 재생(영어식 발음이면 voice 설정 확인).
@@ -408,7 +408,7 @@
 - 범위 외: 답변 언어별 TTS 언어 자동 선택(T-038), edge-tts 복귀(업스트림 수정 대기).
 - date: 2026-10-13
 
-### [개발자 → QA] T-038 사용자 언어로 답변 + TTS 언어 자동 선택 — 검증 요청
+### [개발자 → QA] T-038 사용자 언어로 답변 + TTS 언어 자동 선택 — 검증 요청 [처리됨 2026-10-13, QA_REPORT.md#T-038 PASS]
 - 무엇: system 프롬프트 끝 언어 지시(D-042 1) + voice 없는 TTS 는 답변 문자 종류로 ko/en/ja/zh-CN 선택(D-042 2·3).
 - 검증 포인트:
   (1) 영어로 묻기(텍스트·보이스) → 영어 답 + 듣기/보이스 재생이 영어 발음.
@@ -419,7 +419,7 @@
 - 범위 외: 라틴 계열 세분(fr/es → 모두 en 발음), STT 인식 언어 저장(B안).
 - date: 2026-10-13
 
-### [개발자 → QA] T-040 TTS Azure Speech(F0) 직접 호출 — 검증 요청
+### [개발자 → QA] T-040 TTS Azure Speech(F0) 직접 호출 — 검증 요청 [처리됨 2026-10-13, QA_REPORT.md#T-040 PASS]
 - 무엇: `TTS_PROVIDER=azure`(기본). SSML REST → mp3, 언어별 여성 voice(D-042 표). D-043 폴백 제거 — Azure 실패 시 음성만 실패.
 - 검증 포인트:
   (1) 한국어·영어 답 듣기/보이스 → 둘 다 여성(SunHi·Aria). 사용자 실측 완료.
@@ -430,7 +430,7 @@
 - 범위 외: OmniRoute 제거·STT 직접(T-041).
 - date: 2026-10-13
 
-### [개발자 → QA] T-041 OmniRoute 제거 — Groq STT 직접 · Gemini 직접 롤백 · 인프라 정리 — 검증 요청
+### [개발자 → QA] T-041 OmniRoute 제거 — Groq STT 직접 · Gemini 직접 롤백 · 인프라 정리 — 검증 요청 [처리됨 2026-10-13, QA_REPORT.md#T-041 PASS 로컬, 운영 항목은 배포 후]
 - 무엇: STT `groq`(Groq Whisper 직접), LLM 기본 `claude`·롤백 `gemini`(OpenAI 호환 직접), compose/deploy 에서 omniroute·edge-tts 제거(D-044).
 - 검증 포인트:
   (1) Chrome·Safari 보이스 모드 STT→답→TTS 한 바퀴 — 사용자 실측 완료.
