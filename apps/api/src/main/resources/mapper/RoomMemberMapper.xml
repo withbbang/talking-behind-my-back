@@ -7,13 +7,14 @@
     <result property="roomId"   column="room_id"/>
     <result property="userId"   column="user_id"/>
     <result property="role"     column="role"/>
+    <result property="customTitle" column="custom_title"/>
     <result property="joinedAt" column="joined_at"/>
     <result property="leftAt"   column="left_at"/>
     <result property="nickname" column="nickname"/>
   </resultMap>
 
   <sql id="columns">
-    m.id, m.room_id, m.user_id, m.role, m.joined_at, m.left_at
+    m.id, m.room_id, m.user_id, m.role, m.custom_title, m.joined_at, m.left_at
   </sql>
 
   <insert id="insert" parameterType="com.example.chat.chatroom.RoomMember" useGeneratedKeys="true" keyProperty="id">
@@ -42,6 +43,10 @@
     WHERE m.room_id = #{roomId}
     ORDER BY m.joined_at, m.id
   </select>
+
+  <update id="updateCustomTitle">
+    UPDATE room_members SET custom_title = #{title} WHERE room_id = #{roomId} AND user_id = #{userId} AND left_at IS NULL
+  </update>
 
   <select id="countActiveByUserId" resultType="int">
     SELECT COUNT(*) FROM room_members m WHERE m.user_id = #{userId} AND m.left_at IS NULL

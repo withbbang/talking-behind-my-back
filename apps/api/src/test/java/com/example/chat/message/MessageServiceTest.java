@@ -353,6 +353,30 @@ class MessageServiceTest {
 		}
 
 		@Test
+		void AI_컨텍스트에_시스템_메시지는_넣지_않는다_T049() {
+			joinGuest();
+			messageMapper.insert(Message.system(room.getId(), guest.getId(), Message.SYSTEM_MEMBER_JOINED, null));
+			messageMapper.insert(Message.system(room.getId(), owner.getId(), Message.SYSTEM_MODE_CHANGED, RoomMode.AI));
+			llm.reply("ok");
+
+			service.send(owner.getId(), room.getId(), "내 질문", Message.InputType.TEXT);
+
+			List<ChatMessage> ctx = llm.calls.get(0);
+			assertThat(ctx).extracting(ChatMessage::content).noneMatch(c -> c.contains("MEMBER_") || c.contains("MODE_"));
+		}
+
+		@Test
+		void 시스템_메시지만_있는_방의_첫_메시지도_자동_제목_T049() {
+			joinGuest();
+			messageMapper.insert(Message.system(room.getId(), guest.getId(), Message.SYSTEM_MEMBER_JOINED, null));
+			llm.reply("ok");
+
+			service.send(guest.getId(), room.getId(), "첫 메시지", Message.InputType.TEXT);
+
+			assertThat(roomMapper.findById(room.getId()).orElseThrow().getTitle()).isEqualTo("첫 메시지");
+		}
+
+		@Test
 		void 내_잡은_내_질문까지만_본다_상대_응답이_뒤에_끼어도_마지막_턴은_내_질문() {
 			joinGuest();
 			messageMapper.insert(Message.user(room.getId(), guest.getId(), "먼저 온 상대 질문", Message.InputType.TEXT, RoomMode.AI));

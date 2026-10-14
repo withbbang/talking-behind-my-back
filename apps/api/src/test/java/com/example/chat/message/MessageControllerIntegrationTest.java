@@ -3,6 +3,7 @@ package com.example.chat.message;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -221,6 +222,25 @@ class MessageControllerIntegrationTest {
 		@Test
 		void 비멤버_404() throws Exception {
 			mvc.perform(get("/rooms/" + room.getId() + "/events").cookie(access(other)))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
+		}
+
+		/**
+		 * 브라우저 EventSource 는 `Accept: text/event-stream` 을 보낸다. 그 상태로 404 를 JSON 으로 쓰려다 콘텐츠 협상에 실패해
+		 * 500 + "Servlet.service() threw exception" ERROR 스택이 되고, 클라이언트는 ~8초마다 재연결했다(모바일 QA B-5, T-046).
+		 */
+		@Test
+		void 비멤버_404_EventSource_Accept_헤더여도_500_아님() throws Exception {
+			mvc.perform(get("/rooms/" + room.getId() + "/events").cookie(access(other)).accept(MediaType.TEXT_EVENT_STREAM))
+				.andExpect(status().isNotFound())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
+		}
+
+		@Test
+		void 없는_방_404_EventSource_Accept_헤더() throws Exception {
+			mvc.perform(get("/rooms/99999999/events").cookie(access(owner)).accept(MediaType.TEXT_EVENT_STREAM))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
 		}

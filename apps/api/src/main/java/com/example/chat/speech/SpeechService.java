@@ -51,6 +51,16 @@ public class SpeechService {
 		}
 	}
 
+	/**
+	 * 상한 + 허용치(T-043). 클라이언트가 정확히 상한에서 녹음을 멈춰도 stop 이벤트·컨테이너 길이는 수십~수백 ms 넘는다
+	 * → 허용치 없이 비교하면 "60초 자동 종료" 녹음이 항상 AUDIO_TOO_LONG 이 된다(모바일 QA B-2).
+	 */
+	static final long AUDIO_LIMIT_TOLERANCE_MS = 1_000;
+
+	private long audioLimitMs() {
+		return props.maxAudioMs() + AUDIO_LIMIT_TOLERANCE_MS;
+	}
+
 	public SttResult stt(Long userId, MultipartFile audio, Long clientDurationMs) {
 		if (audio == null || audio.isEmpty()) {
 			throw new BusinessException(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.getDefaultMessage(),
@@ -60,7 +70,7 @@ public class SpeechService {
 			throw new BusinessException(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.getDefaultMessage(),
 				Map.of("durationMs", "0 이상이어야 합니다."));
 		}
-		if (clientDurationMs != null && clientDurationMs > props.maxAudioMs()) {
+		if (clientDurationMs != null && clientDurationMs > audioLimitMs()) {
 			throw new BusinessException(ErrorCode.AUDIO_TOO_LONG);
 		}
 		String contentType = audio.getContentType();
@@ -74,7 +84,7 @@ public class SpeechService {
 				log.warn("stt upstream failed: {}", e.getMessage());
 				throw new BusinessException(ErrorCode.SPEECH_UPSTREAM_ERROR);
 			}
-			if (t.durationMs() > props.maxAudioMs()) {
+			if (t.durationMs() > audioLimitMs()) {
 				throw new BusinessException(ErrorCode.AUDIO_TOO_LONG);
 			}
 			// 공급자가 길이를 안 주면(verbose_json duration 누락) 클라이언트 실측으로 대신한다

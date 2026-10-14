@@ -3,12 +3,17 @@ import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
+vi.mock('@/lib/api', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/api')>();
+  return { ...mod, apiFetch: vi.fn() };
+});
 vi.mock('@/lib/sse', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/lib/sse')>();
   return { ...mod, connectRoomEvents: vi.fn() };
 });
 
 import { connectRoomEvents, type RoomEvent } from '@/lib/sse';
+import { ApiError, apiFetch } from '@/lib/api';
 import { roomKey, ROOMS_KEY } from '@/features/rooms/useRooms';
 import { roomDetail } from '@/features/rooms/testFixtures';
 import type { Room } from '@/features/rooms/types';
@@ -16,7 +21,7 @@ import { messagesKey } from './useMessages';
 import { useRoomEvents } from './useRoomEvents';
 import { useStreamStore } from './streamStore';
 import { flattenMessages, type MessagesData } from './cache';
-import { aiMsg, userMsg } from './testFixtures';
+import { aiMsg, sysMsg, userMsg } from './testFixtures';
 
 const connectMock = vi.mocked(connectRoomEvents);
 let client: QueryClient;
@@ -44,6 +49,36 @@ describe('useRoomEvents (SSE → React Query 캐시 + 스트림 스토어)', () 
     expect(connectMock).toHaveBeenCalledWith(10, expect.any(Object));
     unmount();
     expect(stop).toHaveBeenCalled();
+  });
+
+  it('member·mode 이벤트에 실린 시스템 메시지는 메시지 목록에 붙인다 — 새로고침해도 같은 라인 (T-049, D-047)', () => {
+    renderHook(() => useRoomEvents(10), { wrapper });
+    const joined = sysMsg(201);
+    const mode = sysMsg(202, { content: 'MODE_CHANGED', mode: 'HUMAN' });
+    fire({ type: 'member', data: { action: 'JOINED', userId: 2, nickname: '영희', role: 'PARTICIPANT', roomStatus: 'ACTIVE', message: joined } });
+    fire({ type: 'mode', data: { mode: 'HUMAN', message: mode } });
+    fire({ type: 'mode', data: { mode: 'HUMAN', message: mode } }); // 재연결 등으로 중복 수신해도 한 번
+    expect(flattenMessages(client.getQueryData<MessagesData>(messagesKey(10))).map((m) => m.id)).toEqual([201, 202]);
+    expect(useStreamStore.getState().rooms[10]?.notices ?? []).toEqual([]); // 휘발 notice 는 만들지 않는다
+  });
+
+  it('enabled=false(방 없음·접근 불가)면 구독하지 않는다 (T-046)', () => {
+    renderHook(() => useRoomEvents(10, false), { wrapper });
+    expect(connectMock).not.toHaveBeenCalled();
+  });
+
+  it('재연결 전 방 조회가 404 면 재연결하지 않고 상세를 무효화한다 (T-046)', async () => {
+    vi.mocked(apiFetch).mockRejectedValueOnce(new ApiError(404, 'ROOM_NOT_FOUND', 'x'));
+    renderHook(() => useRoomEvents(10), { wrapper });
+    await expect(handlers.shouldReconnect?.()).resolves.toBe(false);
+    expect(apiFetch).toHaveBeenCalledWith('/rooms/10');
+    expect(client.getQueryState(roomKey(10))?.isInvalidated).toBe(true);
+  });
+
+  it('재연결 전 방 조회가 네트워크 오류면 계속 재연결한다', async () => {
+    vi.mocked(apiFetch).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    renderHook(() => useRoomEvents(10), { wrapper });
+    await expect(handlers.shouldReconnect?.()).resolves.toBe(true);
   });
 
   it('message → 메시지 캐시 추가 + 방 목록·상세 무효화, 스트림 대기', () => {

@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MessageList } from './MessageList';
 import { initialStreamState, type StreamState } from '@/lib/sse';
-import { aiMsg, userMsg } from '@/features/messages/testFixtures';
+import { aiMsg, sysMsg, userMsg } from '@/features/messages/testFixtures';
 
 const members = [
   { userId: 1, nickname: '영선', role: 'OWNER' as const },
@@ -38,6 +38,28 @@ describe('MessageList (DESIGN.md#3 메시지 목록)', () => {
     const texts = rows.map((r) => r.textContent ?? '');
     expect(texts.findIndex((t) => t.includes('메시지 1'))).toBeLessThan(texts.findIndex((t) => t.includes('영희 등장!')));
     expect(texts.findIndex((t) => t.includes('영희 등장!'))).toBeLessThan(texts.findIndex((t) => t.includes('메시지 2')));
+  });
+
+  it('저장된 시스템 메시지(D-047)는 라인으로 — 등장·퇴장·모드, 말풍선 묶음을 끊는다 (T-049)', () => {
+    render(
+      <MessageList
+        {...base}
+        messages={[
+          userMsg(1),
+          sysMsg(2, { content: 'MEMBER_JOINED' }),
+          sysMsg(3, { content: 'MODE_CHANGED', mode: 'HUMAN', senderUserId: 1, senderNickname: '영선' }),
+          userMsg(4),
+          sysMsg(5, { content: 'MODE_CHANGED', mode: 'AI', senderUserId: null, senderNickname: null }),
+          sysMsg(6, { content: 'MEMBER_LEFT' }),
+          sysMsg(7, { content: 'UNKNOWN_KIND' }),
+        ]}
+      />,
+    );
+    const texts = screen.getAllByRole('listitem').map((r) => r.textContent ?? '');
+    expect(texts.filter((t) => /등장|퇴장|가능!/.test(t))).toEqual(['영희 등장!', '유저끼리 대화 가능!', 'AI랑 대화 가능!', '영희 퇴장!']);
+    expect(texts.some((t) => t.includes('UNKNOWN_KIND'))).toBe(false);
+    const bubbles = screen.getAllByRole('listitem').filter((el) => el.hasAttribute('data-kind'));
+    expect(bubbles.map((el) => el.dataset.grouped)).toEqual(['false', 'false']); // 시스템 라인 뒤 내 말풍선은 다시 메타 표시
   });
 
   it('스트리밍: 대기 = 점 3개(aria-live), 진행 = 텍스트 + 커서, 오류 = 문구만("다시" 버튼 없음, D-034 9)', () => {
@@ -80,5 +102,54 @@ describe('MessageList (DESIGN.md#3 메시지 목록)', () => {
   it('모르는 발신자는 "나간 사람"', () => {
     render(<MessageList {...base} messages={[userMsg(1, { senderUserId: 99 })]} />);
     expect(within(screen.getByRole('list')).getByText('나간 사람')).toBeInTheDocument();
+  });
+
+  describe('목록 높이가 줄어도 맨 아래 유지 (T-050 iOS 키보드)', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('맨 아래에 붙어 있었으면 높이가 줄어든 뒤에도 맨 아래로 — 방금 보낸 말풍선이 입력창에 가리지 않게', () => {
+      const observers: { cb: ResizeObserverCallback }[] = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(public cb: ResizeObserverCallback) {
+            observers.push(this);
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+      const { container } = render(<MessageList {...base} messages={[userMsg(1), userMsg(2)]} />);
+      const scroller = container.firstElementChild as HTMLElement;
+      Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1000 });
+      Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 }); // 키보드로 줄어든 높이
+      scroller.scrollTop = 314; // 키보드 전(clientHeight 686)엔 맨 아래였던 위치
+      observers.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+      expect(scroller.scrollTop).toBe(1000);
+    });
+
+    it('위로 스크롤해 읽던 중이면 높이가 바뀌어도 그 자리', () => {
+      const observers: { cb: ResizeObserverCallback }[] = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(public cb: ResizeObserverCallback) {
+            observers.push(this);
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+      const { container } = render(<MessageList {...base} messages={[userMsg(1), userMsg(2)]} />);
+      const scroller = container.firstElementChild as HTMLElement;
+      Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1000 });
+      Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 });
+      scroller.scrollTop = 100;
+      fireEvent.scroll(scroller); // 사용자가 위로 올림 → stick 해제
+      observers.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+      expect(scroller.scrollTop).toBe(100);
+    });
   });
 });

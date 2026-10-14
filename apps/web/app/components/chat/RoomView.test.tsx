@@ -130,6 +130,32 @@ describe('RoomView (DESIGN.md#3)', () => {
     expect(await screen.findByText('그런 방 없는데?')).toBeInTheDocument();
   });
 
+  it('404 면 방 이벤트 구독을 닫고 다시 열지 않는다 — 없는 방 SSE 무한 재연결 방지 (T-046)', async () => {
+    const opened: { closed: boolean }[] = [];
+    class FakeES {
+      closed = false;
+      readyState = 0;
+      onopen = null;
+      onerror = null;
+      constructor() {
+        opened.push(this);
+      }
+      addEventListener() {}
+      close() {
+        this.closed = true;
+      }
+    }
+    vi.stubGlobal('EventSource', FakeES);
+    try {
+      mockApi(new ApiError(404, 'ROOM_NOT_FOUND', '채팅방을 찾을 수 없습니다.'));
+      renderIt();
+      expect(await screen.findByText('그런 방 없는데?')).toBeInTheDocument();
+      expect(opened.every((es) => es.closed)).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('메시지가 있으면 목록(나/AI 말풍선)', async () => {
     mockApi(roomDetail(10, { messageCount: 2 }), [aiMsg(2), userMsg(1)]);
     renderIt();

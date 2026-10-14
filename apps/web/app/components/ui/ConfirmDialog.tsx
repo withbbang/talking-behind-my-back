@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 type Props = {
   open: boolean;
@@ -16,6 +17,8 @@ type Props = {
 /**
  * 확인 모달 (DESIGN.md 공통 컴포넌트). 폭 320, 라운드 24, 버튼 1~2개. 닫기 X 없음 — 버튼으로만.
  * 뒤는 ink 40% 딤. 열리면 주 버튼에 포커스, Escape 는 onCancel(있을 때만).
+ * body 로 포털 — 드로어처럼 transform 애니메이션이 걸린 조상 안에서 열면 `fixed` 기준이 그 조상이 되어
+ * 화면 중앙이 아니라 드로어 안에 좁게 뜬다(T-047, 모바일 QA B-6).
  */
 export function ConfirmDialog({ open, title, body, confirmLabel, cancelLabel, onConfirm, onCancel, busy }: Props) {
   const titleId = useId();
@@ -27,7 +30,7 @@ export function ConfirmDialog({ open, title, body, confirmLabel, cancelLabel, on
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6"
       onKeyDown={(e) => {
@@ -65,6 +68,7 @@ export function ConfirmDialog({ open, title, body, confirmLabel, cancelLabel, on
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

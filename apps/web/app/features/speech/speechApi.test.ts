@@ -19,7 +19,7 @@ describe('speechApi (API.md#speech)', () => {
 
   it('transcribe: multipart audio(확장자는 mime 기준) + durationMs → text', async () => {
     apiFetchMock.mockResolvedValueOnce({ text: ' 진짜 짜증나 ', durationMs: 5880, provider: 'groq' });
-    const blob = new Blob([new Uint8Array(3)], { type: 'audio/mp4' });
+    const blob = new Blob([new Uint8Array(4096)], { type: 'audio/mp4' });
     const result = await transcribe({ blob, mimeType: 'audio/mp4', durationMs: 5900, hitLimit: false });
     expect(result).toEqual({ text: '진짜 짜증나', durationMs: 5880 });
     const [path, init] = apiFetchMock.mock.calls[0];
@@ -32,9 +32,17 @@ describe('speechApi (API.md#speech)', () => {
     expect(form.get('durationMs')).toBe('5900');
   });
 
+  it('transcribe: 비었거나 헤더만 있는 녹음(<1KB)은 업로드하지 않고 빈 텍스트 (T-052, iOS 시뮬레이터 webm 5B·mp4 0B)', async () => {
+    for (const size of [0, 5, 1023]) {
+      const result = await transcribe({ blob: new Blob([new Uint8Array(size)]), mimeType: 'audio/webm', durationMs: 3000, hitLimit: false });
+      expect(result).toEqual({ text: '', durationMs: 3000 });
+    }
+    expect(apiFetchMock).not.toHaveBeenCalled();
+  });
+
   it('transcribe: webm 은 audio.webm, codecs 파라미터는 떼고 content-type 을 보낸다', async () => {
     apiFetchMock.mockResolvedValueOnce({ text: 'x', durationMs: 1000, provider: 'groq' });
-    await transcribe({ blob: new Blob([]), mimeType: 'audio/webm;codecs=opus', durationMs: 1000, hitLimit: false });
+    await transcribe({ blob: new Blob([new Uint8Array(4096)]), mimeType: 'audio/webm;codecs=opus', durationMs: 1000, hitLimit: false });
     const file = (apiFetchMock.mock.calls[0][1]?.body as FormData).get('audio') as File;
     expect(file.name).toBe('audio.webm');
     expect(file.type).toBe('audio/webm');

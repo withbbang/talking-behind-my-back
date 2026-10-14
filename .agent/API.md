@@ -24,7 +24,7 @@
 |---|---|---|
 | 400 | `VALIDATION_FAILED`, `AUDIO_TOO_LONG`, `TEXT_TOO_LONG`, `MODE_NOT_ALLOWED`, `SELF_INVITE` | 입력 검증 실패 (`details`에 필드별 메시지), 혼자인 방 HUMAN 전환, 본인 방 코드로 입장 |
 | 401 | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `TOKEN_REUSED` | 인증 없음/만료/refresh 재사용 감지 |
-| 403 | `FORBIDDEN`, `USER_SUSPENDED` | 권한 없음(참여자가 `title`/`aiPersonality`/`aiPrompt` 변경 등), 정지 회원 |
+| 403 | `FORBIDDEN`, `USER_SUSPENDED` | 권한 없음(참여자가 `aiPersonality`/`aiPrompt` 변경 등), 정지 회원 |
 | 404 | `ROOM_NOT_FOUND`, `MESSAGE_NOT_FOUND`, `INVITE_NOT_FOUND` | 멤버 아닌 방도 404로 통일. 초대 코드 없음 |
 | 409 | `ROOM_BUSY`, `ROOM_FULL`, `ROOM_LIMIT_EXCEEDED` | 같은 유저의 AI 잡 진행·대기 중, 방 정원(2명) 초과, 활성 방 50개 초과 |
 | 409 | `PAIR_ROOM_EXISTS` | 같은 두 사람이 이미 함께 있는 활성 방이 있음(D-022) |
@@ -61,13 +61,14 @@
 | GET | `/rooms?cursor&size` | 내가 활성 멤버인 방 목록(개설+참여, ORPHANED 포함), `lastMessageAt` 내림차순 |
 | POST | `/rooms` | 방 생성. body 없음 또는 `{ "title"?: string }`. 201 Room. 개설자 OWNER 멤버십 + 초대 코드 발급. 활성 방 50개 초과 409 `ROOM_LIMIT_EXCEEDED` |
 | GET | `/rooms/{id}` | 방 상세 + 멤버. 멤버 아니면 404. ORPHANED 도 200(`status` 로 구분) |
-| PATCH | `/rooms/{id}` | `{ "title"?, "mode"?, "aiPersonality"?, "aiPrompt"? }` 부분 갱신. 200 Room. `title`·`aiPersonality`·`aiPrompt` 는 **개설자만**(참여자 403). ORPHANED 방은 410 |
+| PATCH | `/rooms/{id}` | `{ "title"?, "mode"?, "aiPersonality"?, "aiPrompt"? }` 부분 갱신. 200 Room. `aiPersonality`·`aiPrompt` 는 **개설자만**(참여자 403). `title` 은 누구나 — **자기 화면 이름만** 바뀐다(D-046). ORPHANED 방은 410 |
 | DELETE | `/rooms/{id}` | **나가기**. 204. 개설자 → 방 `ORPHANED`(참여자 멤버십은 유지). 참여자 → 멤버십 종료, 방 `mode=AI` 복귀. ORPHANED 방에서 참여자 호출 = "이용할 수 없는 방" 확인 처리 |
 | POST | `/rooms/{id}/invite/regenerate` | 초대 코드 재발급(개설자만, 구 코드 즉시 무효). 200 `{ inviteCode, inviteUrl }` |
-| GET | `/rooms/join/{code}` | 입장 전 미리보기 `{ roomId, title, ownerNickname, memberCount, alreadyMember }`. 이미 활성 멤버면 200 + `alreadyMember: true` |
+| GET | `/rooms/join/{code}` | 입장 전 미리보기 `{ roomId, title, ownerNickname, memberCount, alreadyMember }`. `title` = 개설자가 보는 이름(D-046). 이미 활성 멤버면 200 + `alreadyMember: true` |
 | POST | `/rooms/join/{code}` | 입장. 200 Room. 재입장 허용 |
 
-- PATCH 규칙: `title` 1~100자(공백만 → 400 `VALIDATION_FAILED`, `details.title`), **개설자만**(참여자 403 `FORBIDDEN`, 2026-09-15 결정).
+- PATCH 규칙: `title` 1~100자(공백만 → 400 `VALIDATION_FAILED`, `details.title`), 개설자·참여자 모두 가능 — `room_members.custom_title` 에 저장돼 **요청자에게만** 보인다(D-046, 2026-09-15 "개설자만" 결정 폐기).
+- Room 응답의 `title` = 조회자의 `custom_title ?? chat_rooms.title`(목록·상세·PATCH·입장 공통). 첫 메시지 자동 제목은 `chat_rooms.title` 만 바꾼다.
   `mode` = `AI` \| `HUMAN`, 멤버 누구나 — 혼자인 방에서 `HUMAN` 은 400 `MODE_NOT_ALLOWED`.
   `aiPersonality` = `RATIONAL` \| `EMOTIONAL` 프리셋, **개설자만**(참여자 403 `FORBIDDEN`), 대화 전후 언제든 재선택. 프리셋 문구는 서버 enum 상수. **프리셋을 고르면 `aiPrompt` 는 null 로 초기화**(T-019, D-017).
   `aiPrompt` = 개설자가 직접 쓰는 시스템 프롬프트(T-019). **개설자만**. trim 후 1~2,000자, 초과 400 `VALIDATION_FAILED`(`details.aiPrompt`). `""`(빈 문자열/공백) 은 **초기화**(프리셋으로 복귀), JSON 에서 필드를 빼면 변경 없음.
@@ -105,7 +106,7 @@ Room:
 |---|---|---|
 | GET | `/rooms/{id}/messages?cursor&size` | 과거 메시지, `id` 내림차순(최신 먼저). 프론트가 역순 렌더. 멤버만(비멤버 404). **내가 볼 수 있는 메시지만** — 상대의 `AI` 모드 질문·답은 제외(D-037). |
 | POST | `/rooms/{id}/messages` | 메시지 전송. **202** + `{ "messageId": 101 }`. 결과는 방 이벤트 스트림으로 수신 (D-018). |
-| GET | `/rooms/{id}/events` | 방 이벤트 SSE 구독(멤버만, 비멤버 404). `text/event-stream`, 타임아웃 없음, 20초마다 `: ping` 주석 (D-019). |
+| GET | `/rooms/{id}/events` | 방 이벤트 SSE 구독(멤버만, 비멤버·없는 방 404 — `Accept: text/event-stream` 이어도 JSON 오류 본문, T-046). `text/event-stream`, 타임아웃 없음, 20초마다 `: ping` 주석 (D-019). 프론트는 끊긴 뒤 재연결 전 `GET /rooms/{id}` 가 404 면 재연결하지 않는다. |
 
 POST body:
 ```json
@@ -133,11 +134,11 @@ data: {"replyTo":101,"message":{"id":102,"role":"ASSISTANT","senderUserId":null,
 event: error                        # LLM 실패/타임아웃/빈 응답/refusal — ASSISTANT 미저장, 부분 델타 폐기. 트리거한 유저에게만
 data: {"replyTo":101,"code":"LLM_UPSTREAM_ERROR","message":"AI 응답에 실패했습니다."}
 
-event: mode                         # PATCH mode / 참여자 나가기로 AI 복귀. 방 전원
-data: {"mode":"HUMAN"}
+event: mode                         # PATCH mode(실제로 바뀔 때만) / 참여자 나가기로 AI 복귀. 방 전원. message = 저장된 SYSTEM 메시지(D-047)
+data: {"mode":"HUMAN","message":{"id":103,"role":"SYSTEM","senderUserId":8,"senderNickname":"영희","content":"MODE_CHANGED","inputType":null,"mode":"HUMAN","createdAt":"..."}}
 
 event: member                       # 입장·나가기. 방 전원. roomStatus 는 이벤트 시점 방 상태(개설자 나가기 → ORPHANED)
-data: {"action":"JOINED","userId":8,"nickname":"영희","role":"PARTICIPANT","roomStatus":"ACTIVE"}
+data: {"action":"JOINED","userId":8,"nickname":"영희","role":"PARTICIPANT","roomStatus":"ACTIVE","message":{"id":100,"role":"SYSTEM","senderUserId":8,"senderNickname":"영희","content":"MEMBER_JOINED","inputType":null,"mode":null,"createdAt":"..."}}
 
 : connected                         # 구독 직후 1회 (헤더 즉시 커밋용, EventSource 는 무시)
 : ping                              # 20초 하트비트 (EventSource 는 무시)
@@ -156,7 +157,8 @@ Message:
 ```json
 { "id": 102, "role": "ASSISTANT", "senderUserId": null, "senderNickname": null, "content": "안녕하세요!", "inputType": null, "mode": null, "createdAt": "..." }
 ```
-`role` = `USER` \| `ASSISTANT`. `inputType`·`senderUserId`·`senderNickname`·`mode` 는 USER 메시지에만(ASSISTANT 는 null). `mode` = 발신 당시 방 모드.
+`role` = `USER` \| `ASSISTANT` \| `SYSTEM`. `inputType`·`senderUserId`·`senderNickname`·`mode` 는 USER 메시지에만(ASSISTANT 는 null). `mode` = 발신 당시 방 모드.
+- **SYSTEM(D-047, T-049)**: 입장·퇴장·모드 변경 라인. `content` = `MEMBER_JOINED` \| `MEMBER_LEFT` \| `MODE_CHANGED`(문구는 프론트), `senderUserId`·`senderNickname` = 대상 유저(입장·퇴장한 사람 / 모드를 바꾼 사람, 퇴장에 따른 자동 AI 복귀는 null), `mode` = MODE_CHANGED 의 변경 후 모드. 방 전원 공개, 히스토리에 포함, `message_count`·`lastMessageAt`·자동 제목 판정에 영향 없음, AI 컨텍스트 제외.
 - `senderNickname` = 조회 시점 발신자의 `users.nickname`(T-021, D-023). 방을 나간 멤버·탈퇴 유저도 users 행이 있으면 채워진다. 행이 없으면 null — 프론트는 현재 `Room.members` 폴백 후 "나간 사람".
 
 ## speech
@@ -172,7 +174,8 @@ STT 200:
 ```
 TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤더 `Cache-Control: private, max-age=3600`.
 
-- STT 400 `AUDIO_TOO_LONG`: `durationMs` 가 상한(60초)을 넘거나, 공급자가 돌려준 길이가 상한을 넘을 때(D-026). `audio` 가 비면 400 `VALIDATION_FAILED`(`details.audio`).
+- STT 무음 필터(D-045): Groq 세그먼트 중 `no_speech_prob > 0.6` 또는 `avg_logprob < -1.0` 은 버리고, 남은 텍스트가 구두점뿐이면 `text: ""`(200). 프론트는 빈 텍스트면 전송하지 않고 "아무 말도 안 들렸는데?".
+- STT 400 `AUDIO_TOO_LONG`: `durationMs` 가 상한(60초) **+ 허용치 1초**를 넘거나, 공급자가 돌려준 길이가 그 값을 넘을 때(D-026, T-043 — 상한 자동 종료 녹음은 stop 지연으로 60초를 조금 넘는다). 클라이언트는 상한 자동 종료 시 `durationMs` 를 60,000 으로 자른다. `audio` 가 비면 400 `VALIDATION_FAILED`(`details.audio`).
 - TTS 400 `TEXT_TOO_LONG`: `text` 1,000자 초과(Java `String.length()` = UTF-16 단위, 이모지는 2자 — 프론트 카운터도 같은 기준으로). 공백만이면 400 `VALIDATION_FAILED`(`details.text`). `voice` 생략 시 서버가 `text` 의 문자 종류로 언어를 판정해 언어별 voice(D-042), 판정 불가면 `TTS_VOICE`.
 - 공급자 실패(연결/타임아웃/비 2xx)는 502 `SPEECH_UPSTREAM_ERROR`. 오디오는 `app.speech.tmp-dir` 에 잠시 저장 후 응답 전에 삭제된다(성공·실패 모두).
 - 사용량: STT 성공 시 `daily_usage.stt_seconds += ceil(공급자 보고 길이, 없으면 durationMs)`, TTS 성공 시 `tts_chars += text.length`. `durationMs` 응답도 같은 규칙(둘 다 없으면 0).
@@ -203,3 +206,5 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 - 2026-09-16 T-022(D-021): `GET /oauth2/authorization/{provider}?next=` 추가, 콜백 성공 시 `APP_BASE_URL{next}`. `GET /rooms/join/{code}` 에 `alreadyMember`. **API 변경 — T-018 acceptance 반영됨.**
 - 2026-09-16 T-007 구현: **messages 확정** — POST 202 `{messageId}`, `/rooms/{id}/events` 이벤트 6종 + `: ping`, `delta`/`done`/`error` 에 `replyTo`, 503 `AI_BUSY` 추가, 비멤버 404·ORPHANED 410. `mode`/`member` 이벤트는 rooms PATCH/leave/join 에서 발행. **API 변경 — T-008 `lib/sse.ts` 리듀서·acceptance 에 반영 필요.**
 - 2026-09-19 T-031(D-037): **`AI` 모드 대화 비공개화** — `GET /rooms/{id}/messages` 는 내가 볼 수 있는 행만, SSE `message`(AI 모드)·`delta`·`done`·`error` 는 대화 주인에게만(구독 키 `(roomId, userId)`), AI 컨텍스트에서 `HUMAN` 모드 대화 영구 제외 + 비공개 지시 추가. 응답 스키마·경로·상태코드 변경 없음. **계약 변경 없음(가시성만) — web 렌더 로직 변경 불필요, T-032 는 툴팁만.**
+- 2026-10-14 T-045 (D-046): 방 이름 멤버별 — PATCH `title` 은 누구나·자기 화면만, Room `title` 은 조회자 기준, 미리보기 `title` 은 개설자 기준. T-043 STT 상한 허용치 1초, T-044 STT 무음 필터, T-046 SSE 404 JSON.
+- 2026-10-14 T-049 (D-047): `role: SYSTEM` 메시지(입장·퇴장·모드 변경) 저장·히스토리 포함, SSE `member`·`mode` 에 `message` 추가, 같은 mode PATCH 는 이벤트 없음.

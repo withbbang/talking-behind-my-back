@@ -25,7 +25,7 @@ const LEAVE_COPY = {
 } as const;
 
 /**
- * 방 목록 항목 (DESIGN.md#2). 높이 64: 아바타 · 제목/보조 줄 · 상대 시간. … 메뉴로 제목 수정(개설자)·나가기.
+ * 방 목록 항목 (DESIGN.md#2). 높이 64: 아바타 · 제목/보조 줄 · 상대 시간. … 메뉴로 제목 수정(누구나 — 내 화면 이름, D-046)·나가기.
  * … 메뉴(D-034 11): 공용 `useMenu` — 열리면 첫 항목 포커스, ↑↓ 이동, 바깥 클릭·Escape·포커스 이탈로 닫힘.
  * 목록 API 는 members 를 내려주지 않아(API.md) 참여자 보조 줄은 상대 닉네임 대신 "초대받은 방".
  */
@@ -113,7 +113,7 @@ export function RoomListItem({ room, active, now, onRename, onLeave }: Props) {
           aria-label="방 메뉴"
           className="bubble-in absolute top-14 right-2 z-10 flex w-40 flex-col rounded-2xl border border-ink/12 bg-bg p-1"
         >
-          {isOwner && !orphaned && (
+          {!orphaned && (
             <button
               type="button"
               role="menuitem"

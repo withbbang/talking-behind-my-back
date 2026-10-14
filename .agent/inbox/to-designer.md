@@ -61,3 +61,15 @@
 - 근거 파일: D-033, `apps/web/app/features/speech/{vad,sentenceChunker,useRecorder,useVoiceMode,ttsPlayer}.ts`, `components/voice/VoiceOrb.tsx`
 - 원하는 결과: DESIGN.md#7 상태 설명에 자동 종료·선재생·진폭 한 줄씩. 바뀌면 to-dev 로.
 - date: 2026-09-18
+
+### [개발자 → 디자이너] D-046·D-047 — DESIGN.md#2·#3 갱신 요청 (T-045, T-049)
+- 요청/이슈: (1) D-046 — 방 이름은 멤버마다 따로. 방 목록 … 메뉴 "제목 수정"과 설정 시트 제목 탭 편집이 **참여자에게도** 열리고, 누가 고치든 자기 화면에만 바뀐다(첫 메시지 자동 제목은 그대로 공용 기본값). 지금 DESIGN.md#2 "제목 수정(개설자만)", #3 "개설자만 탭 → Input" 문구와 어긋난다. (2) D-047 — 시스템 라인(등장·퇴장·모드)이 서버에 저장돼 새로고침·재접속·입장자 본인 화면에도 남는다. #3 "mode/member 이벤트: 중앙 시스템 라인" 설명에 "히스토리에 남음" 한 줄.
+- 근거 파일: D-046, D-047, `components/chat/{RoomListItem,RoomHeaderSheet,MessageList}.tsx`
+- 원하는 결과: DESIGN.md#2·#3 문구 동기화. 바뀌면 to-dev 로.
+- date: 2026-10-14
+
+### [개발자 → 디자이너] D-048 보이스 모드 일시정지 카드 — DESIGN.md#7 갱신 요청 (T-051)
+- 요청/이슈: 빈 받아쓰기(무음·잡음)가 3번 연속이면 녹음을 멈추고 오브 자리에 카드 "조용하네?\n말할 때 다시 눌러줘" + 기존 "다시". 1~2번째는 지금처럼 토스트 "아무 말도 안 들렸는데?". 카드 모양은 기존 권한 거부·오류 카드와 동일.
+- 근거 파일: D-048, `features/speech/voiceMachine.ts`, `lib/copy.ts`(VOICE_COPY.quiet)
+- 원하는 결과: DESIGN.md#7 상태 표·문구 동기화, BRAND 카피 검토. 바뀌면 to-dev 로.
+- date: 2026-10-14

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
@@ -121,6 +121,40 @@ describe('ChatShell 설정 진입 (실제 Sidebar)', () => {
     expect(screen.getByRole('menuitem', { name: '설정' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('menuitem', { name: '설정' }));
     expect(await screen.findByRole('dialog', { name: '설정' })).toBeInTheDocument();
+  });
+
+  it('iOS: 드로어 안 메뉴 항목을 탭하면 포커스가 드로어(조상)로 가도 메뉴가 안 닫히고 설정이 열린다 (T-042)', async () => {
+    mockApi(participantRoom);
+    renderShell();
+    fireEvent.click(screen.getByRole('button', { name: '메뉴' }));
+    const drawer = await screen.findByRole('dialog', { name: '방 목록' });
+    fireEvent.click(await within(drawer).findByRole('button', { name: /빵선이/ }));
+
+    // iOS WebKit 은 탭한 버튼 대신 가장 가까운 focusable 조상(드로어 tabIndex=-1)으로 포커스를 옮긴다.
+    fireEvent.blur(within(drawer).getByRole('menu', { name: '계정' }), { relatedTarget: drawer });
+
+    fireEvent.click(within(drawer).getByRole('menuitem', { name: '설정' }));
+    expect(await screen.findByRole('dialog', { name: '설정' })).toBeInTheDocument();
+  });
+
+  it('Tab 으로 메뉴 밖 다른 버튼에 가면 메뉴는 닫힌다 (T-042 회귀 감시)', async () => {
+    mockApi(participantRoom);
+    renderShell();
+    fireEvent.click(screen.getByRole('button', { name: '메뉴' }));
+    const drawer = await screen.findByRole('dialog', { name: '방 목록' });
+    fireEvent.click(await within(drawer).findByRole('button', { name: /빵선이/ }));
+
+    fireEvent.blur(within(drawer).getByRole('menu', { name: '계정' }), {
+      relatedTarget: within(drawer).getByRole('button', { name: '+ 새 방' }),
+    });
+
+    expect(within(drawer).queryByRole('menu', { name: '계정' })).toBeNull();
+  });
+
+  it('방 조회가 실패하면 헤더 제목이 "…" 로 남지 않고 앱 이름 (T-046)', async () => {
+    mockApi(null);
+    renderShell();
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('뒷담 친구'));
   });
 
   it('/auth/me 가 실패하면 프로필 버튼이 없어 설정으로 갈 길이 사라진다 (회귀 감시)', async () => {

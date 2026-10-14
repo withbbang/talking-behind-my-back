@@ -18,9 +18,9 @@ public record RoomUpdate(
 		return title == null && mode == null && aiPersonality == null && aiPrompt == null;
 	}
 
-	/** title / aiPersonality / aiPrompt 를 건드리면 개설자 권한 필요 */
+	/** aiPersonality / aiPrompt 를 건드리면 개설자 권한 필요. title 은 누구나 — 자기 화면 이름만 바뀐다(D-046). */
 	public boolean needsOwner() {
-		return title != null || aiPersonality != null || aiPrompt != null;
+		return aiPersonality != null || aiPrompt != null;
 	}
 
 	/** trim 한 커스텀 프롬프트. 비면 null(= 초기화). aiPrompt 자체가 null 이면 호출하지 않는다. */

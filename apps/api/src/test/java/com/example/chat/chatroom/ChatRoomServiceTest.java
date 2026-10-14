@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.chat.global.CursorPage;
 import com.example.chat.message.EventRecorder;
+import com.example.chat.message.Message;
+import com.example.chat.message.MessageResponse;
+import com.example.chat.message.MessageService;
 import com.example.chat.message.RoomEventBus;
 import com.example.chat.global.error.BusinessException;
 import com.example.chat.global.error.ErrorCode;
@@ -35,6 +38,7 @@ class ChatRoomServiceTest {
 	@Autowired RoomMemberMapper memberMapper;
 	@Autowired UserMapper userMapper;
 	@Autowired RoomEventBus bus;
+	@Autowired MessageService messageService;
 
 	private User owner;
 	private User guest;
@@ -222,13 +226,47 @@ class ChatRoomServiceTest {
 		private static RoomUpdate prompt(String p) { return new RoomUpdate(null, null, null, p); }
 
 		@Test
-		void title_은_개설자만_참여자는_FORBIDDEN_비멤버는_NOT_FOUND() {
+		void 개설자의_제목_수정은_자기_화면에만_D046() {
 			RoomResponse r = service.create(owner.getId(), null);
 			join(r.id(), guest.getId());
 
 			assertThat(service.update(owner.getId(), r.id(), title(" 바꿈 ")).title()).isEqualTo("바꿈");
-			assertError(() -> service.update(guest.getId(), r.id(), title("x")), ErrorCode.FORBIDDEN);
+			assertThat(service.get(owner.getId(), r.id()).title()).isEqualTo("바꿈");
+			assertThat(service.list(owner.getId(), null, null).items().get(0).title()).isEqualTo("바꿈");
+			assertThat(service.get(guest.getId(), r.id()).title()).isEqualTo("새 대화");
+			assertThat(service.list(guest.getId(), null, null).items().get(0).title()).isEqualTo("새 대화");
+		}
+
+		@Test
+		void 참여자도_제목을_바꿀_수_있고_자기_화면에만_비멤버는_NOT_FOUND_D046() {
+			RoomResponse r = service.create(owner.getId(), "점심");
+			join(r.id(), guest.getId());
+
+			assertThat(service.update(guest.getId(), r.id(), title("손님이 붙인 이름")).title()).isEqualTo("손님이 붙인 이름");
+			assertThat(service.get(guest.getId(), r.id()).title()).isEqualTo("손님이 붙인 이름");
+			assertThat(service.get(owner.getId(), r.id()).title()).isEqualTo("점심");
 			assertError(() -> service.update(other.getId(), r.id(), title("x")), ErrorCode.ROOM_NOT_FOUND);
+		}
+
+		@Test
+		void 공용_제목이_바뀌어도_내가_붙인_이름은_유지_D046() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+			service.update(owner.getId(), r.id(), title("내 이름"));
+
+			roomMapper.updateTitle(r.id(), "첫 메시지 자동 제목"); // MessageService 자동 제목과 같은 경로
+
+			assertThat(service.get(owner.getId(), r.id()).title()).isEqualTo("내 이름");
+			assertThat(service.get(guest.getId(), r.id()).title()).isEqualTo("첫 메시지 자동 제목");
+		}
+
+		@Test
+		void aiPersonality_aiPrompt_는_여전히_개설자만() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+
+			assertError(() -> service.update(guest.getId(), r.id(), personality(AiPersonality.EMOTIONAL)), ErrorCode.FORBIDDEN);
+			assertError(() -> service.update(guest.getId(), r.id(), prompt("반말")), ErrorCode.FORBIDDEN);
 		}
 
 		@Test
@@ -284,15 +322,15 @@ class ChatRoomServiceTest {
 		}
 
 		@Test
-		void 복합_요청은_전부_아니면_전무_참여자_title_포함이면_mode_도_미변경() {
+		void 복합_요청은_전부_아니면_전무_참여자_aiPersonality_포함이면_title_mode_도_미변경() {
 			RoomResponse r = service.create(owner.getId(), null);
 			join(r.id(), guest.getId());
 
 			assertError(
-				() -> service.update(guest.getId(), r.id(), new RoomUpdate("x", RoomMode.HUMAN, null, null)), ErrorCode.FORBIDDEN);
+				() -> service.update(guest.getId(), r.id(), new RoomUpdate("x", RoomMode.HUMAN, AiPersonality.EMOTIONAL, null)), ErrorCode.FORBIDDEN);
 			ChatRoom room = roomMapper.findById(r.id()).orElseThrow();
 			assertThat(room.getMode()).isEqualTo(RoomMode.AI);
-			assertThat(room.getTitle()).isEqualTo("새 대화");
+			assertThat(service.get(guest.getId(), r.id()).title()).isEqualTo("새 대화");
 
 			RoomResponse updated = service.update(owner.getId(), r.id(), new RoomUpdate("둘", RoomMode.HUMAN, AiPersonality.EMOTIONAL, null));
 			assertThat(updated.title()).isEqualTo("둘");
@@ -447,6 +485,14 @@ class ChatRoomServiceTest {
 			assertThat(p.ownerNickname()).isEqualTo("주인");
 			assertThat(p.memberCount()).isEqualTo(1);
 			assertThat(p.alreadyMember()).isFalse();
+		}
+
+		@Test
+		void 미리보기_title_은_개설자가_보는_이름_D046() {
+			RoomResponse r = service.create(owner.getId(), "점심");
+			service.update(owner.getId(), r.id(), new RoomUpdate("우리 점심방", null, null, null));
+
+			assertThat(service.preview(guest.getId(), r.inviteCode()).title()).isEqualTo("우리 점심방");
 		}
 
 		@Test
@@ -637,7 +683,7 @@ class ChatRoomServiceTest {
 	}
 
 	@Nested
-	@DisplayName("방 이벤트 브로드캐스트 (T-007 mode/member)")
+	@DisplayName("방 이벤트 브로드캐스트 (T-007 mode/member) + 시스템 라인 저장 (T-049, D-047)")
 	class Events {
 
 		private RoomResponse room;
@@ -650,36 +696,83 @@ class ChatRoomServiceTest {
 			bus.subscribe(room.id(), owner.getId(), events.emitter);   // mode/member 는 방 전원 브로드캐스트(D-037)
 		}
 
-		@Test
-		void 입장하면_member_JOINED() {
-			service.join(guest.getId(), room.inviteCode());
+		/** 이벤트 data 에서 저장된 시스템 메시지(message)를 떼어 나머지 필드만 비교한다. */
+		@SuppressWarnings("unchecked")
+		private Map<String, Object> withoutMessage(Object data) {
+			Map<String, Object> copy = new java.util.LinkedHashMap<>((Map<String, Object>) data);
+			copy.remove("message");
+			return copy;
+		}
 
-			assertThat(events.names()).containsExactly("member");
-			assertThat(events.last().data()).isEqualTo(Map.of(
-				"action", "JOINED", "userId", guest.getId(), "nickname", "손님", "role", "PARTICIPANT", "roomStatus", "ACTIVE"));
+		@SuppressWarnings("unchecked")
+		private MessageResponse messageOf(Object data) {
+			return (MessageResponse) ((Map<String, Object>) data).get("message");
+		}
+
+		private List<MessageResponse> history(Long viewerId) {
+			return messageService.history(viewerId, room.id(), null, 50).items();
 		}
 
 		@Test
-		void 이미_멤버가_다시_입장하면_이벤트_없음() {
+		void 입장하면_member_JOINED_시스템_메시지_저장_이벤트에_포함() {
+			service.join(guest.getId(), room.inviteCode());
+
+			assertThat(events.names()).containsExactly("member");
+			assertThat(withoutMessage(events.last().data())).isEqualTo(Map.of(
+				"action", "JOINED", "userId", guest.getId(), "nickname", "손님", "role", "PARTICIPANT", "roomStatus", "ACTIVE"));
+			MessageResponse sys = messageOf(events.last().data());
+			assertThat(sys.role()).isEqualTo(Message.Role.SYSTEM);
+			assertThat(sys.content()).isEqualTo(Message.SYSTEM_MEMBER_JOINED);
+			assertThat(sys.senderUserId()).isEqualTo(guest.getId());
+			assertThat(sys.senderNickname()).isEqualTo("손님");
+			// 히스토리에 남고(새로고침·입장자 본인 화면), 둘 다 본다
+			assertThat(history(guest.getId())).extracting(MessageResponse::id).containsExactly(sys.id());
+			assertThat(history(owner.getId())).extracting(MessageResponse::id).containsExactly(sys.id());
+		}
+
+		@Test
+		void 시스템_메시지는_message_count_last_message_at_을_바꾸지_않는다() {
+			ChatRoom before = roomMapper.findById(room.id()).orElseThrow();
+			service.join(guest.getId(), room.inviteCode());
+			ChatRoom after = roomMapper.findById(room.id()).orElseThrow();
+
+			assertThat(after.getMessageCount()).isZero();
+			assertThat(after.getLastMessageAt()).isEqualTo(before.getLastMessageAt());
+		}
+
+		@Test
+		void 이미_멤버가_다시_입장하면_이벤트도_시스템_메시지도_없음() {
 			service.join(guest.getId(), room.inviteCode());
 			events.events.clear();
 			service.join(guest.getId(), room.inviteCode());
 			assertThat(events.events).isEmpty();
+			assertThat(history(owner.getId())).hasSize(1);
 		}
 
 		@Test
-		void mode_바꾸면_mode_이벤트_title_만_바꾸면_없음() {
+		void mode_바꾸면_MODE_CHANGED_저장_title_만_바꾸면_없음() {
 			join(room.id(), guest.getId());
 			service.update(owner.getId(), room.id(), new RoomUpdate("제목", null, null, null));
 			assertThat(events.events).isEmpty();
 
 			service.update(guest.getId(), room.id(), new RoomUpdate(null, RoomMode.HUMAN, null, null));
 			assertThat(events.names()).containsExactly("mode");
-			assertThat(events.last().data()).isEqualTo(Map.of("mode", "HUMAN"));
+			assertThat(withoutMessage(events.last().data())).isEqualTo(Map.of("mode", "HUMAN"));
+			MessageResponse sys = messageOf(events.last().data());
+			assertThat(sys.content()).isEqualTo(Message.SYSTEM_MODE_CHANGED);
+			assertThat(sys.mode()).isEqualTo(RoomMode.HUMAN);
+			assertThat(sys.senderUserId()).isEqualTo(guest.getId());
 		}
 
 		@Test
-		void 참여자가_HUMAN_방에서_나가면_member_LEFT_후_mode_AI() {
+		void 같은_mode_로_PATCH_하면_시스템_메시지를_만들지_않는다() {
+			join(room.id(), guest.getId());
+			service.update(guest.getId(), room.id(), new RoomUpdate(null, RoomMode.AI, null, null));
+			assertThat(history(owner.getId())).isEmpty();
+		}
+
+		@Test
+		void 참여자가_HUMAN_방에서_나가면_member_LEFT_후_mode_AI_둘_다_저장() {
 			join(room.id(), guest.getId());
 			service.update(guest.getId(), room.id(), new RoomUpdate(null, RoomMode.HUMAN, null, null));
 			events.events.clear();
@@ -687,9 +780,15 @@ class ChatRoomServiceTest {
 			service.leave(guest.getId(), room.id());
 
 			assertThat(events.names()).containsExactly("member", "mode");
-			assertThat(events.events.get(0).data()).isEqualTo(Map.of(
+			assertThat(withoutMessage(events.events.get(0).data())).isEqualTo(Map.of(
 				"action", "LEFT", "userId", guest.getId(), "nickname", "손님", "role", "PARTICIPANT", "roomStatus", "ACTIVE"));
-			assertThat(events.events.get(1).data()).isEqualTo(Map.of("mode", "AI"));
+			assertThat(messageOf(events.events.get(0).data()).content()).isEqualTo(Message.SYSTEM_MEMBER_LEFT);
+			assertThat(withoutMessage(events.events.get(1).data())).isEqualTo(Map.of("mode", "AI"));
+			MessageResponse back = messageOf(events.events.get(1).data());
+			assertThat(back.content()).isEqualTo(Message.SYSTEM_MODE_CHANGED);
+			assertThat(back.mode()).isEqualTo(RoomMode.AI);
+			assertThat(history(owner.getId())).extracting(MessageResponse::content)
+				.containsExactly(Message.SYSTEM_MODE_CHANGED, Message.SYSTEM_MEMBER_LEFT, Message.SYSTEM_MODE_CHANGED);
 		}
 
 		@Test
@@ -699,8 +798,10 @@ class ChatRoomServiceTest {
 			service.leave(owner.getId(), room.id());
 
 			assertThat(events.names()).containsExactly("member");
-			assertThat(events.last().data()).isEqualTo(Map.of(
+			assertThat(withoutMessage(events.last().data())).isEqualTo(Map.of(
 				"action", "LEFT", "userId", owner.getId(), "nickname", "주인", "role", "OWNER", "roomStatus", "ORPHANED"));
+			assertThat(messageOf(events.last().data()).content()).isEqualTo(Message.SYSTEM_MEMBER_LEFT);
+			assertThat(history(guest.getId())).extracting(MessageResponse::content).containsExactly(Message.SYSTEM_MEMBER_LEFT);
 		}
 	}
 

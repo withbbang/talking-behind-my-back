@@ -153,10 +153,9 @@ describe('RoomHeaderSheet (DESIGN.md#3 방 헤더 시트)', () => {
     await waitFor(() => expect(useToastStore.getState().toast?.message).toBe('시스템 오류. 다시 시도해줄래?'));
   });
 
-  it('참여자: 제목은 버튼 아님(수정 불가)', () => {
+  it('참여자도 제목을 눌러 수정할 수 있다 — 자기 화면 이름 (D-046)', () => {
     renderSheet(two({ role: 'PARTICIPANT' }));
-    expect(screen.queryByRole('button', { name: /제목 수정/ })).toBeNull();
-    expect(screen.getByRole('heading', { name: '방 10' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '제목 수정: 방 10' })).toBeInTheDocument();
   });
 
   it('토스트 스토어에 오류 메시지가 남으면 act 경고 없이 정리', () => {

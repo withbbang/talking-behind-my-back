@@ -232,12 +232,18 @@ class ChatRoomControllerIntegrationTest {
 		}
 
 		@Test
-		void 참여자는_403_FORBIDDEN_비멤버는_404() throws Exception {
+		void 참여자_title_은_자기_이름으로_200_aiPersonality_는_403_비멤버는_404() throws Exception {
 			long id = createRoom(owner, null).get("id").asLong();
 			memberMapper.insert(RoomMember.participant(id, guest.getId()));
 
 			mvc.perform(patch("/rooms/" + id).cookie(access(guest))
 					.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"x\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.title").value("x"));
+			mvc.perform(get("/rooms/" + id).cookie(access(owner)))
+				.andExpect(jsonPath("$.title").value("새 대화"));
+			mvc.perform(patch("/rooms/" + id).cookie(access(guest))
+					.contentType(MediaType.APPLICATION_JSON).content("{\"aiPersonality\":\"EMOTIONAL\"}"))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.code").value("FORBIDDEN"));
 			mvc.perform(patch("/rooms/" + id).cookie(access(newUser("남")))

@@ -31,7 +31,8 @@ export function RoomView({ roomId }: { roomId: number }) {
   const room = useRoom(roomId);
   const me = useMe();
   const messages = useMessages(roomId);
-  useRoomEvents(roomId);
+  const roomGone = room.error instanceof ApiError && room.error.status === 404;
+  useRoomEvents(roomId, !roomGone); // 없는 방·비멤버면 구독하지 않는다(T-046)
   const stream = useStreamStore((s) => s.rooms[roomId]) ?? initialStreamState;
   const meId = me.data?.id ?? 0;
   const myPending = Object.values(stream.streams).some((e) => e.senderUserId === meId && e.status !== 'error');

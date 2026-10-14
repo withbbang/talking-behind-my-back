@@ -65,6 +65,28 @@ describe('useRecorder (MediaRecorder, DESIGN.md#7)', () => {
     expect(result.current.status).toBe('idle');
   });
 
+  it('상한 자동 종료의 durationMs 는 maxMs 를 넘지 않는다 — stop 이벤트가 늦게 와도 (T-043, 서버 AUDIO_TOO_LONG 방지)', async () => {
+    // 실제 MediaRecorder 의 stop 이벤트는 비동기라 Date.now() 차이가 항상 maxMs + α 가 된다.
+    class LateStopRecorder extends FakeMediaRecorder {
+      stop() {
+        this.state = 'inactive';
+        setTimeout(() => {
+          this.dispatchEvent(Object.assign(new Event('dataavailable'), { data: new Blob(['x'], { type: this.mimeType }) }));
+          this.dispatchEvent(new Event('stop'));
+        }, 40);
+      }
+    }
+    const onAutoStop = vi.fn();
+    const d = deps({ MediaRecorderImpl: LateStopRecorder as unknown as typeof MediaRecorder });
+    const { result } = renderHook(() => useRecorder({ maxMs: 60_000, onAutoStop }, d));
+    await act(() => result.current.start());
+    await act(async () => {
+      vi.advanceTimersByTime(60_000 + 40);
+    });
+    expect(onAutoStop).toHaveBeenCalledTimes(1);
+    expect(onAutoStop.mock.calls[0][0]).toMatchObject({ hitLimit: true, durationMs: 60_000 });
+  });
+
   describe('VAD (D-033 A1~A4)', () => {
     const QUIET = -60;
     const LOUD = -20;

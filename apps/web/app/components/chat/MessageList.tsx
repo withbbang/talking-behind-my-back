@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import type { Message } from '@/features/messages/types';
 import type { RoomMember } from '@/features/rooms/types';
-import type { StreamEntry, StreamState } from '@/lib/sse';
+import { MODE_NOTICE, type StreamEntry, type StreamState } from '@/lib/sse';
 import { GENERIC_ERROR } from '@/lib/copy';
 import { formatDateChip, isSameKstDay } from '@/lib/time';
 import { MessageBubble, type BubbleKind } from './MessageBubble';
@@ -49,12 +49,32 @@ export function buildRows(messages: Message[], notices: StreamState['notices'], 
       continue;
     }
     const m = item.m;
+    if (m.role === 'SYSTEM') {
+      const text = systemText(m, nameOf);
+      if (text) rows.push({ kind: 'notice', key: `m${m.id}`, text });
+      lastSender = null;
+      continue;
+    }
     const sender = m.role === 'ASSISTANT' ? 'ai' : `u${m.senderUserId}`;
     const bubble: BubbleKind = m.role === 'ASSISTANT' ? 'ai' : m.senderUserId === meId ? 'mine' : 'other';
     rows.push({ kind: 'message', key: `m${m.id}`, message: m, bubble, showMeta: sender !== lastSender, senderName: bubble === 'other' ? nameOf(m) : undefined });
     lastSender = sender;
   }
   return rows;
+}
+
+/** 저장된 시스템 메시지(D-047) → 라인 문구. 모르는 종류는 null(그리지 않음). */
+function systemText(m: Message, nameOf: (m: Message) => string): string | null {
+  switch (m.content) {
+    case 'MEMBER_JOINED':
+      return `${nameOf(m)} 등장!`;
+    case 'MEMBER_LEFT':
+      return `${nameOf(m)} 퇴장!`;
+    case 'MODE_CHANGED':
+      return m.mode ? MODE_NOTICE[m.mode] : null;
+    default:
+      return null;
+  }
 }
 
 /** 하단에서 이만큼 안이면 새 메시지에 따라 내려간다. */
@@ -86,6 +106,18 @@ export function MessageList({ messages, meId, members, stream, hasOlder, isLoadi
     io.observe(el);
     return () => io.disconnect();
   }, [hasOlder, isLoadingOlder, onLoadOlder]);
+
+  // 목록 높이가 바뀌어도(iOS 키보드로 보이는 영역이 줄어듦, T-050) 맨 아래에 붙어 있었으면 계속 맨 아래.
+  // 높이만 줄면 scrollTop 이 그대로라 "하단 근처" 를 벗어나 새 말풍선이 입력창 뒤에 걸린 채 남았다.
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      if (stick.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // 이전 페이지가 앞에 붙으면 늘어난 높이만큼 내려서 보던 자리를 유지. 하단 근처였으면 맨 아래로.
   useLayoutEffect(() => {
