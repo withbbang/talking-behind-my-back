@@ -471,6 +471,13 @@
 - impact: T-049 (마이그레이션 없음 — role 은 VARCHAR. 대신 컨텍스트·카운트 쿼리 수정), MessageService·RoomService 이벤트 발행, 프론트 notices → SYSTEM 메시지 렌더. API.md#messages, SCHEMA.md#5.
 - date: 2026-10-14 (개발자 대행 기록, 사용자 결정 — "서버에 저장")
 
+### D-048 보이스 모드: 빈 받아쓰기 3번 연속이면 일시정지
+- decision: 보이스 모드에서 STT 결과가 비는 일(무음·잡음, D-045 필터 포함)이 **3번 연속**이면 녹음을 멈추고 오브 자리에 카드 "조용하네?\n말할 때 다시 눌러줘" + 기존 "다시" 버튼(재청취). 받아쓰기가 한 번이라도 성공하면 카운트 초기화. 1~2번째는 지금처럼 토스트 "아무 말도 안 들렸는데?" 후 재청취.
+- rationale: 사용자 결정. 에뮬레이터 QA(O-6) — 잡음에 VAD 가 반응해 2~3초마다 STT(Groq 10초 최소 과금)가 반복됨.
+- alternatives: 0.5초 미만 발화 STT 생략 — 긴 잡음엔 효과 없음. 둘 다 — 범위 과다.
+- impact: T-051 (`features/speech/useVoiceMode.ts`·`voiceMachine.ts`, `components/voice/VoiceModeOverlay.tsx`, `lib/copy.ts`), DESIGN.md#7(to-designer).
+- date: 2026-10-14 (개발자 대행 기록, 사용자 결정 — "3번 연속이면 일시정지")
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)
