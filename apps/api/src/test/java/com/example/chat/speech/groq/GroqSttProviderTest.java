@@ -83,6 +83,61 @@ class GroqSttProviderTest {
 		assertThat(t.durationMs()).isZero();
 	}
 
+	private SttProvider.Transcript transcribeJson(String json) throws IOException {
+		server.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody(json));
+		return provider.transcribe(audioFile("a.webm", "x"), "audio/webm");
+	}
+
+	private static String seg(String text, double noSpeechProb, double avgLogprob) {
+		return "{\"text\":\"" + text + "\",\"no_speech_prob\":" + noSpeechProb + ",\"avg_logprob\":" + avgLogprob + "}";
+	}
+
+	// T-044 (D-045) — 아래 수치는 2026-10-14 Groq whisper-large-v3 실측 응답 그대로.
+	@Test
+	void 완전_무음의_환각_you_는_빈_텍스트() throws Exception {
+		SttProvider.Transcript t = transcribeJson("{\"text\":\" you\",\"duration\":5.0,\"segments\":[" + seg(" you", 0.701, -0.708) + "]}");
+
+		assertThat(t.text()).isEmpty();
+		assertThat(t.durationMs()).isEqualTo(5_000);
+	}
+
+	@Test
+	void 큰_잡음의_엉뚱한_전사는_avg_logprob_가_낮아_빈_텍스트() throws Exception {
+		SttProvider.Transcript t = transcribeJson("{\"text\":\" Kjell Kronström\",\"segments\":[" + seg(" Kjell Kronström", 0.098, -1.345) + "]}");
+
+		assertThat(t.text()).isEmpty();
+	}
+
+	@Test
+	void 약한_잡음의_구두점만_남은_전사는_빈_텍스트() throws Exception {
+		SttProvider.Transcript t = transcribeJson("{\"text\":\" .\",\"segments\":[" + seg(" .", 0.249, -0.215) + "]}");
+
+		assertThat(t.text()).isEmpty();
+	}
+
+	@Test
+	void 실제_발화는_그대로_작은_목소리도() throws Exception {
+		SttProvider.Transcript t = transcribeJson("{\"text\":\" 오늘 회사에서 부장이 또 늦게 왔어.\",\"segments\":["
+			+ seg(" 오늘 회사에서 부장이 또 늦게 왔어.", 0.0, -0.028) + "]}");
+
+		assertThat(t.text()).isEqualTo(" 오늘 회사에서 부장이 또 늦게 왔어.");
+	}
+
+	@Test
+	void 발화_뒤_무음_세그먼트의_환각만_떼어낸다() throws Exception {
+		SttProvider.Transcript t = transcribeJson("{\"text\":\" 안녕 you\",\"segments\":["
+			+ seg(" 안녕", 0.001, -0.2) + "," + seg(" you", 0.701, -0.708) + "]}");
+
+		assertThat(t.text()).isEqualTo(" 안녕");
+	}
+
+	@Test
+	void segments_가_없으면_text_그대로() throws Exception {
+		SttProvider.Transcript t = transcribeJson("{\"text\":\"Thank you.\"}");
+
+		assertThat(t.text()).isEqualTo("Thank you.");
+	}
+
 	@Test
 	void 비_2xx_는_SpeechException() throws Exception {
 		server.enqueue(new MockResponse().setResponseCode(500).setBody("{\"error\":\"boom\"}"));
@@ -90,6 +145,17 @@ class GroqSttProviderTest {
 		assertThatThrownBy(() -> provider.transcribe(audioFile("a.webm", "x"), "audio/webm"))
 			.isInstanceOf(SpeechException.class)
 			.hasMessageContaining("500");
+	}
+
+	@Test
+	void 상류_400_은_오류_메시지를_예외에_담는다_원인_추적용() throws Exception {
+		server.enqueue(new MockResponse().setResponseCode(400).setHeader("Content-Type", "application/json")
+			.setBody("{\"error\":{\"message\":\"could not process file - is it a valid media file?\",\"type\":\"invalid_request_error\"}}"));
+
+		assertThatThrownBy(() -> provider.transcribe(audioFile("a.mp4", "x"), "audio/mp4"))
+			.isInstanceOf(SpeechException.class)
+			.hasMessageContaining("400")
+			.hasMessageContaining("could not process file");
 	}
 
 	@Test

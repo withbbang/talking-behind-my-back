@@ -22,7 +22,12 @@ import lombok.Setter;
 @Builder
 public class Message {
 
-	public enum Role { USER, ASSISTANT }
+	/** SYSTEM = 입장·퇴장·모드 변경 라인(D-047). content 는 아래 종류 코드, 문구는 프론트가 만든다. */
+	public enum Role { USER, ASSISTANT, SYSTEM }
+
+	public static final String SYSTEM_MEMBER_JOINED = "MEMBER_JOINED";
+	public static final String SYSTEM_MEMBER_LEFT = "MEMBER_LEFT";
+	public static final String SYSTEM_MODE_CHANGED = "MODE_CHANGED";
 
 	/** USER 메시지에만. VOICE = STT 로 입력된 메시지 */
 	public enum InputType { TEXT, VOICE }
@@ -48,6 +53,15 @@ public class Message {
 		return Message.builder().roomId(roomId).senderUserId(senderUserId).role(Role.USER)
 			.content(content).inputType(inputType).mode(mode)
 			.visibleToUserId(mode == RoomMode.AI ? senderUserId : null).build();
+	}
+
+	/**
+	 * 시스템 라인(D-047). 방 전원 공개, message_count·last_message_at 은 건드리지 않는다(호출자가 touch 하지 않음).
+	 * @param subjectUserId 입장·퇴장한 사람 / 모드를 바꾼 사람(자동 복귀면 null)
+	 * @param mode MODE_CHANGED 의 변경 후 모드, 그 외 null
+	 */
+	public static Message system(Long roomId, Long subjectUserId, String kind, RoomMode mode) {
+		return Message.builder().roomId(roomId).senderUserId(subjectUserId).role(Role.SYSTEM).content(kind).mode(mode).build();
 	}
 
 	/** @param askedByUserId 트리거 USER 메시지의 발신자 — 이 응답을 볼 수 있는 유일한 사람(D-037) */

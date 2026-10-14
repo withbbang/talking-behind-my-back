@@ -4,6 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -31,7 +33,7 @@ public class GlobalExceptionHandler {
 		if (code.getStatus().is5xxServerError()) {
 			log.warn("business 5xx: {} - {}", code, e.getMessage());
 		}
-		return ResponseEntity.status(code.getStatus())
+		return json(code.getStatus())
 			.body(ErrorResponse.of(code, e.getMessage(), e.getDetails()));
 	}
 
@@ -42,7 +44,7 @@ public class GlobalExceptionHandler {
 			fields.putIfAbsent(fe.getField(), fe.getDefaultMessage());
 		}
 		ErrorCode code = ErrorCode.VALIDATION_FAILED;
-		return ResponseEntity.status(code.getStatus())
+		return json(code.getStatus())
 			.body(ErrorResponse.of(code, code.getDefaultMessage(), fields));
 	}
 
@@ -50,7 +52,7 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException e) {
 		ErrorCode code = ErrorCode.VALIDATION_FAILED;
-		return ResponseEntity.status(code.getStatus())
+		return json(code.getStatus())
 			.body(ErrorResponse.of(code, "요청 본문을 읽을 수 없습니다.", null));
 	}
 
@@ -58,25 +60,25 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
 	public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
 		ErrorCode code = ErrorCode.VALIDATION_FAILED;
-		return ResponseEntity.status(code.getStatus())
+		return json(code.getStatus())
 			.body(ErrorResponse.of(code, code.getDefaultMessage(), Map.of(e.getName(), "값의 형식이 올바르지 않습니다.")));
 	}
 
 	@ExceptionHandler(MaxUploadSizeExceededException.class)
 	public ResponseEntity<ErrorResponse> handleUploadSize(MaxUploadSizeExceededException e) {
 		ErrorCode code = ErrorCode.PAYLOAD_TOO_LARGE;
-		return ResponseEntity.status(code.getStatus()).body(ErrorResponse.of(code));
+		return json(code.getStatus()).body(ErrorResponse.of(code));
 	}
 
 	@ExceptionHandler(AccessDeniedException.class)
 	public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException e) {
 		ErrorCode code = ErrorCode.FORBIDDEN;
-		return ResponseEntity.status(code.getStatus()).body(ErrorResponse.of(code));
+		return json(code.getStatus()).body(ErrorResponse.of(code));
 	}
 
 	@ExceptionHandler(NoResourceFoundException.class)
 	public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException e) {
-		return ResponseEntity.status(404)
+		return json(HttpStatus.NOT_FOUND)
 			.body(new ErrorResponse("NOT_FOUND", "존재하지 않는 경로입니다.", null));
 	}
 
@@ -109,7 +111,15 @@ public class GlobalExceptionHandler {
 		}
 		log.error("unhandled exception", e);
 		ErrorCode code = ErrorCode.INTERNAL_ERROR;
-		return ResponseEntity.status(code.getStatus()).body(ErrorResponse.of(code));
+		return json(code.getStatus()).body(ErrorResponse.of(code));
+	}
+
+	/**
+	 * 오류 본문은 항상 JSON 으로 못 박는다. SSE(`produces = text/event-stream`) 핸들러에서 던진 예외를 협상에 맡기면
+	 * EventSource 의 `Accept: text/event-stream` 과 맞는 컨버터가 없어 404 가 500 으로 바뀐다(T-046, 모바일 QA B-5).
+	 */
+	private static ResponseEntity.BodyBuilder json(HttpStatusCode status) {
+		return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON);
 	}
 
 	/** 끊긴 클라이언트 — 스택 없이 debug 한 줄. 응답은 어차피 전달되지 않는다. */

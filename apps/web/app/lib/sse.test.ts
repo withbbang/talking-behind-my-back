@@ -127,4 +127,30 @@ describe('connectRoomEvents', () => {
     stop();
     vi.useRealTimers();
   });
+
+  it('shouldReconnect 가 false 면(방이 없어짐 등) 다시 열지 않는다 — 4xx 무한 재연결 방지 (T-046)', async () => {
+    vi.useFakeTimers();
+    FakeEventSource.instances = [];
+    const shouldReconnect = vi.fn(async () => false);
+    connectRoomEvents(10, { onEvent: vi.fn(), shouldReconnect }, FakeEventSource as unknown as typeof EventSource);
+    const first = FakeEventSource.instances[0];
+    first.readyState = 2;
+    first.onerror?.();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(shouldReconnect).toHaveBeenCalledTimes(1);
+    expect(FakeEventSource.instances).toHaveLength(1);
+    vi.useRealTimers();
+  });
+
+  it('shouldReconnect 가 true 면 평소처럼 재연결', async () => {
+    vi.useFakeTimers();
+    FakeEventSource.instances = [];
+    const stop = connectRoomEvents(10, { onEvent: vi.fn(), shouldReconnect: async () => true }, FakeEventSource as unknown as typeof EventSource);
+    FakeEventSource.instances[0].readyState = 2;
+    FakeEventSource.instances[0].onerror?.();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(FakeEventSource.instances).toHaveLength(2);
+    stop();
+    vi.useRealTimers();
+  });
 });

@@ -50,8 +50,12 @@ export function useMenu() {
   const onBlur = (e: FocusEvent<HTMLDivElement>) => {
     // 포커스가 메뉴 밖의 **구체적인** 대상으로(탭 이동 등) 가면 닫힘. 메뉴 안 항목 간 이동은 유지.
     // relatedTarget 이 null 이면 판정하지 않는다 — Safari 의 버튼 클릭·창 이탈이 여기로 온다.
+    // 메뉴를 감싼 조상으로 가는 것도 무시한다 — iOS WebKit 은 탭한 버튼 대신 가장 가까운 focusable 조상
+    // (드로어 tabIndex=-1)으로 포커스를 옮겨, 여기서 닫으면 click 전에 항목이 사라진다(T-042 실측).
     const next = e.relatedTarget as Node | null;
-    if (next && !menuRef.current?.contains(next)) setOpen(false);
+    const menu = menuRef.current;
+    if (!next || !menu || menu.contains(next) || next.contains(menu)) return;
+    setOpen(false);
   };
 
   return {

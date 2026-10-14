@@ -558,3 +558,31 @@
   메모리(이 프로젝트 합계): 배포 전 ~2.96GiB(omniroute 1,949MiB·edge-tts 41·api 488·web 74·mysql 403·nginx 5) → 배포 후 ~0.85GiB(api 398·web 42·mysql 401·nginx 5), **약 2.1GB 절감**. 배포 중 health 502/000 약 70초(23:21:50~23:22:58).
 - issues: CEO/기획자 소유 문서 동기화는 inbox/to-ceo.md 대기. 교훈: 배포 완료 전에 `data/omniroute` 를 지워 구 api 가 잠시 설정 없는 OmniRoute 에 의존한 순간이 있었음(영향 없음) — 정리는 배포 완료 확인 후.
 - date: 2026-10-13
+
+### T-042~T-049 모바일 에뮬레이터 QA 후속 8건 (web + api) — D-045·D-046·D-047
+- verdict: PASS (사용자 지시로 개발자 QA 대행, 2026-10-14)
+- tests: 존재 / api `./gradlew test` 353 passed(신규·갱신: `SpeechServiceTest` 상한 허용치 경계, `SpeechControllerIntegrationTest` 61001, `GroqSttProviderTest` 실측 픽스처 6 + 상류 오류 메시지 1, `MessageControllerIntegrationTest` EventSource Accept 404 2, `ChatRoomServiceTest` 방 이름 멤버별 4·시스템 라인 Events 재작성, `MessageServiceTest` 컨텍스트 제외·자동 제목 2, `ChatRoomJoinConcurrencyTest` 정리) / web `npm test` 425 passed(`ChatShell.settings` +3, `ChatShell` +1, `useRecorder` +1, `sse` +2, `useRoomEvents` +4, `RoomView` +1, `ConfirmDialog` +1, `MessageList` +1, `RoomListItem`·`RoomHeaderSheet` 갱신), lint 0 error(기존 경고 1), typecheck 통과. 에이전트 실행(로컬).
+- checked:
+  - acceptance 커버리지: TASKS T-042~T-049 각 항목을 단위·통합 테스트 + 에뮬레이터 실측으로 확인(TASKS note 에 실측 수치).
+  - 계약 일치: API.md#speech(상한 허용치 1초·무음 필터), #messages(events 404 JSON·`role: SYSTEM`·`member`/`mode` 의 `message`), #rooms(PATCH title 누구나·자기 화면, Room title 조회자 기준, 미리보기 개설자 기준), SCHEMA.md#4-1 `custom_title`(V5)·#5 SYSTEM — 실서버 응답·DB 로 확인.
+  - **실기기 대체(iPhone 18 Pro 시뮬레이터 iOS 27 Safari + Pixel 10 API 37 에뮬레이터 Chrome, 로컬 compose nginx :3000 + bootRun + next dev)**, QA 전용 계정 QA봇A(12193)/QA봇B(12194):
+    - T-042 iOS 드로어 "설정"·"제목 수정"·설정→"초대" 동작(수정 전 무반응). T-047 Android 드로어 나가기 확인창 중앙. T-048 iOS 드로어 연 경로 복귀 시 닫힘.
+    - T-043 Android 보이스 60초 → STT 200 → 무음 안내 → 재청취(수정 전 400). T-044 Android 무음 마이크 → 미전송(수정 전 "Thank you." 전송). 임계값은 Groq 실측(무음 nsp 0.70·lp -0.71, 잡음 lp -1.35, 실제 발화 nsp≈0).
+    - T-045 2인 방: 참여자 "B name" / 개설자 자동 제목 각자 표시, DB `custom_title` 확인. T-049 입장자 화면 "QA봇B 등장!", 새로고침 후 시스템 라인 유지, `message_count` 불변.
+    - T-046 iOS `/rooms/99999999` 30초 — events 재연결 0, api ERROR 스택 0, 헤더 "뒷담 친구".
+- issues:
+  - (환경 한계, 블록 아님) iOS 27 시뮬레이터 MediaRecorder 는 빈 파일(mp4 0B·webm 5B) → iOS 음성 루프·T-043 iOS 경로는 실기기 필요.
+  - (후속 처리됨) 재실측 중 발견 T-050(iOS 키보드)·O-6(T-051)·O-7(T-052) — 아래 기록.
+  - (요청 중) DESIGN.md#2·#3 제목 수정 권한·시스템 라인 문구 동기화는 inbox/to-designer.md.
+- date: 2026-10-14
+
+### T-050 iOS 키보드 입력창 가림 (web) / T-051 보이스 빈 받아쓰기 3연속 일시정지 (web, D-048) / T-052 빈 녹음 업로드 생략 (web)
+- verdict: PASS (사용자 지시로 개발자 QA 대행, 2026-10-14)
+- tests: 존재 / web `npm test` 433 passed(`useVisualViewport` 2, `ChatShell` +1, `MessageList` +2, `voiceMachine` +1, `useVoiceMode` +1, `speechApi` +1·기존 케이스 Blob 크기 현실화), lint 0 error(기존 경고 1), typecheck 통과 / api 변경 없음(353 passed). 에이전트 실행(로컬).
+- checked:
+  - T-050 iOS 시뮬레이터 소프트 키보드: 입력창 탭·전송 직후 모두 헤더·방금 보낸 말풍선·입력창이 키보드 위(수정 전 입력창이 키보드 뒤 / 헤더·메시지 화면 밖). Android 레이아웃 회귀 없음.
+  - T-051 Android: 빈 결과 3번(STT 3회) → 카드 "조용하네? / 말할 때 다시 눌러줘", 이후 STT 0회(수정 전 2분간 6회).
+  - T-052 1KB 미만 녹음은 STT 호출 없이 빈 텍스트(단위). iOS 시뮬레이터 빈 녹음의 502 "시스템 오류" 경로 차단.
+- issues:
+  - (요청 중) DESIGN.md#7 일시정지 카드 문구는 inbox/to-designer.md.
+- date: 2026-10-14

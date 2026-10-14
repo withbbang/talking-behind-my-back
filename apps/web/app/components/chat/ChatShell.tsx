@@ -1,10 +1,11 @@
 'use client';
 
 import { useParams, usePathname } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { List } from '@phosphor-icons/react';
 import { Sheet } from '@/components/ui/Sheet';
 import { useRoom } from '@/features/rooms/useRooms';
+import { useVisualViewportVars } from '@/lib/useVisualViewport';
 import { InviteSheet } from './InviteSheet';
 import { RoomHeaderSheet } from './RoomHeaderSheet';
 import { Sidebar } from './Sidebar';
@@ -18,13 +19,18 @@ import { ThemeRow } from './ThemePicker';
  */
 export function ChatShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  useVisualViewportVars();
   const params = useParams<{ id?: string }>();
   const roomId = params?.id ? Number(params.id) : null;
   const room = useRoom(roomId);
   // 드로어는 "열린 경로"를 기억한다 — 경로가 바뀌면 자동으로 닫힘(effect 없이 파생).
+  // 경로가 바뀌면 기억도 지운다 — 안 지우면 그 경로로 돌아왔을 때 드로어가 저절로 다시 열린다(T-048, 모바일 QA B-7).
   const [openPath, setOpenPath] = useState<string | null>(null);
+  if (openPath !== null && openPath !== pathname) setOpenPath(null);
   const open = openPath === pathname;
   const setOpen = (v: boolean) => setOpenPath(v ? pathname : null);
+  // 인라인 콜백 ref 는 렌더마다 다시 불려 드로어 안 입력(제목 수정 등)의 포커스를 빼앗는다 — 고정 ref 로 마운트 때 한 번만.
+  const focusOnMount = useCallback((el: HTMLDivElement | null) => el?.focus(), []);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const openSettings = () => {
@@ -36,10 +42,15 @@ export function ChatShell({ children }: { children: ReactNode }) {
     setInviteOpen(true);
   };
 
-  const title = roomId === null ? '뒷담 친구' : (room.data?.title ?? '…');
+  // 방 조회가 실패(없는 방 등)하면 로딩 표시 "…" 가 영원히 남지 않게 앱 이름으로(T-046)
+  const title = roomId === null || room.isError ? '뒷담 친구' : (room.data?.title ?? '…');
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-bg text-ink">
+    // 보이는 영역에 고정(T-050): iOS 는 키보드가 떠도 100dvh 를 안 줄이고 페이지를 팬한다 → visual viewport 높이·오프셋으로 맞춘다.
+    <div
+      className="fixed inset-x-0 top-0 flex overflow-hidden bg-bg text-ink"
+      style={{ height: 'var(--vvh, 100dvh)', transform: 'translateY(var(--vvt, 0px))' }}
+    >
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-2 px-2 pt-[env(safe-area-inset-top)]">
           <span className="size-11 shrink-0 lg:hidden" aria-hidden="true" />
@@ -79,7 +90,7 @@ export function ChatShell({ children }: { children: ReactNode }) {
             aria-modal="true"
             aria-label="방 목록"
             tabIndex={-1}
-            ref={(el) => el?.focus()}
+            ref={focusOnMount}
             onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
             className="bubble-in absolute inset-y-0 right-0 w-[300px] max-w-[85vw] bg-bg pt-[env(safe-area-inset-top)] outline-none"
           >

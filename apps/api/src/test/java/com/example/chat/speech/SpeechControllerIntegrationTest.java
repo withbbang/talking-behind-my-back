@@ -114,8 +114,8 @@ class SpeechControllerIntegrationTest {
 		}
 
 		@Test
-		void durationMs_상한_초과_400_AUDIO_TOO_LONG() throws Exception {
-			mvc.perform(multipart("/speech/stt").file(audio(new byte[]{1})).param("durationMs", "60001").cookie(access(me)))
+		void durationMs_상한_허용치_초과_400_AUDIO_TOO_LONG() throws Exception {
+			mvc.perform(multipart("/speech/stt").file(audio(new byte[]{1})).param("durationMs", "61001").cookie(access(me)))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("AUDIO_TOO_LONG"));
 			assertThat(stt.calls).isZero();

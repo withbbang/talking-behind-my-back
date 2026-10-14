@@ -14,6 +14,23 @@ describe('voiceMachine (DESIGN.md#7 상태 머신, 순수 함수)', () => {
     expect(reduceVoice(at('recording', { turn: 3 }), { type: 'RETRY' }).turn).toBe(4);
   });
 
+  it('빈 받아쓰기 3번 연속이면 일시정지 카드, 다시(RETRY)·전송 성공은 카운트 초기화 (D-048, T-051)', () => {
+    const empty = (s: VoiceState) => reduceVoice(reduceVoice(s, { type: 'STOP' }), { type: 'STT_EMPTY' });
+    let s = reduceVoice(initialVoiceState, { type: 'START' });
+    s = empty(s);
+    expect(s).toMatchObject({ phase: 'recording', emptyStreak: 1 });
+    s = empty(s);
+    expect(s).toMatchObject({ phase: 'recording', emptyStreak: 2 });
+    s = empty(s);
+    expect(s).toMatchObject({ phase: 'error', error: '조용하네?\n말할 때 다시 눌러줘' });
+    s = reduceVoice(s, { type: 'RETRY' });
+    expect(s).toMatchObject({ phase: 'recording', emptyStreak: 0 });
+
+    s = empty(empty(s));
+    s = reduceVoice(reduceVoice(s, { type: 'STOP' }), { type: 'SENT', messageId: 1 });
+    expect(s.emptyStreak).toBe(0);
+  });
+
   it('녹음 시작 실패(RECORD_FAIL) → error 공용 문구', () => {
     expect(reduceVoice(at('recording'), { type: 'RECORD_FAIL' })).toMatchObject({ phase: 'error', error: '시스템 오류. 다시 시도해줄래?' });
   });

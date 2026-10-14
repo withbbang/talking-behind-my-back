@@ -439,3 +439,29 @@
   (4) (키 생기면) `LLM_PROVIDER=gemini` 롤백 스트리밍.
 - 근거 파일: `speech/groq/*`, `llm/OpenAiCompatLlmClient.java`, `application*.yml`, `infra/docker-compose*.yml`, `.github/workflows/deploy.yml`, README#첫-배포-순서
 - date: 2026-10-13
+
+### [개발자 → QA] T-042~T-049 모바일 에뮬레이터 QA 후속 8건 — 검증 요청 [처리됨 2026-10-14, QA_REPORT.md#T-042~T-049 PASS]
+- 무엇: `QA_MOBILE_2026-10-14.md` B-1~B-8 수정. D-045(STT 무음 필터)·D-046(방 이름 멤버별)·D-047(시스템 라인 저장).
+- 검증 포인트:
+  (1) T-042 iOS Safari(모바일 폭) 드로어 안 "설정"·"로그아웃"·"제목 수정"·"나가기" 동작.
+  (2) T-043 보이스 60초 상한 → STT 200(실기기 또는 Android), "60초까지만 들을 수 있어!" 후 받아적기.
+  (3) T-044 무음 녹음 → "아무 말도 안 들렸는데?", 메시지 미전송. 실제 발화(작은 목소리 포함)는 정상 전사.
+  (4) T-045 참여자·개설자 각자 제목 수정이 자기 화면에만, 첫 메시지 자동 제목은 이름을 안 바꾼 쪽에만 보임, 초대 미리보기는 개설자 이름. V5 마이그레이션.
+  (5) T-046 없는 방/비멤버 `/rooms/{id}` — events 무한 재연결 없음, api ERROR 스택 없음, 헤더 "뒷담 친구".
+  (6) T-047 드로어 안 나가기 확인창이 화면 중앙 폭 320.
+  (7) T-048 드로어를 연 경로로 돌아와도 닫혀 있음.
+  (8) T-049 입장·퇴장·모드 변경 라인이 새로고침·재접속·입장자 본인 화면에도 동일, 방 목록 정렬·자동 제목·AI 답변에 영향 없음.
+- 근거 파일: `components/ui/{useMenu,ConfirmDialog}.ts(x)`, `components/chat/{ChatShell,RoomView,MessageList,RoomListItem,RoomHeaderSheet}.tsx`, `features/speech/useRecorder.ts`, `features/messages/useRoomEvents.ts`, `lib/sse.ts`, api `speech/{SpeechService,groq/GroqSttProvider}`, `global/error/GlobalExceptionHandler`, `chatroom/{ChatRoomService,RoomUpdate}`, `message/{Message,MessageResponse}`, mapper XML, `V5__member_custom_title.sql`
+- 테스트: api 353 passed, web 425 passed(lint 경고 1건은 기존 `_retry`), typecheck 통과. 각 태스크 실측 기록은 TASKS note.
+- 범위 외: T-050(iOS 소프트 키보드 입력창 가림, TODO).
+- date: 2026-10-14
+
+### [개발자 → QA] T-050·T-051·T-052 — 검증 요청 [처리됨 2026-10-14, QA_REPORT.md#T-050 PASS]
+- 무엇: iOS 키보드 레이아웃(T-050), 보이스 빈 받아쓰기 3연속 일시정지(T-051, D-048), 빈 녹음 업로드 생략(T-052).
+- 검증 포인트:
+  (1) T-050 iOS Safari 소프트 키보드: 입력창 탭 시·전송 직후 모두 헤더·최근 말풍선·입력창이 보임. 키보드 내리면 원래 높이. 위로 스크롤해 읽던 중이면 키보드가 떠도 그 자리.
+  (2) T-051 보이스 모드에서 무음·잡음으로 빈 결과 3번 → 카드 "조용하네? / 말할 때 다시 눌러줘", STT 호출 3회에서 멈춤, "다시" 로 재개.
+  (3) T-052 빈 녹음(iOS 시뮬레이터 등)은 STT 호출 없이 "아무 말도 안 들렸는데?".
+- 근거 파일: `lib/useVisualViewport.ts`, `components/chat/{ChatShell,MessageList}.tsx`, `features/speech/{voiceMachine,useVoiceMode,speechApi}.ts`, `components/voice/VoiceModeOverlay.tsx`, `lib/copy.ts`
+- 테스트: web 433 passed, lint(기존 경고 1)·typecheck 통과. api 변경 없음(353 passed).
+- date: 2026-10-14

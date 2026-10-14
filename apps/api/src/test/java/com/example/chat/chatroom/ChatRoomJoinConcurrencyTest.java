@@ -47,6 +47,7 @@ class ChatRoomJoinConcurrencyTest {
 	@AfterEach
 	void cleanup() {
 		if (roomId != null) {
+			jdbc.update("DELETE FROM messages WHERE room_id = ?", roomId);   // 입장 시스템 라인(T-049)
 			jdbc.update("DELETE FROM room_members WHERE room_id = ?", roomId);
 			jdbc.update("DELETE FROM chat_rooms WHERE id = ?", roomId);
 		}

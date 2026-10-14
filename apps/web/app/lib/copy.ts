@@ -9,6 +9,8 @@ export const VOICE_COPY = {
   speaking: '말하는 중',
   denied: '마이크 좀 열어줘. 브라우저 설정에서.',
   empty: '아무 말도 안 들렸는데?',
+  /** 빈 받아쓰기 연속 → 일시정지 카드(D-048) */
+  quiet: '조용하네?\n말할 때 다시 눌러줘',
   limit: '60초까지만 들을 수 있어!',
   aiOnly: 'AI 모드에서만 돼!',
 } as const;

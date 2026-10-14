@@ -42,6 +42,8 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
   const [titleDraft, setTitleDraft] = useState(room.title);
 
   const isOwner = room.role === 'OWNER';
+  // 제목은 누구나 바꿀 수 있다 — 자기 화면 이름만 바뀐다(D-046). 주인 없는 방은 PATCH 가 410 이라 막는다.
+  const canRename = room.status !== 'ORPHANED';
   const alone = room.memberCount < 2;
   const mode = pendingMode ?? room.mode;
 
@@ -75,7 +77,7 @@ export function RoomHeaderSheet({ room, open, onClose, onInvite }: Props) {
           />
         ) : (
           <h2 className="text-center text-[17px] leading-snug font-semibold break-keep">
-            {isOwner ? (
+            {canRename ? (
               <button
                 type="button"
                 aria-label={`제목 수정: ${room.title}`}

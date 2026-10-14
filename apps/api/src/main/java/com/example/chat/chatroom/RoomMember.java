@@ -21,6 +21,8 @@ public class RoomMember {
 	private Long roomId;
 	private Long userId;
 	private Role role;
+	/** 이 멤버가 붙인 방 이름(D-046). NULL 이면 chat_rooms.title. */
+	private String customTitle;
 	private LocalDateTime joinedAt;
 	private LocalDateTime leftAt;
 	/** 조회 전용 — users 조인으로 채움(findActiveByRoomId). insert 에는 쓰이지 않는다. */

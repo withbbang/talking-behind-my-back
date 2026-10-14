@@ -148,6 +148,23 @@ describe('useVoiceMode (DESIGN.md#7 루프 오케스트레이션)', () => {
     expect(useToastStore.getState().toast?.message).toBe('아무 말도 안 들렸는데?');
   });
 
+  it('빈 결과 3번 연속 → 3번째는 토스트 대신 일시정지 카드, 녹음을 다시 시작하지 않는다 (D-048, T-051)', async () => {
+    const transcribe = vi.fn(async () => ({ text: '', durationMs: 500 }));
+    const { result } = setup({ transcribe });
+    for (let i = 0; i < 2; i++) {
+      await flush();
+      useToastStore.setState({ toast: null });
+      await act(async () => result.current.done());
+      expect(useToastStore.getState().toast?.message).toBe('아무 말도 안 들렸는데?');
+    }
+    await flush();
+    useToastStore.setState({ toast: null });
+    await act(async () => result.current.done());
+    expect(result.current.state).toMatchObject({ phase: 'error', error: '조용하네?\n말할 때 다시 눌러줘' });
+    expect(useToastStore.getState().toast).toBeNull();
+    expect(transcribe).toHaveBeenCalledTimes(3);
+  });
+
   it('전송 409 ROOM_BUSY → error "아직 답 쓰는 중. 좀만 기다려줘!"', async () => {
     const { result } = setup({ send: vi.fn(async () => Promise.reject(new ApiError(409, 'ROOM_BUSY', 'busy'))) });
     await flush();
