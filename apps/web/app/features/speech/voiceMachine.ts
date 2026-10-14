@@ -1,4 +1,4 @@
-import { GENERIC_ERROR } from '@/lib/copy';
+import { GENERIC_ERROR, VOICE_COPY } from '@/lib/copy';
 
 /**
  * 보이스 모드 상태 머신 (DESIGN.md#7, D-029) — 순수 리듀서. 부수효과(녹음·STT·전송·TTS)는 useVoiceMode 가 상태 변화에 반응해 수행한다.
@@ -17,7 +17,12 @@ export type VoiceState = {
   error: string | null;
   /** recording 에 들어간 횟수 — 같은 phase 로 되돌아와도 효과(녹음 재시작)가 구분하도록 */
   turn: number;
+  /** 빈 받아쓰기 연속 횟수 — QUIET_AFTER_EMPTY 에 닿으면 일시정지(D-048). 다시·전송 성공이면 0 */
+  emptyStreak: number;
 };
+
+/** 빈 받아쓰기가 이만큼 연속이면 녹음을 멈춘다 — 잡음에 VAD 가 반응해 STT 가 반복 호출되는 것 방지(D-048, QA O-6) */
+export const QUIET_AFTER_EMPTY = 3;
 
 export type VoiceEvent =
   | { type: 'START' }
@@ -35,9 +40,9 @@ export type VoiceEvent =
   | { type: 'EXIT' }
   | { type: 'PERMISSION_DENIED' };
 
-export const initialVoiceState: VoiceState = { phase: 'idle', replyTo: null, speech: null, error: null, turn: 0 };
+export const initialVoiceState: VoiceState = { phase: 'idle', replyTo: null, speech: null, error: null, turn: 0, emptyStreak: 0 };
 
-const recording = (state: VoiceState): VoiceState => ({ ...initialVoiceState, phase: 'recording', turn: state.turn + 1 });
+const recording = (state: VoiceState, emptyStreak = 0): VoiceState => ({ ...initialVoiceState, phase: 'recording', turn: state.turn + 1, emptyStreak });
 const fail = (state: VoiceState, message: string = GENERIC_ERROR): VoiceState => ({ ...initialVoiceState, phase: 'error', error: message, turn: state.turn });
 
 export function reduceVoice(state: VoiceState, event: VoiceEvent): VoiceState {
@@ -54,8 +59,11 @@ export function reduceVoice(state: VoiceState, event: VoiceEvent): VoiceState {
       return state.phase === 'recording' ? { ...state, phase: 'transcribing' } : state;
     case 'RECORD_FAIL':
       return state.phase === 'recording' ? fail(state) : state;
-    case 'STT_EMPTY':
-      return state.phase === 'transcribing' ? recording(state) : state;
+    case 'STT_EMPTY': {
+      if (state.phase !== 'transcribing') return state;
+      const streak = state.emptyStreak + 1;
+      return streak >= QUIET_AFTER_EMPTY ? fail(state, VOICE_COPY.quiet) : recording(state, streak);
+    }
     case 'STT_FAIL':
       return state.phase === 'transcribing' ? fail(state) : state;
     case 'SEND_FAIL':

@@ -10,7 +10,7 @@ import { transcribe as transcribeApi } from './speechApi';
 import type { TtsPlayer, TtsSession } from './ttsPlayer';
 import { defaultRecorderDeps, RecorderError, useRecorder, type RecorderDeps, type Recording } from './useRecorder';
 import { useTtsStore } from './useTts';
-import { initialVoiceState, reduceVoice } from './voiceMachine';
+import { initialVoiceState, QUIET_AFTER_EMPTY, reduceVoice } from './voiceMachine';
 
 /**
  * 보이스 모드 루프 (DESIGN.md#7, D-029, D-033). 순수 리듀서(voiceMachine)의 phase 변화에 효과를 붙인다:
@@ -42,8 +42,10 @@ export function useVoiceMode({ roomId, active, send, onExit }: Params, deps?: Vo
   const show = useToastStore((s) => s.show);
   const run = useRef(0);
   const params = useRef({ send, onExit });
+  const emptyStreak = useRef(0);
   useEffect(() => {
     params.current = { send, onExit };
+    emptyStreak.current = state.emptyStreak;
   });
 
   const entry = useStreamStore((s) => (state.replyTo === null ? undefined : s.rooms[roomId]?.streams[state.replyTo]));
@@ -63,7 +65,8 @@ export function useVoiceMode({ roomId, active, send, onExit }: Params, deps?: Vo
       }
       if (stale()) return;
       if (!text) {
-        show(VOICE_COPY.empty);
+        // 연속 빈 결과가 상한에 닿는 번째는 토스트 대신 일시정지 카드(D-048)
+        if (emptyStreak.current + 1 < QUIET_AFTER_EMPTY) show(VOICE_COPY.empty);
         dispatch({ type: 'STT_EMPTY' });
         return;
       }

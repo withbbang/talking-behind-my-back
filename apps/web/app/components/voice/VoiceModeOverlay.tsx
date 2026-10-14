@@ -49,7 +49,7 @@ export function VoiceModeOverlay({ state, elapsedMs, preview, level = 0, onDone,
 
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-6">
         {card !== null ? (
-          <p className="bubble-in rounded-[22px] border border-ink/12 px-5 py-4 text-center text-[15px] break-keep">{card}</p>
+          <p className="bubble-in rounded-[22px] border border-ink/12 px-5 py-4 text-center text-[15px] break-keep whitespace-pre-line">{card}</p>
         ) : (
           <VoiceOrb phase={phase} level={level} onClick={phase === 'recording' ? onDone : undefined} buttonLabel="녹음 완료">
             {phase === 'recording' && <span className="text-[15px] font-semibold tabular-nums">{formatElapsed(elapsedMs)}</span>}
