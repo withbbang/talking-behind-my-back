@@ -5,6 +5,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { List } from '@phosphor-icons/react';
 import { Sheet } from '@/components/ui/Sheet';
 import { useRoom } from '@/features/rooms/useRooms';
+import { useVisualViewportVars } from '@/lib/useVisualViewport';
 import { InviteSheet } from './InviteSheet';
 import { RoomHeaderSheet } from './RoomHeaderSheet';
 import { Sidebar } from './Sidebar';
@@ -18,6 +19,7 @@ import { ThemeRow } from './ThemePicker';
  */
 export function ChatShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  useVisualViewportVars();
   const params = useParams<{ id?: string }>();
   const roomId = params?.id ? Number(params.id) : null;
   const room = useRoom(roomId);
@@ -44,7 +46,11 @@ export function ChatShell({ children }: { children: ReactNode }) {
   const title = roomId === null || room.isError ? '뒷담 친구' : (room.data?.title ?? '…');
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-bg text-ink">
+    // 보이는 영역에 고정(T-050): iOS 는 키보드가 떠도 100dvh 를 안 줄이고 페이지를 팬한다 → visual viewport 높이·오프셋으로 맞춘다.
+    <div
+      className="fixed inset-x-0 top-0 flex overflow-hidden bg-bg text-ink"
+      style={{ height: 'var(--vvh, 100dvh)', transform: 'translateY(var(--vvt, 0px))' }}
+    >
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-2 px-2 pt-[env(safe-area-inset-top)]">
           <span className="size-11 shrink-0 lg:hidden" aria-hidden="true" />

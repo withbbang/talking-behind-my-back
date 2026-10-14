@@ -98,6 +98,14 @@ describe('ChatShell (DESIGN.md#2 채팅 셸)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('셸은 보이는 영역(visual viewport)에 고정 — iOS 키보드가 떠도 입력창·헤더가 화면 안 (T-050)', () => {
+    const { container } = renderShell();
+    const shell = container.firstElementChild as HTMLElement;
+    expect(shell.className).toMatch(/\bfixed\b/);
+    expect(shell.style.height).toBe('var(--vvh, 100dvh)');
+    expect(shell.style.transform).toBe('translateY(var(--vvt, 0px))');
+  });
+
   it('방 안이면 상단 바에 방 제목', async () => {
     params = { id: '10' };
     pathname = '/rooms/10';

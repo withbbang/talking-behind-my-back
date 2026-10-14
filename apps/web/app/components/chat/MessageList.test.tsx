@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MessageList } from './MessageList';
 import { initialStreamState, type StreamState } from '@/lib/sse';
@@ -102,5 +102,54 @@ describe('MessageList (DESIGN.md#3 메시지 목록)', () => {
   it('모르는 발신자는 "나간 사람"', () => {
     render(<MessageList {...base} messages={[userMsg(1, { senderUserId: 99 })]} />);
     expect(within(screen.getByRole('list')).getByText('나간 사람')).toBeInTheDocument();
+  });
+
+  describe('목록 높이가 줄어도 맨 아래 유지 (T-050 iOS 키보드)', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('맨 아래에 붙어 있었으면 높이가 줄어든 뒤에도 맨 아래로 — 방금 보낸 말풍선이 입력창에 가리지 않게', () => {
+      const observers: { cb: ResizeObserverCallback }[] = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(public cb: ResizeObserverCallback) {
+            observers.push(this);
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+      const { container } = render(<MessageList {...base} messages={[userMsg(1), userMsg(2)]} />);
+      const scroller = container.firstElementChild as HTMLElement;
+      Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1000 });
+      Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 }); // 키보드로 줄어든 높이
+      scroller.scrollTop = 314; // 키보드 전(clientHeight 686)엔 맨 아래였던 위치
+      observers.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+      expect(scroller.scrollTop).toBe(1000);
+    });
+
+    it('위로 스크롤해 읽던 중이면 높이가 바뀌어도 그 자리', () => {
+      const observers: { cb: ResizeObserverCallback }[] = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(public cb: ResizeObserverCallback) {
+            observers.push(this);
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+      const { container } = render(<MessageList {...base} messages={[userMsg(1), userMsg(2)]} />);
+      const scroller = container.firstElementChild as HTMLElement;
+      Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1000 });
+      Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 });
+      scroller.scrollTop = 100;
+      fireEvent.scroll(scroller); // 사용자가 위로 올림 → stick 해제
+      observers.forEach((o) => o.cb([], o as unknown as ResizeObserver));
+      expect(scroller.scrollTop).toBe(100);
+    });
   });
 });
