@@ -977,7 +977,7 @@
   - 1~2번째 빈 결과는 기존대로 토스트 후 재청취. 받아쓰기 성공 시 카운트 초기화.
 - test: `voiceMachine.test.ts` +1(3연속 → 카드, RETRY·SENT 초기화), `useVoiceMode.test.tsx` +1(1~2번째 토스트, 3번째 카드·토스트 없음·STT 3회에서 멈춤).
 - qa:
-- note: 카드 줄바꿈 위해 오버레이 카드에 whitespace-pre-line. 문구는 lib/copy VOICE_COPY.quiet.
+- note: Android 에뮬레이터 실측: 빈 결과 3번(STT 3회, 01:59:11~17) → 카드 "조용하네? / 말할 때 다시 눌러줘", 이후 20초간 STT 0회(수정 전 2분간 6회 반복). 카드 줄바꿈 위해 오버레이 카드에 whitespace-pre-line. 문구는 lib/copy VOICE_COPY.quiet.
 
 ## T-052 빈 녹음은 업로드하지 않고 "아무 말도 안 들렸는데?" (web) — QA O-7
 - status: REVIEW
