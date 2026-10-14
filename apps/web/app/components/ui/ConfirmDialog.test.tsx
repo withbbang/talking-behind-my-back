@@ -9,6 +9,17 @@ const base = {
 };
 
 describe('ConfirmDialog (DESIGN.md 모달)', () => {
+  it('transform 이 걸린 드로어 안에서 열어도 body 로 포털 — fixed 기준이 화면이 된다 (T-047, 모바일 QA B-6)', () => {
+    const { container } = render(
+      <div data-testid="drawer" className="bubble-in">
+        <ConfirmDialog open {...base} />
+      </div>,
+    );
+    const dialog = screen.getByRole('dialog', { name: base.title });
+    expect(container.querySelector('[data-testid="drawer"]')?.contains(dialog)).toBe(false);
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
+  });
+
   it('open=false 면 렌더하지 않는다', () => {
     render(<ConfirmDialog open={false} {...base} />);
     expect(screen.queryByRole('dialog')).toBeNull();

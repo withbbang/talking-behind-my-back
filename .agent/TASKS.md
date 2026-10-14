@@ -911,7 +911,7 @@
 - spec: DESIGN.md#공통(ConfirmDialog 폭 320), QA_MOBILE_2026-10-14.md#B-6
 - blocked_by: 없음
 - acceptance:
-  - `ConfirmDialog`(와 시트)가 `document.body` 포털로 렌더 — 드로어(transform) 안에서 열어도 화면 중앙 폭 320.
+  - `ConfirmDialog` 가 `document.body` 포털로 렌더 — 드로어(transform) 안에서 열어도 화면 중앙 폭 320. (시트는 ChatShell 최상위에서 렌더돼 해당 없음)
   - 테스트: 드로어 안에서 연 다이얼로그가 드로어 DOM 밖(body 직속)에 있다.
 - test:
 - qa:
