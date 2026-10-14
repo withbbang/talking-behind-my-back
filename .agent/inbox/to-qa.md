@@ -455,3 +455,13 @@
 - 테스트: api 353 passed, web 425 passed(lint 경고 1건은 기존 `_retry`), typecheck 통과. 각 태스크 실측 기록은 TASKS note.
 - 범위 외: T-050(iOS 소프트 키보드 입력창 가림, TODO).
 - date: 2026-10-14
+
+### [개발자 → QA] T-050·T-051·T-052 — 검증 요청
+- 무엇: iOS 키보드 레이아웃(T-050), 보이스 빈 받아쓰기 3연속 일시정지(T-051, D-048), 빈 녹음 업로드 생략(T-052).
+- 검증 포인트:
+  (1) T-050 iOS Safari 소프트 키보드: 입력창 탭 시·전송 직후 모두 헤더·최근 말풍선·입력창이 보임. 키보드 내리면 원래 높이. 위로 스크롤해 읽던 중이면 키보드가 떠도 그 자리.
+  (2) T-051 보이스 모드에서 무음·잡음으로 빈 결과 3번 → 카드 "조용하네? / 말할 때 다시 눌러줘", STT 호출 3회에서 멈춤, "다시" 로 재개.
+  (3) T-052 빈 녹음(iOS 시뮬레이터 등)은 STT 호출 없이 "아무 말도 안 들렸는데?".
+- 근거 파일: `lib/useVisualViewport.ts`, `components/chat/{ChatShell,MessageList}.tsx`, `features/speech/{voiceMachine,useVoiceMode,speechApi}.ts`, `components/voice/VoiceModeOverlay.tsx`, `lib/copy.ts`
+- 테스트: web 433 passed, lint(기존 경고 1)·typecheck 통과. api 변경 없음(353 passed).
+- date: 2026-10-14

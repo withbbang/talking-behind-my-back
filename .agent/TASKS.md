@@ -24,6 +24,7 @@
 ```
 
 ## 진행 중 얻은 교훈 (착수 전 읽기 — 같은 데서 두 번 넘어지지 않기)
+- **iOS Safari 는 키보드가 떠도 `100dvh` 를 줄이지 않고 visual viewport 만 줄인 뒤 페이지를 팬한다**(`interactive-widget` 미지원). 하단 고정 UI 는 `visualViewport` 높이·offsetTop 기준으로(T-050). 높이가 줄면 스크롤 컨테이너의 "하단 근처" 판정도 깨지니 ResizeObserver 로 바닥 고정 유지. 소프트 키보드 실측은 시뮬레이터 하드웨어 키보드 연결을 끄고.
 - **iOS WebKit 은 탭한 버튼이 아니라 가장 가까운 focusable 조상(예: `tabIndex=-1` 드로어)으로 포커스를 옮긴다** — focusout `relatedTarget` 이 null 이 아니라 그 조상이 와서 "메뉴 밖으로 나감" 으로 오판, click 전에 메뉴가 사라진다(T-042). macOS Safari 의 null(T-032)과 다른 경로. 바깥 판정은 `next.contains(menu)`(조상) 도 제외. 모바일 드로어 안 메뉴는 iOS 시뮬레이터 실측 필수.
 - **테스트에서 `rerender(sameElement)` 는 React 가 재렌더를 건너뛴다** — 경로 mock 을 바꿔도 컴포넌트가 다시 안 그려져 버그가 있어도 통과(T-048). 매번 새 엘리먼트로.
 - **iOS 시뮬레이터의 MediaRecorder 는 빈 파일을 낸다**(mp4 0B·webm 5B, iOS 27 시뮬레이터 실측) → Groq 400 "could not process file". STT·보이스 루프 실측은 Android 에뮬레이터(무음이라도 실제 오디오) 또는 실기기로. iOS 27 Safari 는 `audio/webm;codecs=opus` 를 지원해 우리 후보 순서상 webm 이 선택된다.
@@ -953,7 +954,7 @@
 - note: 2인 실측: 입장한 참여자(Android) 화면에도 "QA봇B 등장!"(수정 전 없음), 모드 변경 후 새로고침해도 "QA봇B 등장!"·"유저끼리 대화 가능!" 유지. DB messages role=SYSTEM 2행, message_count 0 유지.
 
 ## T-050 iOS 소프트 키보드에서 입력창이 가려지거나 헤더·최근 메시지가 밀려남 (web) — T-045 실측 중 발견
-- status: IN_PROGRESS
+- status: REVIEW
 - owner: 개발자
 - milestone: M5
 - spec: DESIGN.md#원칙("입력창은 항상 하단 고정 — 키보드 올라와도 가려지지 않게"), T-034
@@ -961,12 +962,12 @@
 - acceptance:
   - iOS Safari(소프트 키보드)에서 전송 직후 포커스가 유지된 상태로도 입력창이 키보드 위에 보인다.
   - 입력창을 탭해 키보드가 올라와도 상단 바·최근 메시지가 화면 밖으로 밀려나지 않는다(visualViewport 기준 높이 등).
-- test:
+- test: `useVisualViewport.test.ts` 2(키보드 resize·scroll 반영, 미지원 폴백), `ChatShell.test.tsx` +1(셸 fixed + var(--vvh)/--vvt), `MessageList.test.tsx` +2(높이 축소 시 맨 아래 유지 / 읽던 자리 유지). web 433 passed.
 - qa:
-- note: 2026-10-14 iOS 18 Pro 시뮬레이터 실측. 전송 직후 화면: 키보드 y=488 부터, 포커스된 textarea 는 y=721 로 키보드 뒤. 입력창을 다시 탭하면 iOS 가 페이지를 밀어 올려 입력창은 보이지만 헤더·메시지가 화면 밖. `h-dvh` 는 iOS 키보드를 반영하지 않는다. 구현 방식(visualViewport 리스너 vs `interactive-widget`) 은 착수 시 제안 후 선택.
+- note: 구현: visualViewport → CSS 변수, 셸 fixed. 추가로 목록 높이가 줄면 stick 이 풀려 새 말풍선이 입력창 뒤에 걸리던 것도 ResizeObserver 로 수정. iOS 시뮬레이터(소프트 키보드) 실측: 입력창 탭·전송 직후 모두 헤더·방금 보낸 말풍선·입력창이 보임. Android 회귀 없음. 2026-10-14 iOS 18 Pro 시뮬레이터 실측. 전송 직후 화면: 키보드 y=488 부터, 포커스된 textarea 는 y=721 로 키보드 뒤. 입력창을 다시 탭하면 iOS 가 페이지를 밀어 올려 입력창은 보이지만 헤더·메시지가 화면 밖. `h-dvh` 는 iOS 키보드를 반영하지 않는다. 구현 방식(visualViewport 리스너 vs `interactive-widget`) 은 착수 시 제안 후 선택.
 
 ## T-051 보이스 모드 빈 받아쓰기 3번 연속이면 일시정지 (web) — D-048, QA O-6
-- status: IN_PROGRESS
+- status: REVIEW
 - owner: 개발자
 - milestone: M3
 - spec: D-048, DESIGN.md#7
@@ -974,17 +975,18 @@
 - acceptance:
   - 보이스 모드에서 STT 빈 결과가 3번 연속이면 녹음을 시작하지 않고 카드 "조용하네?\n말할 때 다시 눌러줘" + "다시". "다시" 를 누르면 카운트 0 으로 재청취.
   - 1~2번째 빈 결과는 기존대로 토스트 후 재청취. 받아쓰기 성공 시 카운트 초기화.
-- test:
+- test: `voiceMachine.test.ts` +1(3연속 → 카드, RETRY·SENT 초기화), `useVoiceMode.test.tsx` +1(1~2번째 토스트, 3번째 카드·토스트 없음·STT 3회에서 멈춤).
 - qa:
+- note: 카드 줄바꿈 위해 오버레이 카드에 whitespace-pre-line. 문구는 lib/copy VOICE_COPY.quiet.
 
 ## T-052 빈 녹음은 업로드하지 않고 "아무 말도 안 들렸는데?" (web) — QA O-7
-- status: IN_PROGRESS
+- status: REVIEW
 - owner: 개발자
 - milestone: M3
 - spec: DESIGN.md#7(STT 결과가 비면 토스트), QA_MOBILE_2026-10-14.md#O-7
 - blocked_by: 없음
 - acceptance:
   - 녹음 Blob 이 비었거나(0B) 컨테이너 헤더만 있는 수준(< 1KB)이면 `POST /speech/stt` 를 부르지 않고 빈 텍스트와 같은 처리(컴포저 토스트 / 보이스 모드 토스트·T-051 카운트).
-- test:
+- test: `speechApi.test.ts` +1(0·5·1023B 는 업로드 없이 빈 텍스트), 기존 케이스는 4KB Blob 으로.
 - qa:
 - note: iOS 27 시뮬레이터 실측 — webm 5B·mp4 0B 를 업로드해 Groq 400 → 502 "시스템 오류". 1KB 기준: 1초 opus/aac 녹음도 수 KB 이상.
