@@ -175,8 +175,8 @@ class SpeechServiceTest {
 		}
 
 		@Test
-		void 클라이언트_durationMs_가_상한을_넘으면_공급자를_부르지_않고_AUDIO_TOO_LONG() {
-			assertThatThrownBy(() -> service.stt(7L, webm(new byte[]{1}), (MAX_AUDIO_SECONDS + 1) * 1000L))
+		void 클라이언트_durationMs_가_상한_허용치를_넘으면_공급자를_부르지_않고_AUDIO_TOO_LONG() {
+			assertThatThrownBy(() -> service.stt(7L, webm(new byte[]{1}), MAX_AUDIO_SECONDS * 1000L + 1001))
 				.isInstanceOf(BusinessException.class)
 				.extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(ErrorCode.AUDIO_TOO_LONG);
 
@@ -186,8 +186,18 @@ class SpeechServiceTest {
 		}
 
 		@Test
-		void 공급자가_보고한_길이가_상한을_넘어도_AUDIO_TOO_LONG_이고_파일은_지워진다() {
-			stt.reply = new SttProvider.Transcript("긴 말", MAX_AUDIO_SECONDS * 1000L + 1);
+		void 상한에_닿아_자동_종료된_녹음은_1초_허용치_안이면_통과한다_T043() {
+			// 클라이언트 타이머가 60초에 멈춰도 stop 이벤트·컨테이너 길이는 60초를 조금 넘는다(모바일 QA B-2).
+			stt.reply = new SttProvider.Transcript("끝까지 말함", MAX_AUDIO_SECONDS * 1000L + 480);
+
+			var result = service.stt(7L, webm(new byte[]{1}), MAX_AUDIO_SECONDS * 1000L + 40);
+
+			assertThat(result.text()).isEqualTo("끝까지 말함");
+		}
+
+		@Test
+		void 공급자가_보고한_길이가_상한_허용치를_넘어도_AUDIO_TOO_LONG_이고_파일은_지워진다() {
+			stt.reply = new SttProvider.Transcript("긴 말", MAX_AUDIO_SECONDS * 1000L + 1001);
 
 			assertThatThrownBy(() -> service.stt(7L, webm(new byte[]{1}), null))
 				.isInstanceOf(BusinessException.class)

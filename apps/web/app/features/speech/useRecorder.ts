@@ -108,7 +108,10 @@ export function useRecorder(options: Options = {}, deps: RecorderDeps = defaultR
         s.recorder.addEventListener(
           'stop',
           () => {
-            const durationMs = Date.now() - s.startedAt;
+            // stop 이벤트는 비동기라 상한 자동 종료여도 maxMs + α 가 된다 → 서버 상한(AUDIO_TOO_LONG)에 걸리지 않게 자른다(T-043).
+            const elapsed = Date.now() - s.startedAt;
+            const { maxMs } = opts.current;
+            const durationMs = hitLimit && maxMs ? Math.min(elapsed, maxMs) : elapsed;
             const blob = new Blob(s.chunks, { type: s.mimeType.split(';')[0] });
             cleanup();
             resolve({ blob, mimeType: s.mimeType, durationMs, hitLimit });
