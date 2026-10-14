@@ -148,6 +148,17 @@ class GroqSttProviderTest {
 	}
 
 	@Test
+	void 상류_400_은_오류_메시지를_예외에_담는다_원인_추적용() throws Exception {
+		server.enqueue(new MockResponse().setResponseCode(400).setHeader("Content-Type", "application/json")
+			.setBody("{\"error\":{\"message\":\"could not process file - is it a valid media file?\",\"type\":\"invalid_request_error\"}}"));
+
+		assertThatThrownBy(() -> provider.transcribe(audioFile("a.mp4", "x"), "audio/mp4"))
+			.isInstanceOf(SpeechException.class)
+			.hasMessageContaining("400")
+			.hasMessageContaining("could not process file");
+	}
+
+	@Test
 	void text_가_없는_응답은_SpeechException() throws Exception {
 		server.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody("{\"foo\":1}"));
 

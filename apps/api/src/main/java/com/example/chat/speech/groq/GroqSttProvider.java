@@ -52,7 +52,7 @@ public class GroqSttProvider implements SttProvider {
 				.timeout(props.timeout())
 				.block();
 		} catch (WebClientResponseException e) {
-			throw new SpeechException("groq stt responded " + e.getStatusCode().value(), e);
+			throw new SpeechException("groq stt responded " + e.getStatusCode().value() + upstreamMessage(e), e);
 		} catch (RuntimeException e) {
 			throw new SpeechException("groq stt call failed: " + SpeechException.rootName(e), e);
 		}
@@ -88,6 +88,19 @@ public class GroqSttProvider implements SttProvider {
 	@Override
 	public String name() {
 		return "groq";
+	}
+
+	/**
+	 * 상류 오류 본문의 `error.message`(공급자 문구, 사용자 음성·텍스트 아님)만 붙인다 — "groq stt responded 400" 만으로는
+	 * 파일 형식 문제인지 길이 문제인지 알 수 없었다(T-043 실측: iOS 60초 녹음 400). 200자 이내.
+	 */
+	private String upstreamMessage(WebClientResponseException e) {
+		try {
+			String msg = json.readTree(e.getResponseBodyAsString()).path("error").path("message").asString("");
+			return msg.isBlank() ? "" : ": " + (msg.length() > 200 ? msg.substring(0, 200) : msg);
+		} catch (RuntimeException ignored) {
+			return "";
+		}
 	}
 
 	private static MediaType mediaType(String contentType) {
