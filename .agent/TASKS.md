@@ -24,6 +24,10 @@
 ```
 
 ## 진행 중 얻은 교훈 (착수 전 읽기 — 같은 데서 두 번 넘어지지 않기)
+- **iOS WebKit 은 탭한 버튼이 아니라 가장 가까운 focusable 조상(예: `tabIndex=-1` 드로어)으로 포커스를 옮긴다** — focusout `relatedTarget` 이 null 이 아니라 그 조상이 와서 "메뉴 밖으로 나감" 으로 오판, click 전에 메뉴가 사라진다(T-042). macOS Safari 의 null(T-032)과 다른 경로. 바깥 판정은 `next.contains(menu)`(조상) 도 제외. 모바일 드로어 안 메뉴는 iOS 시뮬레이터 실측 필수.
+- **테스트에서 `rerender(sameElement)` 는 React 가 재렌더를 건너뛴다** — 경로 mock 을 바꿔도 컴포넌트가 다시 안 그려져 버그가 있어도 통과(T-048). 매번 새 엘리먼트로.
+- **iOS 시뮬레이터의 MediaRecorder 는 빈 파일을 낸다**(mp4 0B·webm 5B, iOS 27 시뮬레이터 실측) → Groq 400 "could not process file". STT·보이스 루프 실측은 Android 에뮬레이터(무음이라도 실제 오디오) 또는 실기기로. iOS 27 Safari 는 `audio/webm;codecs=opus` 를 지원해 우리 후보 순서상 webm 이 선택된다.
+- **Whisper 는 무음에 " you"/"Thank you." 를 지어낸다** — 무음 판정은 원래 기준(nsp>0.6 **and** logprob<-1)으로는 안 걸린다(실측 nsp 0.70·lp -0.71). D-045: or + 구두점뿐이면 빈 텍스트.
 - **Boot 4 import 는 Homepage/Admin 기존 코드에서 먼저 확인.** 예: `@WebMvcTest`/`@AutoConfigureMockMvc` 는
   `org.springframework.boot.webmvc.test.autoconfigure.*`. Jackson 은 `tools.jackson.*`. 기억으로 쓰지 말 것.
 - **Boot 4 BOM 미관리 라이브러리는 버전 명시.** okhttp/mockwebserver, mybatis-spring-boot, jjwt, springdoc.
@@ -837,7 +841,7 @@
 ## 모바일 에뮬레이터 QA 후속 (2026-10-14, `QA_MOBILE_2026-10-14.md`)
 
 ## T-042 iOS 드로어 안 메뉴 항목 무반응 (web) — QA B-1
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M5
 - spec: DESIGN.md#2, QA_MOBILE_2026-10-14.md#B-1
@@ -846,12 +850,12 @@
   - 모바일 드로어 안 프로필 메뉴 "설정"·"로그아웃", 방 … 메뉴 "제목 수정"·"나가기" 가 iOS Safari 에서 동작(시뮬레이터 실측).
   - 포커스가 메뉴 밖의 **포커스 가능한 조상**(드로어 `tabIndex=-1`)으로 가는 focusout 으로는 메뉴가 닫히지 않는다 — `useMenu` 테스트로 재현(RED) 후 수정.
   - 키보드 Tab 으로 메뉴 밖 버튼에 가면 여전히 닫힌다(기존 동작 유지).
-- test:
+- test: `ChatShell.settings.test.tsx` +2(드로어 안 focusout relatedTarget=드로어 → 설정 열림 / Tab 이탈 시 닫힘). web 425 passed.
 - qa:
-- note: 원인 추정 — iOS WebKit 은 탭한 버튼이 아니라 가장 가까운 focusable 조상으로 포커스를 옮김 → `relatedTarget` = 드로어. 드로어 `ref={(el) => el?.focus()}` 인라인 콜백 재실행도 확인.
+- note: 2026-10-14 착수·REVIEW. iOS 시뮬레이터 실측: 드로어 프로필 "설정"→설정 시트, 방 … "제목 수정"→인라인 입력, 설정→"초대"→초대 시트 모두 동작(수정 전 무반응). 원인 추정 — iOS WebKit 은 탭한 버튼이 아니라 가장 가까운 focusable 조상으로 포커스를 옮김 → `relatedTarget` = 드로어. 드로어 `ref={(el) => el?.focus()}` 인라인 콜백 재실행도 확인.
 
 ## T-043 보이스 60초 상한 도달 시 STT 400 (web, api) — QA B-2
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M3
 - spec: DESIGN.md#7, API.md#speech, QA_MOBILE_2026-10-14.md#B-2
@@ -860,11 +864,12 @@
   - 상한 자동 종료 녹음(`hitLimit`)의 `durationMs` 는 `maxMs` 를 넘지 않게 보고한다(클라이언트 테스트: 60,000 + α → 60,000).
   - 서버는 상한 검사에 **1초 허용치**를 둔다(`durationMs ≤ 61,000` 통과, 공급자 보고 길이도 동일) — 컨테이너 길이 오차 대비. 61,001 이상은 기존대로 `AUDIO_TOO_LONG`.
   - 60초 녹음 → 토스트 "60초까지만 들을 수 있어!" 후 받아적기 진행(실측).
-- test:
+- test: `useRecorder.test.tsx` +1(stop 이벤트 40ms 지연 → durationMs 60,000), `SpeechServiceTest` 경계(60,040 통과·61,001 거부), `SpeechControllerIntegrationTest` 61001. api 353·web 425 passed.
 - qa:
+- note: Android 에뮬레이터 실측: 보이스 60초 상한 → `POST /speech/stt 200` → (무음) "아무 말도 안 들렸는데?" → 재청취(수정 전 400 AUDIO_TOO_LONG → 시스템 오류). iOS 시뮬레이터는 MediaRecorder 가 빈 파일(mp4 0B·webm 5B)을 내 STT 자체를 검증 불가 — 환경 한계(진단 페이지로 확인). 실측 중 원인 추적용으로 Groq 오류 메시지 로깅 추가.
 
 ## T-044 무음 녹음 STT 환각 필터 (api) — D-045, QA B-3
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M3
 - spec: D-045, API.md#speech
@@ -873,11 +878,12 @@
   - Groq 응답 `segments` 중 `no_speech_prob > 0.6 || avg_logprob < -1.0` 세그먼트를 버리고 텍스트 구성. 남은 게 구두점뿐이거나 전부 버려지면 `text: ""`(D-045 실측 기준).
   - `segments` 없으면 `text` 그대로. 정상 발화 세그먼트는 유지.
   - 무음 녹음 → 프론트 "아무 말도 안 들렸는데?" 토스트, 메시지 미전송(실측).
-- test:
+- test: `GroqSttProviderTest` +6(Groq 실측 응답 픽스처: 무음 " you"·잡음 "."·"Kjell Kronström"·실제 발화·뒤 무음 세그먼트·segments 없음). api 353 passed.
 - qa:
+- note: Android 실측: 컴포저 마이크 무음 녹음 → STT 200 빈 텍스트 → 메시지 미전송(수정 전 "Thank you." VOICE 전송+AI 응답). 임계값은 Groq 실측으로 D-045 정정(and → or + 구두점).
 
 ## T-045 방 이름 멤버별 개인화 (api, web) — D-046, QA B-4
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
 - spec: D-046, API.md#rooms, SCHEMA.md#4-1
@@ -889,11 +895,12 @@
   - 첫 메시지 자동 제목은 `chat_rooms.title` 만 갱신(현상 유지) — custom_title 을 정한 사람은 자기 이름 유지.
   - 초대 미리보기 `title` = 개설자가 보는 이름.
   - web: 참여자에게도 목록 … "제목 수정"·설정 시트 제목 편집이 열린다.
-- test:
+- test: `ChatRoomServiceTest` +4(개설자·참여자 각자 이름, 공용 제목 변경 시 개인 이름 유지, 미리보기=개설자 이름, aiPersonality/aiPrompt 개설자만), `ChatRoomControllerIntegrationTest` 참여자 title 200, `RoomListItem`·`RoomHeaderSheet` 테스트 갱신. V5 마이그레이션.
 - qa:
+- note: 2인 실측: 참여자(Android) "제목 수정"→"B name"(본인만), 개설자(iOS) 첫 메시지 → 공용 자동 제목 "첫 메시지 자동제목 테스트", 참여자는 "B name" 유지. DB room_members.custom_title 확인.
 
 ## T-046 없는 방·비멤버 SSE 500 무한 재연결 (api, web) — QA B-5
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
 - spec: API.md#messages(events 비멤버 404), QA_MOBILE_2026-10-14.md#B-5
@@ -901,11 +908,12 @@
 - acceptance:
   - `GET /rooms/{id}/events` 비멤버·없는 방 → **404**(500 아님), ERROR 스택 로그 없음(ListAppender 단언).
   - web: 방 조회가 404/410 이면 SSE 를 열지 않고, SSE 가 4xx 로 실패하면 재연결하지 않는다.
-- test:
+- test: `MessageControllerIntegrationTest` +2(EventSource Accept 404 JSON), `sse.test.ts` +2(shouldReconnect), `useRoomEvents.test.tsx` +3, `RoomView.test.tsx` +1(404 면 구독 닫힘), `ChatShell.settings.test.tsx` +1(헤더 폴백).
 - qa:
+- note: iOS 실측: `/rooms/99999999` 30초 관찰 — events 재연결 없음(로딩 중 1회 후 클라이언트가 닫음 499), api ERROR 스택 0, 헤더 "뒷담 친구"(수정 전 ~8초마다 500 무한 + 헤더 "…").
 
 ## T-047 드로어 안 확인 다이얼로그가 화면 중앙이 아님 (web) — QA B-6
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M5
 - spec: DESIGN.md#공통(ConfirmDialog 폭 320), QA_MOBILE_2026-10-14.md#B-6
@@ -913,22 +921,24 @@
 - acceptance:
   - `ConfirmDialog` 가 `document.body` 포털로 렌더 — 드로어(transform) 안에서 열어도 화면 중앙 폭 320. (시트는 ChatShell 최상위에서 렌더돼 해당 없음)
   - 테스트: 드로어 안에서 연 다이얼로그가 드로어 DOM 밖(body 직속)에 있다.
-- test:
+- test: `ConfirmDialog.test.tsx` +1(transform 조상 안에서도 body 직속 포털).
 - qa:
+- note: Android 실측: 드로어 → 나가기 확인창이 화면 중앙·정상 폭(수정 전 드로어 안 ~190px).
 
 ## T-048 드로어가 같은 경로로 돌아오면 다시 열림 (web) — QA B-7
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M5
 - spec: DESIGN.md#2(경로 이동으로 닫힘), QA_MOBILE_2026-10-14.md#B-7
 - blocked_by: 없음
 - acceptance:
   - 드로어를 연 경로 X → 다른 경로 → 다시 X 로 와도 드로어는 닫혀 있다(ChatShell 테스트).
-- test:
+- test: `ChatShell.test.tsx` +1(연 경로 → 다른 경로 → 복귀 시 닫힘 — 같은 엘리먼트 rerender 는 재렌더를 건너뛰므로 새로 생성).
 - qa:
+- note: iOS 실측: 드로어를 연 `/rooms/99999999` → 다른 방 → Safari 뒤로 → 드로어 닫힌 채. 드로어 포커스 ref 도 고정 콜백으로.
 
 ## T-049 시스템 라인 서버 저장 (api, web) — D-047, QA B-8
-- status: TODO
+- status: REVIEW
 - owner: 개발자
 - milestone: M2
 - spec: D-047, API.md#messages, SCHEMA.md#5
@@ -938,5 +948,19 @@
   - 시스템 행은 `message_count`·`last_message_at` 불변, AI 컨텍스트 제외, 자동 제목 판정 불변.
   - `GET messages` 에 포함, SSE `member`·`mode` 이벤트에 `message`(SYSTEM Message) 포함.
   - web: 시스템 라인을 메시지 목록의 SYSTEM 행으로 렌더(새로고침 후 유지, 입장자 본인 화면에도 "등장"), 실시간 수신분과 히스토리 중복 없음.
+- test: `ChatRoomServiceTest` Events 재작성(+3: 저장·히스토리·count 불변·같은 mode 무시·퇴장+자동 복귀), `MessageServiceTest` +2(컨텍스트 제외·자동 제목), `ChatRoomJoinConcurrencyTest` 정리 보강, `MessageList.test.tsx` +1, `useRoomEvents.test.tsx` +1.
+- qa:
+- note: 2인 실측: 입장한 참여자(Android) 화면에도 "QA봇B 등장!"(수정 전 없음), 모드 변경 후 새로고침해도 "QA봇B 등장!"·"유저끼리 대화 가능!" 유지. DB messages role=SYSTEM 2행, message_count 0 유지.
+
+## T-050 iOS 소프트 키보드에서 입력창이 가려지거나 헤더·최근 메시지가 밀려남 (web) — T-045 실측 중 발견
+- status: TODO
+- owner: 개발자
+- milestone: M5
+- spec: DESIGN.md#원칙("입력창은 항상 하단 고정 — 키보드 올라와도 가려지지 않게"), T-034
+- blocked_by: 없음
+- acceptance:
+  - iOS Safari(소프트 키보드)에서 전송 직후 포커스가 유지된 상태로도 입력창이 키보드 위에 보인다.
+  - 입력창을 탭해 키보드가 올라와도 상단 바·최근 메시지가 화면 밖으로 밀려나지 않는다(visualViewport 기준 높이 등).
 - test:
 - qa:
+- note: 2026-10-14 iOS 18 Pro 시뮬레이터 실측. 전송 직후 화면: 키보드 y=488 부터, 포커스된 textarea 는 y=721 로 키보드 뒤. 입력창을 다시 탭하면 iOS 가 페이지를 밀어 올려 입력창은 보이지만 헤더·메시지가 화면 밖. `h-dvh` 는 iOS 키보드를 반영하지 않는다. 구현 방식(visualViewport 리스너 vs `interactive-widget`) 은 착수 시 제안 후 선택.

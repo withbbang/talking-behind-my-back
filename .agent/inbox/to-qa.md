@@ -439,3 +439,19 @@
   (4) (키 생기면) `LLM_PROVIDER=gemini` 롤백 스트리밍.
 - 근거 파일: `speech/groq/*`, `llm/OpenAiCompatLlmClient.java`, `application*.yml`, `infra/docker-compose*.yml`, `.github/workflows/deploy.yml`, README#첫-배포-순서
 - date: 2026-10-13
+
+### [개발자 → QA] T-042~T-049 모바일 에뮬레이터 QA 후속 8건 — 검증 요청
+- 무엇: `QA_MOBILE_2026-10-14.md` B-1~B-8 수정. D-045(STT 무음 필터)·D-046(방 이름 멤버별)·D-047(시스템 라인 저장).
+- 검증 포인트:
+  (1) T-042 iOS Safari(모바일 폭) 드로어 안 "설정"·"로그아웃"·"제목 수정"·"나가기" 동작.
+  (2) T-043 보이스 60초 상한 → STT 200(실기기 또는 Android), "60초까지만 들을 수 있어!" 후 받아적기.
+  (3) T-044 무음 녹음 → "아무 말도 안 들렸는데?", 메시지 미전송. 실제 발화(작은 목소리 포함)는 정상 전사.
+  (4) T-045 참여자·개설자 각자 제목 수정이 자기 화면에만, 첫 메시지 자동 제목은 이름을 안 바꾼 쪽에만 보임, 초대 미리보기는 개설자 이름. V5 마이그레이션.
+  (5) T-046 없는 방/비멤버 `/rooms/{id}` — events 무한 재연결 없음, api ERROR 스택 없음, 헤더 "뒷담 친구".
+  (6) T-047 드로어 안 나가기 확인창이 화면 중앙 폭 320.
+  (7) T-048 드로어를 연 경로로 돌아와도 닫혀 있음.
+  (8) T-049 입장·퇴장·모드 변경 라인이 새로고침·재접속·입장자 본인 화면에도 동일, 방 목록 정렬·자동 제목·AI 답변에 영향 없음.
+- 근거 파일: `components/ui/{useMenu,ConfirmDialog}.ts(x)`, `components/chat/{ChatShell,RoomView,MessageList,RoomListItem,RoomHeaderSheet}.tsx`, `features/speech/useRecorder.ts`, `features/messages/useRoomEvents.ts`, `lib/sse.ts`, api `speech/{SpeechService,groq/GroqSttProvider}`, `global/error/GlobalExceptionHandler`, `chatroom/{ChatRoomService,RoomUpdate}`, `message/{Message,MessageResponse}`, mapper XML, `V5__member_custom_title.sql`
+- 테스트: api 353 passed, web 425 passed(lint 경고 1건은 기존 `_retry`), typecheck 통과. 각 태스크 실측 기록은 TASKS note.
+- 범위 외: T-050(iOS 소프트 키보드 입력창 가림, TODO).
+- date: 2026-10-14
