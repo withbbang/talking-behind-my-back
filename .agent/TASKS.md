@@ -870,7 +870,7 @@
 - spec: D-045, API.md#speech
 - blocked_by: 없음
 - acceptance:
-  - Groq 응답 `segments` 중 `no_speech_prob > 0.6 && avg_logprob < -1.0` 세그먼트를 버리고 텍스트 구성. 전부 버려지면 `text: ""`.
+  - Groq 응답 `segments` 중 `no_speech_prob > 0.6 || avg_logprob < -1.0` 세그먼트를 버리고 텍스트 구성. 남은 게 구두점뿐이거나 전부 버려지면 `text: ""`(D-045 실측 기준).
   - `segments` 없으면 `text` 그대로. 정상 발화 세그먼트는 유지.
   - 무음 녹음 → 프론트 "아무 말도 안 들렸는데?" 토스트, 메시지 미전송(실측).
 - test:

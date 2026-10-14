@@ -442,7 +442,8 @@
 - date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "STT 는 Groq 직접, TTS 는 Azure", 폴백 없음, Gemini 직접 롤백)
 
 ### D-045 무음 녹음 STT 환각은 서버에서 거른다
-- decision: Groq `verbose_json` 의 `segments` 중 **`no_speech_prob > 0.6` 이고 `avg_logprob < -1.0`** 인 세그먼트(Whisper 기본 무음 판정과 같은 기준)를 버리고 남은 세그먼트로 텍스트를 만든다. 전부 버려지면 빈 텍스트 → 프론트 기존 분기("아무 말도 안 들렸는데?" 토스트). `segments` 가 없으면 `text` 그대로. 컴포저 마이크·보이스 모드 공통.
+- decision: Groq `verbose_json` 의 `segments` 중 **`no_speech_prob > 0.6` 이거나 `avg_logprob < -1.0`** 인 세그먼트를 버리고 남은 세그먼트로 텍스트를 만든다. 남은 텍스트에 글자·숫자가 없으면(구두점뿐) 빈 텍스트. 전부 버려지면 빈 텍스트 → 프론트 기존 분기("아무 말도 안 들렸는데?" 토스트). `segments` 가 없으면 `text` 그대로. 컴포저 마이크·보이스 모드 공통.
+- 기준 실측(2026-10-14, whisper-large-v3): 완전 무음 → " you"(nsp 0.70, lp -0.71), 약한 잡음·험 → " ."(nsp 0.08~0.25), 큰 잡음 → "Kjell Kronström"(nsp 0.10, lp -1.35), 실제 발화(작은 목소리 포함) → nsp ≈ 0, lp -0.03~-0.18. Whisper 원래 기준(nsp>0.6 **and** lp<-1.0)으로는 무음 " you" 가 통과해 **or** + 구두점 판정으로 정함.
 - rationale: 모바일 에뮬레이터 QA(2026-10-14 B-3)에서 무음 녹음이 "Thank you." 로 전사돼 VOICE 메시지로 전송·AI 응답·사용량 집계됨. 서버 한 곳에서 막으면 두 입력 경로가 함께 해결된다.
 - alternatives: 클라이언트 VAD 로 발화 없으면 STT 생략 — 컴포저 마이크에 미터 추가 필요·작은 목소리 오판 위험으로 이번엔 기각. 둘 다 — 범위 과다.
 - impact: T-044 (`speech/groq/GroqSttProvider`). API.md#speech 응답 규칙.
