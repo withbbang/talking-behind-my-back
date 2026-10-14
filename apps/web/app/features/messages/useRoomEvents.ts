@@ -33,11 +33,15 @@ export function useRoomEvents(roomId: number, enabled = true) {
           client.setQueryData<MessagesData>(messagesKey(roomId), (old) => appendMessage(old, event.data.message));
           void client.invalidateQueries({ queryKey: ROOMS_KEY, exact: true });
           break;
-        case 'mode':
+        case 'mode': {
+          const { message } = event.data;
           client.setQueryData<Room>(roomKey(roomId), (old) => (old ? { ...old, mode: event.data.mode } : old));
+          if (message) client.setQueryData<MessagesData>(messagesKey(roomId), (old) => appendMessage(old, message)); // D-047
           break;
+        }
         case 'member': {
-          const { action, userId, nickname, role, roomStatus } = event.data;
+          const { action, userId, nickname, role, roomStatus, message } = event.data;
+          if (message) client.setQueryData<MessagesData>(messagesKey(roomId), (old) => appendMessage(old, message)); // D-047
           client.setQueryData<Room>(roomKey(roomId), (old) => {
             if (!old) return old;
             const rest = old.members.filter((m) => m.userId !== userId);

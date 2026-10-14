@@ -97,7 +97,7 @@
 | id | BIGINT UNSIGNED | PK | 커서 페이징 키 |
 | room_id | BIGINT UNSIGNED | FK chat_rooms, NOT NULL | |
 | sender_user_id | BIGINT UNSIGNED | FK users, NULL | USER 만: 발신 유저. ASSISTANT 는 NULL (V2) |
-| role | VARCHAR(20) | NOT NULL | USER / ASSISTANT |
+| role | VARCHAR(20) | NOT NULL | USER / ASSISTANT / SYSTEM(입장·퇴장·모드 라인, D-047 — content = 종류 코드, sender = 대상 유저, mode = 변경 후 모드, 공개) |
 | content | MEDIUMTEXT | NOT NULL | |
 | input_type | VARCHAR(20) | NULL | USER만: TEXT / VOICE |
 | mode | VARCHAR(20) | NULL | 발신 당시 방 모드 AI / HUMAN (V2). 컨텍스트 필터·라벨링·통계용 |
@@ -110,7 +110,7 @@
 - INDEX `(room_id, id)`, `(sender_user_id)`, `(room_id, visible_to_user_id, id)`(V4 — 뷰어 필터가 붙은 커서 페이징용). 메시지 개별 삭제 없음. 방 이탈해도 메시지는 남는다.
 - **가시성(V4, D-037)**: `mode='AI'` USER 행은 `visible_to_user_id = sender_user_id`, 그 응답 ASSISTANT 행은 트리거 USER 의 발신자. `mode='HUMAN'` USER 행은 NULL(방 전원).
   조회는 언제나 `visible_to_user_id IS NULL OR visible_to_user_id = :viewer`. 모드가 바뀌어도 이미 저장된 행의 가시성은 변하지 않는다.
-- **AI 컨텍스트(D-037)**: `role='ASSISTANT' OR mode='AI'` 만 넣는다 — `HUMAN` 모드 USER 행은 영구 제외. `AI` 모드 행은 **양쪽 유저 것을 전부** 넣는다(가시성과 무관).
+- **AI 컨텍스트(D-037)**: `role='ASSISTANT' OR (role='USER' AND mode='AI')` 만 넣는다(SYSTEM 제외, D-047) — `HUMAN` 모드 USER 행은 영구 제외. `AI` 모드 행은 **양쪽 유저 것을 전부** 넣는다(가시성과 무관).
 - V2 백필: 기존 USER 행은 `sender_user_id = 방 owner_id`, `mode='AI'`(V1 은 1인 방). ASSISTANT 는 둘 다 NULL 유지.
 - V4 백필: `mode='AI'` USER 행 → `visible_to_user_id = sender_user_id`. ASSISTANT 행 → 직전 `AI` 모드 USER 행의 발신자(없으면 NULL). `HUMAN` USER 행 → NULL.
 - 오디오 관련 컬럼 없음 — 원본을 저장하지 않는다(D-007).

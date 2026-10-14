@@ -5,9 +5,13 @@ import com.example.chat.global.CursorCodec;
 import com.example.chat.global.CursorPage;
 import com.example.chat.global.error.BusinessException;
 import com.example.chat.global.error.ErrorCode;
+import com.example.chat.message.Message;
+import com.example.chat.message.MessageMapper;
+import com.example.chat.message.MessageResponse;
 import com.example.chat.message.RoomEventBus;
 import com.example.chat.user.UserMapper;
 import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -32,14 +36,17 @@ public class ChatRoomService {
 	private final RoomMemberMapper members;
 	private final UserMapper users;
 	private final RoomEventBus bus;
+	private final MessageMapper messages;
 	private final String baseUrl;
 	private final ZoneId zone;
 
-	public ChatRoomService(ChatRoomMapper rooms, RoomMemberMapper members, UserMapper users, RoomEventBus bus, AppProperties props) {
+	public ChatRoomService(ChatRoomMapper rooms, RoomMemberMapper members, UserMapper users, RoomEventBus bus, MessageMapper messages,
+		AppProperties props) {
 		this.rooms = rooms;
 		this.members = members;
 		this.users = users;
 		this.bus = bus;
+		this.messages = messages;
 		this.baseUrl = props.baseUrl();
 		this.zone = props.zoneId();
 	}
@@ -111,9 +118,9 @@ public class ChatRoomService {
 		}
 		// 제목은 누가 바꾸든 자기 화면 이름만(D-046). 공용 chat_rooms.title 은 생성값·첫 메시지 자동 제목.
 		if (update.title() != null) members.updateCustomTitle(roomId, userId, update.title().trim());
-		if (update.mode() != null) {
+		if (update.mode() != null && update.mode() != room.getMode()) {
 			rooms.updateMode(roomId, update.mode());
-			bus.publish(roomId, "mode", Map.of("mode", update.mode().name()));
+			publishMode(roomId, userId, update.mode());
 		}
 		if (update.aiPersonality() != null) {
 			rooms.updateAiPersonality(roomId, update.aiPersonality());
@@ -155,7 +162,7 @@ public class ChatRoomService {
 			publishMember(roomId, "LEFT", userId, RoomMember.Role.PARTICIPANT, room.getStatus());
 			if (!room.isOrphaned() && room.getMode() != RoomMode.AI) {
 				rooms.updateMode(roomId, RoomMode.AI);
-				bus.publish(roomId, "mode", Map.of("mode", RoomMode.AI.name()));
+				publishMode(roomId, null, RoomMode.AI);   // 자동 복귀 — 바꾼 사람 없음
 			}
 		}
 	}
@@ -230,8 +237,24 @@ public class ChatRoomService {
 	 */
 	private void publishMember(Long roomId, String action, Long userId, RoomMember.Role role, RoomStatus status) {
 		String nickname = users.findById(userId).map(u -> u.getNickname()).orElse("");
-		bus.publish(roomId, "member", Map.of(
+		String kind = "JOINED".equals(action) ? Message.SYSTEM_MEMBER_JOINED : Message.SYSTEM_MEMBER_LEFT;
+		Map<String, Object> data = new LinkedHashMap<>(Map.of(
 			"action", action, "userId", userId, "nickname", nickname, "role", role.name(), "roomStatus", status.name()));
+		data.put("message", saveSystem(Message.system(roomId, userId, kind, null)));
+		bus.publish(roomId, "member", data);
+	}
+
+	/** @param byUserId 모드를 바꾼 사람, 참여자 퇴장에 따른 자동 복귀면 null */
+	private void publishMode(Long roomId, Long byUserId, RoomMode mode) {
+		Map<String, Object> data = new LinkedHashMap<>(Map.of("mode", mode.name()));
+		data.put("message", saveSystem(Message.system(roomId, byUserId, Message.SYSTEM_MODE_CHANGED, mode)));
+		bus.publish(roomId, "mode", data);
+	}
+
+	/** 시스템 라인 저장(D-047) — 히스토리에 남아 새로고침·입장자 화면에도 보인다. message_count·last_message_at 은 그대로. */
+	private MessageResponse saveSystem(Message m) {
+		messages.insert(m);
+		return MessageResponse.of(messages.findById(m.getId()).orElseThrow(), zone);
 	}
 
 	private RoomMember activeMember(Long roomId, Long userId) {

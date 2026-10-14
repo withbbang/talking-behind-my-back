@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MessageList } from './MessageList';
 import { initialStreamState, type StreamState } from '@/lib/sse';
-import { aiMsg, userMsg } from '@/features/messages/testFixtures';
+import { aiMsg, sysMsg, userMsg } from '@/features/messages/testFixtures';
 
 const members = [
   { userId: 1, nickname: '영선', role: 'OWNER' as const },
@@ -38,6 +38,28 @@ describe('MessageList (DESIGN.md#3 메시지 목록)', () => {
     const texts = rows.map((r) => r.textContent ?? '');
     expect(texts.findIndex((t) => t.includes('메시지 1'))).toBeLessThan(texts.findIndex((t) => t.includes('영희 등장!')));
     expect(texts.findIndex((t) => t.includes('영희 등장!'))).toBeLessThan(texts.findIndex((t) => t.includes('메시지 2')));
+  });
+
+  it('저장된 시스템 메시지(D-047)는 라인으로 — 등장·퇴장·모드, 말풍선 묶음을 끊는다 (T-049)', () => {
+    render(
+      <MessageList
+        {...base}
+        messages={[
+          userMsg(1),
+          sysMsg(2, { content: 'MEMBER_JOINED' }),
+          sysMsg(3, { content: 'MODE_CHANGED', mode: 'HUMAN', senderUserId: 1, senderNickname: '영선' }),
+          userMsg(4),
+          sysMsg(5, { content: 'MODE_CHANGED', mode: 'AI', senderUserId: null, senderNickname: null }),
+          sysMsg(6, { content: 'MEMBER_LEFT' }),
+          sysMsg(7, { content: 'UNKNOWN_KIND' }),
+        ]}
+      />,
+    );
+    const texts = screen.getAllByRole('listitem').map((r) => r.textContent ?? '');
+    expect(texts.filter((t) => /등장|퇴장|가능!/.test(t))).toEqual(['영희 등장!', '유저끼리 대화 가능!', 'AI랑 대화 가능!', '영희 퇴장!']);
+    expect(texts.some((t) => t.includes('UNKNOWN_KIND'))).toBe(false);
+    const bubbles = screen.getAllByRole('listitem').filter((el) => el.hasAttribute('data-kind'));
+    expect(bubbles.map((el) => el.dataset.grouped)).toEqual(['false', 'false']); // 시스템 라인 뒤 내 말풍선은 다시 메타 표시
   });
 
   it('스트리밍: 대기 = 점 3개(aria-live), 진행 = 텍스트 + 커서, 오류 = 문구만("다시" 버튼 없음, D-034 9)', () => {

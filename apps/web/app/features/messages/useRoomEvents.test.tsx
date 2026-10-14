@@ -21,7 +21,7 @@ import { messagesKey } from './useMessages';
 import { useRoomEvents } from './useRoomEvents';
 import { useStreamStore } from './streamStore';
 import { flattenMessages, type MessagesData } from './cache';
-import { aiMsg, userMsg } from './testFixtures';
+import { aiMsg, sysMsg, userMsg } from './testFixtures';
 
 const connectMock = vi.mocked(connectRoomEvents);
 let client: QueryClient;
@@ -49,6 +49,17 @@ describe('useRoomEvents (SSE → React Query 캐시 + 스트림 스토어)', () 
     expect(connectMock).toHaveBeenCalledWith(10, expect.any(Object));
     unmount();
     expect(stop).toHaveBeenCalled();
+  });
+
+  it('member·mode 이벤트에 실린 시스템 메시지는 메시지 목록에 붙인다 — 새로고침해도 같은 라인 (T-049, D-047)', () => {
+    renderHook(() => useRoomEvents(10), { wrapper });
+    const joined = sysMsg(201);
+    const mode = sysMsg(202, { content: 'MODE_CHANGED', mode: 'HUMAN' });
+    fire({ type: 'member', data: { action: 'JOINED', userId: 2, nickname: '영희', role: 'PARTICIPANT', roomStatus: 'ACTIVE', message: joined } });
+    fire({ type: 'mode', data: { mode: 'HUMAN', message: mode } });
+    fire({ type: 'mode', data: { mode: 'HUMAN', message: mode } }); // 재연결 등으로 중복 수신해도 한 번
+    expect(flattenMessages(client.getQueryData<MessagesData>(messagesKey(10))).map((m) => m.id)).toEqual([201, 202]);
+    expect(useStreamStore.getState().rooms[10]?.notices ?? []).toEqual([]); // 휘발 notice 는 만들지 않는다
   });
 
   it('enabled=false(방 없음·접근 불가)면 구독하지 않는다 (T-046)', () => {

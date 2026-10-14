@@ -134,11 +134,11 @@ data: {"replyTo":101,"message":{"id":102,"role":"ASSISTANT","senderUserId":null,
 event: error                        # LLM 실패/타임아웃/빈 응답/refusal — ASSISTANT 미저장, 부분 델타 폐기. 트리거한 유저에게만
 data: {"replyTo":101,"code":"LLM_UPSTREAM_ERROR","message":"AI 응답에 실패했습니다."}
 
-event: mode                         # PATCH mode / 참여자 나가기로 AI 복귀. 방 전원
-data: {"mode":"HUMAN"}
+event: mode                         # PATCH mode(실제로 바뀔 때만) / 참여자 나가기로 AI 복귀. 방 전원. message = 저장된 SYSTEM 메시지(D-047)
+data: {"mode":"HUMAN","message":{"id":103,"role":"SYSTEM","senderUserId":8,"senderNickname":"영희","content":"MODE_CHANGED","inputType":null,"mode":"HUMAN","createdAt":"..."}}
 
 event: member                       # 입장·나가기. 방 전원. roomStatus 는 이벤트 시점 방 상태(개설자 나가기 → ORPHANED)
-data: {"action":"JOINED","userId":8,"nickname":"영희","role":"PARTICIPANT","roomStatus":"ACTIVE"}
+data: {"action":"JOINED","userId":8,"nickname":"영희","role":"PARTICIPANT","roomStatus":"ACTIVE","message":{"id":100,"role":"SYSTEM","senderUserId":8,"senderNickname":"영희","content":"MEMBER_JOINED","inputType":null,"mode":null,"createdAt":"..."}}
 
 : connected                         # 구독 직후 1회 (헤더 즉시 커밋용, EventSource 는 무시)
 : ping                              # 20초 하트비트 (EventSource 는 무시)
@@ -157,7 +157,8 @@ Message:
 ```json
 { "id": 102, "role": "ASSISTANT", "senderUserId": null, "senderNickname": null, "content": "안녕하세요!", "inputType": null, "mode": null, "createdAt": "..." }
 ```
-`role` = `USER` \| `ASSISTANT`. `inputType`·`senderUserId`·`senderNickname`·`mode` 는 USER 메시지에만(ASSISTANT 는 null). `mode` = 발신 당시 방 모드.
+`role` = `USER` \| `ASSISTANT` \| `SYSTEM`. `inputType`·`senderUserId`·`senderNickname`·`mode` 는 USER 메시지에만(ASSISTANT 는 null). `mode` = 발신 당시 방 모드.
+- **SYSTEM(D-047, T-049)**: 입장·퇴장·모드 변경 라인. `content` = `MEMBER_JOINED` \| `MEMBER_LEFT` \| `MODE_CHANGED`(문구는 프론트), `senderUserId`·`senderNickname` = 대상 유저(입장·퇴장한 사람 / 모드를 바꾼 사람, 퇴장에 따른 자동 AI 복귀는 null), `mode` = MODE_CHANGED 의 변경 후 모드. 방 전원 공개, 히스토리에 포함, `message_count`·`lastMessageAt`·자동 제목 판정에 영향 없음, AI 컨텍스트 제외.
 - `senderNickname` = 조회 시점 발신자의 `users.nickname`(T-021, D-023). 방을 나간 멤버·탈퇴 유저도 users 행이 있으면 채워진다. 행이 없으면 null — 프론트는 현재 `Room.members` 폴백 후 "나간 사람".
 
 ## speech
@@ -206,3 +207,4 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 - 2026-09-16 T-007 구현: **messages 확정** — POST 202 `{messageId}`, `/rooms/{id}/events` 이벤트 6종 + `: ping`, `delta`/`done`/`error` 에 `replyTo`, 503 `AI_BUSY` 추가, 비멤버 404·ORPHANED 410. `mode`/`member` 이벤트는 rooms PATCH/leave/join 에서 발행. **API 변경 — T-008 `lib/sse.ts` 리듀서·acceptance 에 반영 필요.**
 - 2026-09-19 T-031(D-037): **`AI` 모드 대화 비공개화** — `GET /rooms/{id}/messages` 는 내가 볼 수 있는 행만, SSE `message`(AI 모드)·`delta`·`done`·`error` 는 대화 주인에게만(구독 키 `(roomId, userId)`), AI 컨텍스트에서 `HUMAN` 모드 대화 영구 제외 + 비공개 지시 추가. 응답 스키마·경로·상태코드 변경 없음. **계약 변경 없음(가시성만) — web 렌더 로직 변경 불필요, T-032 는 툴팁만.**
 - 2026-10-14 T-045 (D-046): 방 이름 멤버별 — PATCH `title` 은 누구나·자기 화면만, Room `title` 은 조회자 기준, 미리보기 `title` 은 개설자 기준. T-043 STT 상한 허용치 1초, T-044 STT 무음 필터, T-046 SSE 404 JSON.
+- 2026-10-14 T-049 (D-047): `role: SYSTEM` 메시지(입장·퇴장·모드 변경) 저장·히스토리 포함, SSE `member`·`mode` 에 `message` 추가, 같은 mode PATCH 는 이벤트 없음.

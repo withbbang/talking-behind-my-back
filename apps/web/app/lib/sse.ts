@@ -13,8 +13,9 @@ export type RoomEvent =
   | { type: 'delta'; data: { replyTo: number; text: string } }
   | { type: 'done'; data: { replyTo: number; message: Message; promptTokens: number; completionTokens: number } }
   | { type: 'error'; data: { replyTo: number; code: string; message: string } }
-  | { type: 'mode'; data: { mode: RoomMode } }
-  | { type: 'member'; data: { action: 'JOINED' | 'LEFT'; userId: number; nickname: string; role: RoomRole; roomStatus: RoomStatus } };
+  // message = 서버가 저장한 시스템 라인(D-047). 없으면(구버전 서버) 휘발 notice 로 대신한다.
+  | { type: 'mode'; data: { mode: RoomMode; message?: Message } }
+  | { type: 'member'; data: { action: 'JOINED' | 'LEFT'; userId: number; nickname: string; role: RoomRole; roomStatus: RoomStatus; message?: Message } };
 
 const EVENT_TYPES = ['message', 'delta', 'done', 'error', 'mode', 'member'] as const satisfies readonly RoomEvent['type'][];
 
@@ -43,7 +44,7 @@ export type StreamState = { streams: Record<number, StreamEntry>; notices: Notic
 
 export const initialStreamState: StreamState = { streams: {}, notices: [] };
 
-const MODE_NOTICE: Record<RoomMode, string> = {
+export const MODE_NOTICE: Record<RoomMode, string> = {
   HUMAN: '유저끼리 대화 가능!',
   AI: 'AI랑 대화 가능!',
 };
@@ -80,8 +81,10 @@ export function reduceStreams(state: StreamState, event: RoomEvent, now: string 
       return { ...state, streams: { ...state.streams, [replyTo]: { ...cur, status: 'error', errorMessage: message } } };
     }
     case 'mode':
+      if (event.data.message) return state; // 저장된 시스템 메시지로 목록에 붙는다(useRoomEvents)
       return { ...state, notices: [...state.notices, notice(MODE_NOTICE[event.data.mode], now)] };
     case 'member': {
+      if (event.data.message) return state;
       const { action, nickname } = event.data;
       return { ...state, notices: [...state.notices, notice(action === 'JOINED' ? `${nickname} 등장!` : `${nickname} 퇴장!`, now)] };
     }
