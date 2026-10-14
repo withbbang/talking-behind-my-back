@@ -222,13 +222,47 @@ class ChatRoomServiceTest {
 		private static RoomUpdate prompt(String p) { return new RoomUpdate(null, null, null, p); }
 
 		@Test
-		void title_은_개설자만_참여자는_FORBIDDEN_비멤버는_NOT_FOUND() {
+		void 개설자의_제목_수정은_자기_화면에만_D046() {
 			RoomResponse r = service.create(owner.getId(), null);
 			join(r.id(), guest.getId());
 
 			assertThat(service.update(owner.getId(), r.id(), title(" 바꿈 ")).title()).isEqualTo("바꿈");
-			assertError(() -> service.update(guest.getId(), r.id(), title("x")), ErrorCode.FORBIDDEN);
+			assertThat(service.get(owner.getId(), r.id()).title()).isEqualTo("바꿈");
+			assertThat(service.list(owner.getId(), null, null).items().get(0).title()).isEqualTo("바꿈");
+			assertThat(service.get(guest.getId(), r.id()).title()).isEqualTo("새 대화");
+			assertThat(service.list(guest.getId(), null, null).items().get(0).title()).isEqualTo("새 대화");
+		}
+
+		@Test
+		void 참여자도_제목을_바꿀_수_있고_자기_화면에만_비멤버는_NOT_FOUND_D046() {
+			RoomResponse r = service.create(owner.getId(), "점심");
+			join(r.id(), guest.getId());
+
+			assertThat(service.update(guest.getId(), r.id(), title("손님이 붙인 이름")).title()).isEqualTo("손님이 붙인 이름");
+			assertThat(service.get(guest.getId(), r.id()).title()).isEqualTo("손님이 붙인 이름");
+			assertThat(service.get(owner.getId(), r.id()).title()).isEqualTo("점심");
 			assertError(() -> service.update(other.getId(), r.id(), title("x")), ErrorCode.ROOM_NOT_FOUND);
+		}
+
+		@Test
+		void 공용_제목이_바뀌어도_내가_붙인_이름은_유지_D046() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+			service.update(owner.getId(), r.id(), title("내 이름"));
+
+			roomMapper.updateTitle(r.id(), "첫 메시지 자동 제목"); // MessageService 자동 제목과 같은 경로
+
+			assertThat(service.get(owner.getId(), r.id()).title()).isEqualTo("내 이름");
+			assertThat(service.get(guest.getId(), r.id()).title()).isEqualTo("첫 메시지 자동 제목");
+		}
+
+		@Test
+		void aiPersonality_aiPrompt_는_여전히_개설자만() {
+			RoomResponse r = service.create(owner.getId(), null);
+			join(r.id(), guest.getId());
+
+			assertError(() -> service.update(guest.getId(), r.id(), personality(AiPersonality.EMOTIONAL)), ErrorCode.FORBIDDEN);
+			assertError(() -> service.update(guest.getId(), r.id(), prompt("반말")), ErrorCode.FORBIDDEN);
 		}
 
 		@Test
@@ -284,15 +318,15 @@ class ChatRoomServiceTest {
 		}
 
 		@Test
-		void 복합_요청은_전부_아니면_전무_참여자_title_포함이면_mode_도_미변경() {
+		void 복합_요청은_전부_아니면_전무_참여자_aiPersonality_포함이면_title_mode_도_미변경() {
 			RoomResponse r = service.create(owner.getId(), null);
 			join(r.id(), guest.getId());
 
 			assertError(
-				() -> service.update(guest.getId(), r.id(), new RoomUpdate("x", RoomMode.HUMAN, null, null)), ErrorCode.FORBIDDEN);
+				() -> service.update(guest.getId(), r.id(), new RoomUpdate("x", RoomMode.HUMAN, AiPersonality.EMOTIONAL, null)), ErrorCode.FORBIDDEN);
 			ChatRoom room = roomMapper.findById(r.id()).orElseThrow();
 			assertThat(room.getMode()).isEqualTo(RoomMode.AI);
-			assertThat(room.getTitle()).isEqualTo("새 대화");
+			assertThat(service.get(guest.getId(), r.id()).title()).isEqualTo("새 대화");
 
 			RoomResponse updated = service.update(owner.getId(), r.id(), new RoomUpdate("둘", RoomMode.HUMAN, AiPersonality.EMOTIONAL, null));
 			assertThat(updated.title()).isEqualTo("둘");
@@ -447,6 +481,14 @@ class ChatRoomServiceTest {
 			assertThat(p.ownerNickname()).isEqualTo("주인");
 			assertThat(p.memberCount()).isEqualTo(1);
 			assertThat(p.alreadyMember()).isFalse();
+		}
+
+		@Test
+		void 미리보기_title_은_개설자가_보는_이름_D046() {
+			RoomResponse r = service.create(owner.getId(), "점심");
+			service.update(owner.getId(), r.id(), new RoomUpdate("우리 점심방", null, null, null));
+
+			assertThat(service.preview(guest.getId(), r.inviteCode()).title()).isEqualTo("우리 점심방");
 		}
 
 		@Test

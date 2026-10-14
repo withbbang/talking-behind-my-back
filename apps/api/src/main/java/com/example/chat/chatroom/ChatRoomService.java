@@ -91,11 +91,11 @@ public class ChatRoomService {
 	@Transactional(readOnly = true)
 	public RoomResponse get(Long userId, Long roomId) {
 		RoomMember me = activeMember(roomId, userId);
-		return detail(rooms.findById(roomId).orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND)), me.getRole());
+		return detail(mine(roomId, userId), me.getRole());
 	}
 
 	/**
-	 * PATCH 부분 갱신 (T-017). 판정 순서 404 멤버 → 400 검증 → 410 ORPHANED → 403 권한(title/aiPersonality 는 OWNER 만)
+	 * PATCH 부분 갱신 (T-017). 판정 순서 404 멤버 → 400 검증 → 410 ORPHANED → 403 권한(aiPersonality/aiPrompt 는 OWNER 만)
 	 * → 400 MODE_NOT_ALLOWED(혼자인데 HUMAN). 한 요청은 전부-아니면-전무. 방 행을 FOR UPDATE 로 잠근 뒤 멤버 수를 세므로
 	 * 참여자 leave 와 동시에 와도 혼자인 방이 HUMAN 으로 남지 않는다.
 	 */
@@ -109,7 +109,8 @@ public class ChatRoomService {
 		if (update.mode() == RoomMode.HUMAN && members.countActiveByRoomId(roomId) < MAX_MEMBERS) {
 			throw new BusinessException(ErrorCode.MODE_NOT_ALLOWED);
 		}
-		if (update.title() != null) rooms.updateTitle(roomId, update.title().trim());
+		// 제목은 누가 바꾸든 자기 화면 이름만(D-046). 공용 chat_rooms.title 은 생성값·첫 메시지 자동 제목.
+		if (update.title() != null) members.updateCustomTitle(roomId, userId, update.title().trim());
 		if (update.mode() != null) {
 			rooms.updateMode(roomId, update.mode());
 			bus.publish(roomId, "mode", Map.of("mode", update.mode().name()));
@@ -119,7 +120,12 @@ public class ChatRoomService {
 			rooms.updateAiPrompt(roomId, null);   // 프리셋 재선택 = 커스텀 프롬프트 초기화 (D-017)
 		}
 		if (update.aiPrompt() != null) rooms.updateAiPrompt(roomId, update.normalizedAiPrompt());
-		return detail(rooms.findById(roomId).orElseThrow(), me.getRole());
+		return detail(mine(roomId, userId), me.getRole());
+	}
+
+	/** 조회자 기준 방(제목 = 내가 붙인 이름 ?? 공용 제목, D-046). 활성 멤버가 아니면 404. */
+	private ChatRoom mine(Long roomId, Long userId) {
+		return rooms.findByIdForMember(roomId, userId).orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
 	}
 
 	/** 빈 body 400. title 은 있으면 공백 불가(길이 상한은 컨트롤러 @Size). */
@@ -173,8 +179,11 @@ public class ChatRoomService {
 		List<RoomMember> active = members.findActiveByRoomId(room.getId());
 		boolean alreadyMember = active.stream().anyMatch(m -> m.getUserId().equals(userId));
 		checkJoinable(room, userId, active.size(), alreadyMember, pairExists(room, userId));
-		String ownerNickname = active.stream().filter(RoomMember::isOwner).map(RoomMember::getNickname).findFirst().orElse(null);
-		return new JoinPreviewResponse(room.getId(), room.getTitle(), ownerNickname, active.size(), alreadyMember);
+		RoomMember owner = active.stream().filter(RoomMember::isOwner).findFirst().orElse(null);
+		String ownerNickname = owner == null ? null : owner.getNickname();
+		// 미리보기 제목은 개설자가 보는 이름(D-046)
+		String title = owner != null && owner.getCustomTitle() != null ? owner.getCustomTitle() : room.getTitle();
+		return new JoinPreviewResponse(room.getId(), title, ownerNickname, active.size(), alreadyMember);
 	}
 
 	/**
@@ -194,7 +203,7 @@ public class ChatRoomService {
 			}
 			publishMember(room.getId(), "JOINED", userId, RoomMember.Role.PARTICIPANT, room.getStatus());
 		}
-		return detail(rooms.findById(room.getId()).orElseThrow(), RoomMember.Role.PARTICIPANT);
+		return detail(mine(room.getId(), userId), RoomMember.Role.PARTICIPANT);
 	}
 
 	/**

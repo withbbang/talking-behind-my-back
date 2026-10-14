@@ -24,7 +24,7 @@
 |---|---|---|
 | 400 | `VALIDATION_FAILED`, `AUDIO_TOO_LONG`, `TEXT_TOO_LONG`, `MODE_NOT_ALLOWED`, `SELF_INVITE` | 입력 검증 실패 (`details`에 필드별 메시지), 혼자인 방 HUMAN 전환, 본인 방 코드로 입장 |
 | 401 | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `TOKEN_REUSED` | 인증 없음/만료/refresh 재사용 감지 |
-| 403 | `FORBIDDEN`, `USER_SUSPENDED` | 권한 없음(참여자가 `title`/`aiPersonality`/`aiPrompt` 변경 등), 정지 회원 |
+| 403 | `FORBIDDEN`, `USER_SUSPENDED` | 권한 없음(참여자가 `aiPersonality`/`aiPrompt` 변경 등), 정지 회원 |
 | 404 | `ROOM_NOT_FOUND`, `MESSAGE_NOT_FOUND`, `INVITE_NOT_FOUND` | 멤버 아닌 방도 404로 통일. 초대 코드 없음 |
 | 409 | `ROOM_BUSY`, `ROOM_FULL`, `ROOM_LIMIT_EXCEEDED` | 같은 유저의 AI 잡 진행·대기 중, 방 정원(2명) 초과, 활성 방 50개 초과 |
 | 409 | `PAIR_ROOM_EXISTS` | 같은 두 사람이 이미 함께 있는 활성 방이 있음(D-022) |
@@ -61,13 +61,14 @@
 | GET | `/rooms?cursor&size` | 내가 활성 멤버인 방 목록(개설+참여, ORPHANED 포함), `lastMessageAt` 내림차순 |
 | POST | `/rooms` | 방 생성. body 없음 또는 `{ "title"?: string }`. 201 Room. 개설자 OWNER 멤버십 + 초대 코드 발급. 활성 방 50개 초과 409 `ROOM_LIMIT_EXCEEDED` |
 | GET | `/rooms/{id}` | 방 상세 + 멤버. 멤버 아니면 404. ORPHANED 도 200(`status` 로 구분) |
-| PATCH | `/rooms/{id}` | `{ "title"?, "mode"?, "aiPersonality"?, "aiPrompt"? }` 부분 갱신. 200 Room. `title`·`aiPersonality`·`aiPrompt` 는 **개설자만**(참여자 403). ORPHANED 방은 410 |
+| PATCH | `/rooms/{id}` | `{ "title"?, "mode"?, "aiPersonality"?, "aiPrompt"? }` 부분 갱신. 200 Room. `aiPersonality`·`aiPrompt` 는 **개설자만**(참여자 403). `title` 은 누구나 — **자기 화면 이름만** 바뀐다(D-046). ORPHANED 방은 410 |
 | DELETE | `/rooms/{id}` | **나가기**. 204. 개설자 → 방 `ORPHANED`(참여자 멤버십은 유지). 참여자 → 멤버십 종료, 방 `mode=AI` 복귀. ORPHANED 방에서 참여자 호출 = "이용할 수 없는 방" 확인 처리 |
 | POST | `/rooms/{id}/invite/regenerate` | 초대 코드 재발급(개설자만, 구 코드 즉시 무효). 200 `{ inviteCode, inviteUrl }` |
-| GET | `/rooms/join/{code}` | 입장 전 미리보기 `{ roomId, title, ownerNickname, memberCount, alreadyMember }`. 이미 활성 멤버면 200 + `alreadyMember: true` |
+| GET | `/rooms/join/{code}` | 입장 전 미리보기 `{ roomId, title, ownerNickname, memberCount, alreadyMember }`. `title` = 개설자가 보는 이름(D-046). 이미 활성 멤버면 200 + `alreadyMember: true` |
 | POST | `/rooms/join/{code}` | 입장. 200 Room. 재입장 허용 |
 
-- PATCH 규칙: `title` 1~100자(공백만 → 400 `VALIDATION_FAILED`, `details.title`), **개설자만**(참여자 403 `FORBIDDEN`, 2026-09-15 결정).
+- PATCH 규칙: `title` 1~100자(공백만 → 400 `VALIDATION_FAILED`, `details.title`), 개설자·참여자 모두 가능 — `room_members.custom_title` 에 저장돼 **요청자에게만** 보인다(D-046, 2026-09-15 "개설자만" 결정 폐기).
+- Room 응답의 `title` = 조회자의 `custom_title ?? chat_rooms.title`(목록·상세·PATCH·입장 공통). 첫 메시지 자동 제목은 `chat_rooms.title` 만 바꾼다.
   `mode` = `AI` \| `HUMAN`, 멤버 누구나 — 혼자인 방에서 `HUMAN` 은 400 `MODE_NOT_ALLOWED`.
   `aiPersonality` = `RATIONAL` \| `EMOTIONAL` 프리셋, **개설자만**(참여자 403 `FORBIDDEN`), 대화 전후 언제든 재선택. 프리셋 문구는 서버 enum 상수. **프리셋을 고르면 `aiPrompt` 는 null 로 초기화**(T-019, D-017).
   `aiPrompt` = 개설자가 직접 쓰는 시스템 프롬프트(T-019). **개설자만**. trim 후 1~2,000자, 초과 400 `VALIDATION_FAILED`(`details.aiPrompt`). `""`(빈 문자열/공백) 은 **초기화**(프리셋으로 복귀), JSON 에서 필드를 빼면 변경 없음.
@@ -204,3 +205,4 @@ TTS 200: `Content-Type: audio/mpeg`, 본문은 오디오 바이트. 캐시 헤�
 - 2026-09-16 T-022(D-021): `GET /oauth2/authorization/{provider}?next=` 추가, 콜백 성공 시 `APP_BASE_URL{next}`. `GET /rooms/join/{code}` 에 `alreadyMember`. **API 변경 — T-018 acceptance 반영됨.**
 - 2026-09-16 T-007 구현: **messages 확정** — POST 202 `{messageId}`, `/rooms/{id}/events` 이벤트 6종 + `: ping`, `delta`/`done`/`error` 에 `replyTo`, 503 `AI_BUSY` 추가, 비멤버 404·ORPHANED 410. `mode`/`member` 이벤트는 rooms PATCH/leave/join 에서 발행. **API 변경 — T-008 `lib/sse.ts` 리듀서·acceptance 에 반영 필요.**
 - 2026-09-19 T-031(D-037): **`AI` 모드 대화 비공개화** — `GET /rooms/{id}/messages` 는 내가 볼 수 있는 행만, SSE `message`(AI 모드)·`delta`·`done`·`error` 는 대화 주인에게만(구독 키 `(roomId, userId)`), AI 컨텍스트에서 `HUMAN` 모드 대화 영구 제외 + 비공개 지시 추가. 응답 스키마·경로·상태코드 변경 없음. **계약 변경 없음(가시성만) — web 렌더 로직 변경 불필요, T-032 는 툴팁만.**
+- 2026-10-14 T-045 (D-046): 방 이름 멤버별 — PATCH `title` 은 누구나·자기 화면만, Room `title` 은 조회자 기준, 미리보기 `title` 은 개설자 기준. T-043 STT 상한 허용치 1초, T-044 STT 무음 필터, T-046 SSE 404 JSON.

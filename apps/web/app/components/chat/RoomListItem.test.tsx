@@ -37,7 +37,7 @@ describe('RoomListItem (DESIGN.md#2 방 목록 항목)', () => {
     expect(screen.getByRole('link')).toHaveAttribute('aria-current', 'page');
   });
 
-  it('메뉴: 개설자는 제목 수정 + 나가기, 참여자는 나가기만', () => {
+  it('메뉴: 개설자·참여자 모두 제목 수정 + 나가기 — 이름은 각자 화면에만 (D-046)', () => {
     const { unmount } = render(<RoomListItem room={roomItem(1)} active={false} now={now} {...noop} />);
     fireEvent.click(screen.getByRole('button', { name: '방 메뉴' }));
     expect(screen.getByRole('menuitem', { name: '제목 수정' })).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe('RoomListItem (DESIGN.md#2 방 목록 항목)', () => {
 
     render(<RoomListItem room={roomItem(2, { role: 'PARTICIPANT' })} active={false} now={now} {...noop} />);
     fireEvent.click(screen.getByRole('button', { name: '방 메뉴' }));
-    expect(screen.queryByRole('menuitem', { name: '제목 수정' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: '제목 수정' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '나가기' })).toBeInTheDocument();
   });
 

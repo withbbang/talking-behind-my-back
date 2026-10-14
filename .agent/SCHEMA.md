@@ -59,7 +59,7 @@
 |---|---|---|---|
 | id | BIGINT UNSIGNED | PK | |
 | owner_id | BIGINT UNSIGNED | FK users, NOT NULL | 개설자. V1 `user_id` 에서 이름 변경 |
-| title | VARCHAR(100) | NOT NULL | 생성 시 "새 대화", 첫 메시지 30자 자동, 수정 가능 |
+| title | VARCHAR(100) | NOT NULL | 공용 기본 이름. 생성 시 "새 대화", 첫 메시지 30자 자동. 사용자 수정은 `room_members.custom_title`(D-046) |
 | invite_code | VARCHAR(16) | NOT NULL, UNIQUE | 8자 base32(`0/O/1/I` 제외). 개설자가 재발급 가능 |
 | ai_personality | VARCHAR(20) | NOT NULL DEFAULT 'RATIONAL' | RATIONAL / EMOTIONAL 프리셋. 개설자만 변경, 언제든 재선택 |
 | ai_prompt | TEXT | NULL | 개설자가 직접 쓴 시스템 프롬프트(1~2,000자). NULL 이면 프리셋 문구 사용. 프리셋 재선택 시 NULL 로 초기화 (V3, D-017) |
@@ -83,6 +83,7 @@
 | room_id | BIGINT UNSIGNED | FK chat_rooms, NOT NULL | |
 | user_id | BIGINT UNSIGNED | FK users, NOT NULL | |
 | role | VARCHAR(20) | NOT NULL | OWNER / PARTICIPANT |
+| custom_title | VARCHAR(100) | NULL | 이 멤버가 붙인 방 이름(V5, D-046). 내가 보는 이름 = `custom_title ?? chat_rooms.title` |
 | joined_at | DATETIME(3) | NOT NULL | 재입장 시 갱신 |
 | left_at | DATETIME(3) | NULL | NULL = 활성 멤버 |
 
