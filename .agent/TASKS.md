@@ -831,3 +831,112 @@
 - test: `GroqSttProviderTest`(OmniRoute STT 테스트 이식 — Bearer 키·`/openai/v1/audio/transcriptions`·`whisper-large-v3`), `OpenAiCompatLlmClientTest`(구 OmniRouteClientTest), `LlmProviderSelectionTest` 기본 claude·gemini 롤백, `DefaultSpeechProvidersTest`(기본 groq/azure), OmniRoute TTS 테스트 삭제, `SpeechProperties.ttsModel` 제거. api 335 passed, web speechApi 3 passed. 실측: Groq 직접 m4a(Safari 형식) ko/en 자동 감지·정확 전사 0.3초(Cloudflare 차단 없음), 사용자 앱 Chrome·Safari 보이스 모드 전체(STT→Claude→Azure) 정상. compose dev/prod config 파싱 OK, 로컬 omniroute·edge-tts 컨테이너 제거.
 - qa: PASS 로컬+운영 (QA_REPORT.md 2026-10-13, master 112a823 배포, NAS 메모리 ~2.1GB 절감)
 - note: 2026-10-13 등록·착수. Gemini 롤백 실측(2026-10-13): Gemini OpenAI 호환 직접 스트림 200·usage 포함, 8081 `--app.llm.provider=gemini` 인스턴스에서 실제 메시지 → ASSISTANT `model=gemini-flash-lite-latest` 저장(영어 질문에 영어 답, D-042), 시험 방 삭제. 이때 두 번째 인스턴스를 `gradlew bootRun` 으로 띄워 8080 devtools 재시작이 멈춤 — 교훈대로 `java` 직접 실행할 것(재기동으로 복구). NAS 의 `data/omniroute` 디렉터리는 배포 후 수동 삭제 가능. CEO/기획자 소유 문서 동기화는 inbox/to-ceo.md.
+
+---
+
+## 모바일 에뮬레이터 QA 후속 (2026-10-14, `QA_MOBILE_2026-10-14.md`)
+
+## T-042 iOS 드로어 안 메뉴 항목 무반응 (web) — QA B-1
+- status: TODO
+- owner: 개발자
+- milestone: M5
+- spec: DESIGN.md#2, QA_MOBILE_2026-10-14.md#B-1
+- blocked_by: 없음
+- acceptance:
+  - 모바일 드로어 안 프로필 메뉴 "설정"·"로그아웃", 방 … 메뉴 "제목 수정"·"나가기" 가 iOS Safari 에서 동작(시뮬레이터 실측).
+  - 포커스가 메뉴 밖의 **포커스 가능한 조상**(드로어 `tabIndex=-1`)으로 가는 focusout 으로는 메뉴가 닫히지 않는다 — `useMenu` 테스트로 재현(RED) 후 수정.
+  - 키보드 Tab 으로 메뉴 밖 버튼에 가면 여전히 닫힌다(기존 동작 유지).
+- test:
+- qa:
+- note: 원인 추정 — iOS WebKit 은 탭한 버튼이 아니라 가장 가까운 focusable 조상으로 포커스를 옮김 → `relatedTarget` = 드로어. 드로어 `ref={(el) => el?.focus()}` 인라인 콜백 재실행도 확인.
+
+## T-043 보이스 60초 상한 도달 시 STT 400 (web, api) — QA B-2
+- status: TODO
+- owner: 개발자
+- milestone: M3
+- spec: DESIGN.md#7, API.md#speech, QA_MOBILE_2026-10-14.md#B-2
+- blocked_by: 없음
+- acceptance:
+  - 상한 자동 종료 녹음(`hitLimit`)의 `durationMs` 는 `maxMs` 를 넘지 않게 보고한다(클라이언트 테스트: 60,000 + α → 60,000).
+  - 서버는 상한 검사에 **1초 허용치**를 둔다(`durationMs ≤ 61,000` 통과, 공급자 보고 길이도 동일) — 컨테이너 길이 오차 대비. 61,001 이상은 기존대로 `AUDIO_TOO_LONG`.
+  - 60초 녹음 → 토스트 "60초까지만 들을 수 있어!" 후 받아적기 진행(실측).
+- test:
+- qa:
+
+## T-044 무음 녹음 STT 환각 필터 (api) — D-045, QA B-3
+- status: TODO
+- owner: 개발자
+- milestone: M3
+- spec: D-045, API.md#speech
+- blocked_by: 없음
+- acceptance:
+  - Groq 응답 `segments` 중 `no_speech_prob > 0.6 && avg_logprob < -1.0` 세그먼트를 버리고 텍스트 구성. 전부 버려지면 `text: ""`.
+  - `segments` 없으면 `text` 그대로. 정상 발화 세그먼트는 유지.
+  - 무음 녹음 → 프론트 "아무 말도 안 들렸는데?" 토스트, 메시지 미전송(실측).
+- test:
+- qa:
+
+## T-045 방 이름 멤버별 개인화 (api, web) — D-046, QA B-4
+- status: TODO
+- owner: 개발자
+- milestone: M2
+- spec: D-046, API.md#rooms, SCHEMA.md#4-1
+- blocked_by: 없음
+- acceptance:
+  - V5: `room_members.custom_title VARCHAR(100) NULL`.
+  - Room 응답 `title` = 조회자의 `custom_title ?? chat_rooms.title`. 목록·상세·입장 응답 공통.
+  - PATCH `title` 은 개설자·참여자 모두 200, 자기 `custom_title` 만 바뀐다(상대 응답은 그대로). `aiPersonality`·`aiPrompt` 는 여전히 개설자만 403.
+  - 첫 메시지 자동 제목은 `chat_rooms.title` 만 갱신(현상 유지) — custom_title 을 정한 사람은 자기 이름 유지.
+  - 초대 미리보기 `title` = 개설자가 보는 이름.
+  - web: 참여자에게도 목록 … "제목 수정"·설정 시트 제목 편집이 열린다.
+- test:
+- qa:
+
+## T-046 없는 방·비멤버 SSE 500 무한 재연결 (api, web) — QA B-5
+- status: TODO
+- owner: 개발자
+- milestone: M2
+- spec: API.md#messages(events 비멤버 404), QA_MOBILE_2026-10-14.md#B-5
+- blocked_by: 없음
+- acceptance:
+  - `GET /rooms/{id}/events` 비멤버·없는 방 → **404**(500 아님), ERROR 스택 로그 없음(ListAppender 단언).
+  - web: 방 조회가 404/410 이면 SSE 를 열지 않고, SSE 가 4xx 로 실패하면 재연결하지 않는다.
+- test:
+- qa:
+
+## T-047 드로어 안 확인 다이얼로그가 화면 중앙이 아님 (web) — QA B-6
+- status: TODO
+- owner: 개발자
+- milestone: M5
+- spec: DESIGN.md#공통(ConfirmDialog 폭 320), QA_MOBILE_2026-10-14.md#B-6
+- blocked_by: 없음
+- acceptance:
+  - `ConfirmDialog`(와 시트)가 `document.body` 포털로 렌더 — 드로어(transform) 안에서 열어도 화면 중앙 폭 320.
+  - 테스트: 드로어 안에서 연 다이얼로그가 드로어 DOM 밖(body 직속)에 있다.
+- test:
+- qa:
+
+## T-048 드로어가 같은 경로로 돌아오면 다시 열림 (web) — QA B-7
+- status: TODO
+- owner: 개발자
+- milestone: M5
+- spec: DESIGN.md#2(경로 이동으로 닫힘), QA_MOBILE_2026-10-14.md#B-7
+- blocked_by: 없음
+- acceptance:
+  - 드로어를 연 경로 X → 다른 경로 → 다시 X 로 와도 드로어는 닫혀 있다(ChatShell 테스트).
+- test:
+- qa:
+
+## T-049 시스템 라인 서버 저장 (api, web) — D-047, QA B-8
+- status: TODO
+- owner: 개발자
+- milestone: M2
+- spec: D-047, API.md#messages, SCHEMA.md#5
+- blocked_by: 없음
+- acceptance:
+  - 입장·나가기·모드 변경 시 `role='SYSTEM'` 행 저장(content `MEMBER_JOINED`/`MEMBER_LEFT`/`MODE_CHANGED`, sender = 대상 유저, mode = 변경 후 모드, 전원 공개).
+  - 시스템 행은 `message_count`·`last_message_at` 불변, AI 컨텍스트 제외, 자동 제목 판정 불변.
+  - `GET messages` 에 포함, SSE `member`·`mode` 이벤트에 `message`(SYSTEM Message) 포함.
+  - web: 시스템 라인을 메시지 목록의 SYSTEM 행으로 렌더(새로고침 후 유지, 입장자 본인 화면에도 "등장"), 실시간 수신분과 히스토리 중복 없음.
+- test:
+- qa:

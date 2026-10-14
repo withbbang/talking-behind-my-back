@@ -441,6 +441,35 @@
 - impact: T-040(Azure TTS + 폴백 제거), T-041(Groq STT 직접·Gemini 직접 롤백·OmniRoute/edge-tts 인프라 제거·문서). 메모리 "외부 AI 는 OmniRoute 경유" 폐기, TASKS 교훈 갱신.
 - date: 2026-10-13 (개발자 대행 기록, 사용자 결정 — "STT 는 Groq 직접, TTS 는 Azure", 폴백 없음, Gemini 직접 롤백)
 
+### D-045 무음 녹음 STT 환각은 서버에서 거른다
+- decision: Groq `verbose_json` 의 `segments` 중 **`no_speech_prob > 0.6` 이고 `avg_logprob < -1.0`** 인 세그먼트(Whisper 기본 무음 판정과 같은 기준)를 버리고 남은 세그먼트로 텍스트를 만든다. 전부 버려지면 빈 텍스트 → 프론트 기존 분기("아무 말도 안 들렸는데?" 토스트). `segments` 가 없으면 `text` 그대로. 컴포저 마이크·보이스 모드 공통.
+- rationale: 모바일 에뮬레이터 QA(2026-10-14 B-3)에서 무음 녹음이 "Thank you." 로 전사돼 VOICE 메시지로 전송·AI 응답·사용량 집계됨. 서버 한 곳에서 막으면 두 입력 경로가 함께 해결된다.
+- alternatives: 클라이언트 VAD 로 발화 없으면 STT 생략 — 컴포저 마이크에 미터 추가 필요·작은 목소리 오판 위험으로 이번엔 기각. 둘 다 — 범위 과다.
+- impact: T-044 (`speech/groq/GroqSttProvider`). API.md#speech 응답 규칙.
+- date: 2026-10-14 (개발자 대행 기록, 사용자 결정)
+
+### D-046 방 이름은 멤버마다 따로 — 제목 수정은 항상 "나에게만"
+- decision:
+  (1) 첫 메시지 자동 제목은 **현상 유지**(모드·발신자 무관, 방의 첫 메시지 30자 → `chat_rooms.title`, 양쪽의 기본 이름).
+  (2) **제목 수정은 개설자·참여자 모두 가능하고 항상 자기 화면에만 적용**된다 — `room_members.custom_title`. 내가 보는 이름 = `custom_title ?? chat_rooms.title`.
+  (3) 초대 미리보기(`GET /rooms/join/{code}`)의 `title` 은 **개설자가 보는 이름**.
+  (4) PATCH `title` 의 "개설자만(참여자 403)" 규칙(2026-09-15 결정) 폐기 — `aiPersonality`·`aiPrompt` 는 여전히 개설자만.
+- rationale: 사용자 결정. 공용 제목을 상대가 바꾸는 문제(QA B-4)를 "각자 이름" 으로 해소.
+- alternatives: 방장 메시지만 자동 제목 / 방장+공개 메시지만 / 자동 제목 폐지 — 사용자가 현상 유지 + 개인 이름 선택. 방장 수정은 공용 — 사용자가 "항상 나만" 선택.
+- impact: T-045 (V5 `room_members.custom_title`, RoomService·Mapper, Sidebar·설정 시트 제목 편집이 참여자에게도 열림). API.md#rooms, SCHEMA.md#4-1.
+- date: 2026-10-14 (개발자 대행 기록, 사용자 결정 — "현상 유지, 단 각자 이름 다르게", "수정은 항상 나만")
+
+### D-047 시스템 라인(등장·퇴장·모드 변경)을 메시지로 저장한다
+- decision:
+  (1) `messages.role = 'SYSTEM'` 행으로 저장. `content` = 종류 코드 `MEMBER_JOINED` / `MEMBER_LEFT` / `MODE_CHANGED`, `sender_user_id` = 대상 유저(입장·퇴장한 사람, 모드를 바꾼 사람), `mode` = 변경 후 모드(모드 변경만), `visible_to_user_id` = NULL(방 전원).
+  (2) 시스템 행은 `message_count`·`last_message_at` 을 바꾸지 않는다(자동 제목·목록 정렬·"메시지 0" 판정 불변). **AI 컨텍스트에서 제외**.
+  (3) `GET messages` 히스토리에 포함 → 새로고침·재접속·입장한 본인 화면 모두 같은 라인. SSE `member`·`mode` 이벤트에 저장된 행(`message`)을 실어 프론트가 목록에 바로 붙인다(중복 없이 id 로 병합).
+  (4) 문구는 프론트가 코드 → "영희 등장!"/"영희 퇴장!"/"유저끼리 대화 가능!"/"AI랑 대화 가능!" 로 렌더(닉네임은 `senderNickname`).
+- rationale: 사용자 결정. QA B-8 — 실시간 라인이 새로고침 후 사라지고 입장자 화면엔 없어 두 사람 타임라인이 다름, D-037 가시성 구간 맥락 손실.
+- alternatives: 보류 — 사용자 기각. 입장자 화면만 맞추기 — 휘발 문제 미해결로 기각. 별도 `room_events` 테이블 — 메시지와 커서 페이징 병합이 복잡해 기각.
+- impact: T-049 (마이그레이션 없음 — role 은 VARCHAR. 대신 컨텍스트·카운트 쿼리 수정), MessageService·RoomService 이벤트 발행, 프론트 notices → SYSTEM 메시지 렌더. API.md#messages, SCHEMA.md#5.
+- date: 2026-10-14 (개발자 대행 기록, 사용자 결정 — "서버에 저장")
+
 <!-- CEO가 이 아래에 결정을 계속 추가 -->
 
 ## 미결 (inbox/to-ceo.md에서 올라온 것)
