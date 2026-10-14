@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, usePathname } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { List } from '@phosphor-icons/react';
 import { Sheet } from '@/components/ui/Sheet';
 import { useRoom } from '@/features/rooms/useRooms';
@@ -22,9 +22,13 @@ export function ChatShell({ children }: { children: ReactNode }) {
   const roomId = params?.id ? Number(params.id) : null;
   const room = useRoom(roomId);
   // 드로어는 "열린 경로"를 기억한다 — 경로가 바뀌면 자동으로 닫힘(effect 없이 파생).
+  // 경로가 바뀌면 기억도 지운다 — 안 지우면 그 경로로 돌아왔을 때 드로어가 저절로 다시 열린다(T-048, 모바일 QA B-7).
   const [openPath, setOpenPath] = useState<string | null>(null);
+  if (openPath !== null && openPath !== pathname) setOpenPath(null);
   const open = openPath === pathname;
   const setOpen = (v: boolean) => setOpenPath(v ? pathname : null);
+  // 인라인 콜백 ref 는 렌더마다 다시 불려 드로어 안 입력(제목 수정 등)의 포커스를 빼앗는다 — 고정 ref 로 마운트 때 한 번만.
+  const focusOnMount = useCallback((el: HTMLDivElement | null) => el?.focus(), []);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const openSettings = () => {
@@ -80,7 +84,7 @@ export function ChatShell({ children }: { children: ReactNode }) {
             aria-modal="true"
             aria-label="방 목록"
             tabIndex={-1}
-            ref={(el) => el?.focus()}
+            ref={focusOnMount}
             onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
             className="bubble-in absolute inset-y-0 right-0 w-[300px] max-w-[85vw] bg-bg pt-[env(safe-area-inset-top)] outline-none"
           >

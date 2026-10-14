@@ -81,6 +81,23 @@ describe('ChatShell (DESIGN.md#2 채팅 셸)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('드로어를 연 경로로 다시 돌아와도 드로어는 닫혀 있다 (T-048, 모바일 QA B-7)', () => {
+    // 같은 엘리먼트 객체로 rerender 하면 React 가 재렌더를 건너뛴다 — 매번 새로 만든다
+    const shell = () => (
+      <ChatShell>
+        <p>본문</p>
+      </ChatShell>
+    );
+    const { rerender } = renderShell();
+    fireEvent.click(screen.getByRole('button', { name: '메뉴' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    pathname = '/rooms/1';
+    rerender(shell());
+    pathname = '/';
+    rerender(shell());
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('방 안이면 상단 바에 방 제목', async () => {
     params = { id: '10' };
     pathname = '/rooms/10';
