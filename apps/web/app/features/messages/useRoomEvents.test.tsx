@@ -3,12 +3,17 @@ import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
+vi.mock('@/lib/api', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/api')>();
+  return { ...mod, apiFetch: vi.fn() };
+});
 vi.mock('@/lib/sse', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@/lib/sse')>();
   return { ...mod, connectRoomEvents: vi.fn() };
 });
 
 import { connectRoomEvents, type RoomEvent } from '@/lib/sse';
+import { ApiError, apiFetch } from '@/lib/api';
 import { roomKey, ROOMS_KEY } from '@/features/rooms/useRooms';
 import { roomDetail } from '@/features/rooms/testFixtures';
 import type { Room } from '@/features/rooms/types';
@@ -44,6 +49,25 @@ describe('useRoomEvents (SSE → React Query 캐시 + 스트림 스토어)', () 
     expect(connectMock).toHaveBeenCalledWith(10, expect.any(Object));
     unmount();
     expect(stop).toHaveBeenCalled();
+  });
+
+  it('enabled=false(방 없음·접근 불가)면 구독하지 않는다 (T-046)', () => {
+    renderHook(() => useRoomEvents(10, false), { wrapper });
+    expect(connectMock).not.toHaveBeenCalled();
+  });
+
+  it('재연결 전 방 조회가 404 면 재연결하지 않고 상세를 무효화한다 (T-046)', async () => {
+    vi.mocked(apiFetch).mockRejectedValueOnce(new ApiError(404, 'ROOM_NOT_FOUND', 'x'));
+    renderHook(() => useRoomEvents(10), { wrapper });
+    await expect(handlers.shouldReconnect?.()).resolves.toBe(false);
+    expect(apiFetch).toHaveBeenCalledWith('/rooms/10');
+    expect(client.getQueryState(roomKey(10))?.isInvalidated).toBe(true);
+  });
+
+  it('재연결 전 방 조회가 네트워크 오류면 계속 재연결한다', async () => {
+    vi.mocked(apiFetch).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    renderHook(() => useRoomEvents(10), { wrapper });
+    await expect(handlers.shouldReconnect?.()).resolves.toBe(true);
   });
 
   it('message → 메시지 캐시 추가 + 방 목록·상세 무효화, 스트림 대기', () => {

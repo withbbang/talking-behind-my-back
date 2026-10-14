@@ -105,7 +105,7 @@ Room:
 |---|---|---|
 | GET | `/rooms/{id}/messages?cursor&size` | 과거 메시지, `id` 내림차순(최신 먼저). 프론트가 역순 렌더. 멤버만(비멤버 404). **내가 볼 수 있는 메시지만** — 상대의 `AI` 모드 질문·답은 제외(D-037). |
 | POST | `/rooms/{id}/messages` | 메시지 전송. **202** + `{ "messageId": 101 }`. 결과는 방 이벤트 스트림으로 수신 (D-018). |
-| GET | `/rooms/{id}/events` | 방 이벤트 SSE 구독(멤버만, 비멤버 404). `text/event-stream`, 타임아웃 없음, 20초마다 `: ping` 주석 (D-019). |
+| GET | `/rooms/{id}/events` | 방 이벤트 SSE 구독(멤버만, 비멤버·없는 방 404 — `Accept: text/event-stream` 이어도 JSON 오류 본문, T-046). `text/event-stream`, 타임아웃 없음, 20초마다 `: ping` 주석 (D-019). 프론트는 끊긴 뒤 재연결 전 `GET /rooms/{id}` 가 404 면 재연결하지 않는다. |
 
 POST body:
 ```json

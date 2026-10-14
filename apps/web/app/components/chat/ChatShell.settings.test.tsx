@@ -151,6 +151,12 @@ describe('ChatShell 설정 진입 (실제 Sidebar)', () => {
     expect(within(drawer).queryByRole('menu', { name: '계정' })).toBeNull();
   });
 
+  it('방 조회가 실패하면 헤더 제목이 "…" 로 남지 않고 앱 이름 (T-046)', async () => {
+    mockApi(null);
+    renderShell();
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('뒷담 친구'));
+  });
+
   it('/auth/me 가 실패하면 프로필 버튼이 없어 설정으로 갈 길이 사라진다 (회귀 감시)', async () => {
     mockApi(participantRoom, null);
     renderShell();

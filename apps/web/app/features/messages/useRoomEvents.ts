@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { ApiError, apiFetch } from '@/lib/api';
 import type { Room } from '@/features/rooms/types';
 import { ROOMS_KEY, roomKey } from '@/features/rooms/useRooms';
 import { connectRoomEvents, type RoomEvent } from '@/lib/sse';
@@ -10,11 +11,13 @@ import { messagesKey } from './useMessages';
 /**
  * 방 이벤트 구독 → React Query 캐시(메시지·방 상세·목록) + 스트림 스토어 반영.
  * 재연결 시 메시지 쿼리를 무효화해 놓친 메시지를 보충한다(D-019). 방을 나가면(언마운트) 해제.
+ * `enabled=false`(방 조회 404 등)면 구독하지 않고, 끊긴 뒤 재연결 전 방이 404 면 멈춘다(T-046).
  */
-export function useRoomEvents(roomId: number) {
+export function useRoomEvents(roomId: number, enabled = true) {
   const client = useQueryClient();
 
   useEffect(() => {
+    if (!enabled) return;
     const dispatch = useStreamStore.getState().dispatch;
 
     const onEvent = (event: RoomEvent) => {
@@ -50,6 +53,18 @@ export function useRoomEvents(roomId: number) {
     return connectRoomEvents(roomId, {
       onEvent,
       onReconnect: () => void client.invalidateQueries({ queryKey: messagesKey(roomId) }),
+      shouldReconnect: async () => {
+        try {
+          await apiFetch(`/rooms/${roomId}`);
+          return true;
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 404) {
+            void client.invalidateQueries({ queryKey: roomKey(roomId), exact: true }); // 화면도 "그런 방 없는데?" 로
+            return false;
+          }
+          return true; // 네트워크 오류 등은 평소처럼 재연결
+        }
+      },
     });
-  }, [roomId, client]);
+  }, [roomId, client, enabled]);
 }

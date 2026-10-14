@@ -36,7 +36,8 @@ export function ChatShell({ children }: { children: ReactNode }) {
     setInviteOpen(true);
   };
 
-  const title = roomId === null ? '뒷담 친구' : (room.data?.title ?? '…');
+  // 방 조회가 실패(없는 방 등)하면 로딩 표시 "…" 가 영원히 남지 않게 앱 이름으로(T-046)
+  const title = roomId === null || room.isError ? '뒷담 친구' : (room.data?.title ?? '…');
 
   return (
     <div className="flex h-dvh overflow-hidden bg-bg text-ink">

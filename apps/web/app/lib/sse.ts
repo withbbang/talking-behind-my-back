@@ -95,7 +95,15 @@ export function removeStream(state: StreamState, replyTo: number): StreamState {
   return { ...state, streams };
 }
 
-export type RoomEventHandlers = { onEvent: (event: RoomEvent) => void; onReconnect?: () => void };
+export type RoomEventHandlers = {
+  onEvent: (event: RoomEvent) => void;
+  onReconnect?: () => void;
+  /**
+   * CLOSED 뒤 다시 열기 전에 묻는다. EventSource 는 상태 코드를 안 알려줘서 404(방 없음·멤버 아님)도 네트워크 끊김처럼 보인다 —
+   * 호출자가 방을 조회해 false 면 재연결을 멈춘다(T-046, 모바일 QA B-5: 없는 방에서 ~8초마다 무한 재연결).
+   */
+  shouldReconnect?: () => Promise<boolean>;
+};
 
 const CLOSED = 2; // EventSource.CLOSED
 const MAX_BACKOFF_MS = 8_000;
@@ -128,9 +136,14 @@ export function connectRoomEvents(roomId: number, handlers: RoomEventHandlers, E
         es.close();
         const delay = Math.min(MAX_BACKOFF_MS, 1_000 * 2 ** attempt);
         attempt += 1;
-        timer = setTimeout(open, delay);
+        timer = setTimeout(reopen, delay);
       }
     };
+  };
+
+  const reopen = async () => {
+    if (handlers.shouldReconnect && !(await handlers.shouldReconnect())) return;
+    open();
   };
 
   open();
